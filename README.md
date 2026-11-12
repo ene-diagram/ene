@@ -208,6 +208,10 @@ ene diagram.mmd -o diagram.svg               # convert and render in one go
 
 Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. Notes become comments, and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
 
+### In VS Code
+
+[`packages/vscode`](packages/vscode) is a VS Code extension: highlighting, diagnostics with quick fixes, Format Document, a live side-by-side preview (with the branch menu) and SVG export. It is not on the Marketplace yet; build the `.vsix` as described in its [README](packages/vscode/README.md).
+
 ### With Claude
 
 The repo ships a Claude skill (`skills/ene`) that writes a `.ene` file from a description or from your code, runs `ene check --json` until it is clean, formats it and renders the SVG.
