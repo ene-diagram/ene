@@ -215,7 +215,7 @@ The player shows one menu per `branch`, so the reader can replay another path. A
 ene flow.ene -o miss.svg --choice 1
 ```
 
-Exported SVGs use CSS animation only. They loop, follow dark mode, and hide the moving dots under `prefers-reduced-motion`. Some hosts that sanitize SVGs may strip the animation.
+Exported SVGs use CSS animation only. They loop, follow dark mode, and under `prefers-reduced-motion` show every step at once without moving dots. Some hosts that sanitize SVGs may strip the animation.
 
 ## Syntax
 

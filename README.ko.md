@@ -215,7 +215,7 @@ CLI 에서는 `--icons pack.json`(여러 번 가능)을 써요. `ene icons <svg-
 ene flow.ene -o miss.svg --choice 1
 ```
 
-내보낸 SVG 는 CSS 애니메이션만 써요. 반복 재생하고, 다크 모드를 따르고, `prefers-reduced-motion` 에서는 움직이는 점을 숨겨요. SVG 를 정화(sanitize)하는 일부 호스트에서는 애니메이션이 빠질 수 있어요.
+내보낸 SVG 는 CSS 애니메이션만 써요. 반복 재생하고, 다크 모드를 따르고, `prefers-reduced-motion` 에서는 움직이는 점 없이 모든 단계를 한 번에 보여줘요. SVG 를 정화(sanitize)하는 일부 호스트에서는 애니메이션이 빠질 수 있어요.
 
 ## 문법
 
