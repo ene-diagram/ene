@@ -119,3 +119,11 @@ test("errors and fences: no links, ```mermaid flowchart in Markdown", () => {
   const md = "# Doc\n\n```mermaid\ngraph\n a-->b\n```\n";
   expect(fromMermaid(md).source).toContain("a -> b");
 });
+
+test("quoted labels keep ; | and line breaks; redeclaring a node resets its shape", () => {
+  const r = fromMermaid('flowchart LR\n A["Hello; world"] --> B\n A -->|"yes | no"| C\n D["two\n lines"] --> B\n B((Old)) --> E\n B[New] --> F\n E{{Hex}} --> F');
+  clean(r.source);
+  expect(r.source).toContain("A[Hello; world]\nB[New]\nC[C]\nD[two lines]\nE[Hex]\nF[F]\n");
+  expect(r.source).toContain("A -> B\nA -> C : yes | no\nD -> B\nB -> E\nB -> F\nE -> F");
+  expect(r.warnings.map((w) => w.line)).toEqual([1, 8]);
+});

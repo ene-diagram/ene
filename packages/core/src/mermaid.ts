@@ -70,7 +70,12 @@ export function fromMermaid(input: string): MermaidResult {
   }
   while (i < lines.length && (!lines[i].text || lines[i].text.startsWith("%%"))) i++;
   const header = lines[i]?.text ?? "";
-  if (/^(flowchart|graph)\b/.test(header)) return fromFlowchart(lines, i, title);
+  if (/^(flowchart|graph)\b/.test(header)) {
+    // Re-read with quote-aware statements; front matter and `%%` lines come out the same, so the header index holds
+    const fl = extract(input, true);
+    const at = fl.findIndex((l) => l.no === lines[i].no && l.text === header);
+    return fromFlowchart(fl, at, title);
+  }
   if (!/^sequenceDiagram\b/.test(header)) {
     const kind = header.split(/\s/, 1)[0];
     return { source: "", warnings: [], error: kind ? `only \`sequenceDiagram\`, \`flowchart\` and \`graph\` can be converted (found \`${kind}\`)` : "no Mermaid diagram found" };
@@ -344,8 +349,8 @@ function flush(warnings: MermaidWarning[], grouped: Map<string, { line: number; 
  * Statements of the diagram with their original line numbers; a ```mermaid fence in Markdown is unwrapped.
  * `;` separates statements on one line, except where it closes an entity such as `#59;` and inside `%%` comments.
  */
-function extract(input: string): { text: string; no: number }[] {
-  const all = input.replace(/^﻿/, "").split(/\r\n|\r|\n/).flatMap((l, k) => {
+function extract(input: string, quoted = false): { text: string; no: number }[] {
+  const all = quoted ? quotedStatements(input) : input.replace(/^﻿/, "").split(/\r\n|\r|\n/).flatMap((l, k) => {
     const line = l.trim();
     const parts = line.startsWith("%%") ? [line] : line.split(/(?<!#\w+);/).map((p) => p.trim()).filter(Boolean);
     return (parts.length ? parts : [""]).map((text) => ({ text, no: k + 1 }));
@@ -382,7 +387,7 @@ const FC_NAMED: Record<string, string> = {
 const FC_ID = /^[\p{L}\p{N}_]+(?:[.-][\p{L}\p{N}_]+)*/u;
 /** A link: `-->`, `---`, `-.->`, `==>`, `--x`, `--o`, `<-->`, `~~~`, optionally `|label|`; or `-- label -->` style */
 const FC_TEXT_LINK = /^\s*([<ox]?)(--|==|-\.)\s+(.+?)\s+(-{2,}|={2,}|\.+-)(>|x|o)?(?=\s|$|[\p{L}\p{N}_])\s*/u;
-const FC_LINK = /^\s*([<ox]?)(-{2,}|={2,}|-\.+-|~{3,})(>|x(?=[\s|]|$)|o(?=[\s|]|$))?\s*(?:\|([^|]*)\|)?\s*/;
+const FC_LINK = /^\s*([<ox]?)(-{2,}|={2,}|-\.+-|~{3,})(>|x(?=[\s|]|$)|o(?=[\s|]|$))?\s*(?:\|(\s*"[^"]*"\s*|[^|]*)\|)?\s*/;
 
 interface FcNode { id: string; label: string; shape?: string; line: number; group?: string }
 interface FcGroup { id: string; label: string; parent?: string; line: number; mentions: Set<string> }
@@ -425,7 +430,8 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
     const m = s.match(FC_ID);
     if (!m) return;
     const name = m[0];
-    let rest = s.slice(name.length), label: string | undefined, shape: string | undefined;
+    // declared: this mention sets the shape (a bare reference keeps the earlier one)
+    let rest = s.slice(name.length), label: string | undefined, shape: string | undefined, declared = false;
     for (const [open, close, sh, shapeName] of FC_SHAPES) {
       if (!rest.startsWith(open)) continue;
       let body = rest.slice(open.length), end: number;
@@ -435,13 +441,14 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
       if (end < 0) continue;
       label = mdText(body.slice(0, end));
       rest = body.slice(end + close.length);
-      shape = sh;
+      shape = sh; declared = true;
       if (!sh) warn(line, `the ${shapeName} shape has no ene equivalent; drawn as a box`, `shape-${shapeName}`);
       break;
     }
     const cfg = rest.match(/^@\{([^}]*)\}/);
     if (cfg) {
       const sh = cfg[1].match(/shape\s*:\s*["']?([\w-]+)/)?.[1]?.toLowerCase();
+      if (sh) declared = true;
       if (sh && FC_NAMED[sh]) shape = FC_NAMED[sh];
       else if (sh) warn(line, `shape \`${sh}\` has no ene equivalent; drawn as a box`, `shape-${sh}`);
       const lab = cfg[1].match(/label\s*:\s*(["'])(.*?)\1/)?.[2];
@@ -451,12 +458,12 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
     }
     const cls = rest.match(/^:::[\w-]+/);
     if (cls) { warn(line, "`:::class` styles are dropped", "classref"); rest = rest.slice(cls[0].length); }
-    if (subIds.has(name) && label === undefined && !shape) return { id: `\u0000${name}`, rest };
+    if (subIds.has(name) && label === undefined && !declared) return { id: `\u0000${name}`, rest };
     const id = nodeId(name);
     let n = nodes.get(id);
     if (!n) nodes.set(id, n = { id, label: text(name), line });
     if (label !== undefined) n.label = label;
-    if (shape && shape !== "box") n.shape = shape;
+    if (declared) { if (shape && shape !== "box") n.shape = shape; else delete n.shape; }
     if (stack.length) stack[stack.length - 1].mentions.add(id);
     return { id, rest };
   };
@@ -571,6 +578,33 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   const result: MermaidResult = { source, warnings: flush(warnings, grouped) };
   if (bad) result.error = `the converted source has an error on line ${bad.span.line}: ${fill(MESSAGES.en[bad.code as Code].message, bad.args)}`;
   return result;
+}
+
+/**
+ * Flowchart statements: like extract(), but `;` and line breaks inside `"…"` belong to the label
+ * (a multi-line label is joined with spaces and keeps the line number where it starts).
+ */
+function quotedStatements(input: string): { text: string; no: number }[] {
+  const out: { text: string; no: number }[] = [];
+  let cur = "", no = 1, start = 1, q = false;
+  const push = () => {
+    const t = cur.trim();
+    if (t || !out.length || out[out.length - 1].no !== start) out.push({ text: t, no: start });
+    cur = "";
+  };
+  for (const c of input.replace(/^﻿/, "").replace(/\r\n?/g, "\n")) {
+    const comment = cur.trimStart().startsWith("%%");
+    if (c === '"' && !comment) q = !q;
+    if (c === "\n") {
+      no++;
+      if (q) { cur += " "; continue; }
+      push(); start = no; continue;
+    }
+    if (c === ";" && !q && !comment && !/#\w+$/.test(cur)) { push(); continue; }
+    cur += c;
+  }
+  push();
+  return out;
 }
 
 /** `id [Title]` / `id["Title"]` / `"Title"` / `Title words` → id and label */
