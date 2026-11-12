@@ -21,6 +21,8 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "jsdelivr": "./dist/ene.js",
+  "unpkg": "./dist/ene.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
