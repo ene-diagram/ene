@@ -137,7 +137,7 @@ function formatHead(head: string): string {
     if (/\s/.test(c)) { if (!out.endsWith(" ")) out += " "; continue; }
     out += c;
   }
-  return out.replace(/ +/g, " ").trim();
+  return out.trim();
 }
 
 function formatAttrs(s: string): string {

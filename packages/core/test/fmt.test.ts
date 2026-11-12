@@ -61,3 +61,12 @@ test.each(examples)("example %s: same meaning and idempotent", (_, src) => {
   const strip = (s: string) => JSON.stringify({ ...parse(s).doc, nodes: [...parse(s).doc.nodes.values()] }, (k, v) => (k === "span" ? undefined : v));
   expect(strip(once)).toBe(strip(src));
 });
+
+test("preserves whitespace inside node and group labels while formatting their heads", () => {
+  const src = "a[Two  words]->b\ngroup g[My  group] : a   b\n";
+  expect(formatSource(src)).toBe("a[Two  words] -> b\ngroup g[My  group] : a b\n");
+});
+test("formats repeated labels without falling back on each line", () => {
+  const src = "a[Two  words]->b\n".repeat(2000);
+  expect(formatSource(src)).toBe("a[Two  words] -> b\n".repeat(2000));
+});
