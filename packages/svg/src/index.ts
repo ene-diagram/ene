@@ -58,8 +58,6 @@ export function groupMarkup(g: LGroup): string {
     `<text x="${g.x + 14}" y="${g.y + 21}" class="gl" fill="${c}">${esc(g.label)}</text></g>`;
 }
 
-declare const btoa: (s: string) => string;
-declare const TextEncoder: { new (): { encode(s: string): Uint8Array } };
 /** Icon sizes come from third-party JSON: force a finite positive number */
 const dim = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 16; };
 const DATA_IMAGE = '<image href="data:image/svg+xml;base64,';
@@ -163,3 +161,4 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
     (opts.title ? `<text x="40" y="34" class="t">${esc(opts.title)}</text>` : "") +
     `<g transform="translate(0 ${offY})">${(l.groups ?? []).map(groupMarkup).join("")}${sequenceMarkup(l)}${base}${nodes}${hl}${labels}${dots}</g></svg>`;
 }
+export { fetchIcon, iconFromUntrustedSvg, ICON_DEFAULTS, type IconFetchOptions, type IconLoadResult } from "./icon-loader.js";

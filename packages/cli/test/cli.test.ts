@@ -63,6 +63,27 @@ test("ene icons converts a folder of svgs to an iconify pack", () => {
   expect(j.icons["aws-lambda"]).toEqual({ body: '<path d="M0 0"/>', width: 48, height: 48 });
   expect(Object.keys(j.icons)).toContain("amazon-simple-storage-service");
 });
+test("--no-network skips remote icons with a clear warning", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "n.ene");
+  writeFileSync(f, "a{icon: https://example.invalid/x.svg} -> b");
+  const r = runCli([f, "--no-network"]);
+  expect(r.status).toBe(0); expect(r.stderr).toContain("network access disabled");
+});
+test("local icon problems are reported with a reason", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "l.ene");
+  writeFileSync(join(d, "big.svg"), "<svg>" + "x".repeat(600 * 1024) + "</svg>");
+  writeFileSync(join(d, "bad.svg"), "not svg");
+  writeFileSync(f, "a{icon: ./big.svg} -> b{icon: ./bad.svg}\nb -> c{icon: ./missing.svg}");
+  const r = runCli([f]);
+  expect(r.status).toBe(0);
+  expect(r.stderr).toContain("file too large"); expect(r.stderr).toContain("not an SVG document"); expect(r.stderr).toContain("ENOENT");
+});
+test("invalid icon pack is rejected with details", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "p.ene"); const p = join(d, "pack.json");
+  writeFileSync(f, "a -> b"); writeFileSync(p, JSON.stringify({ prefix: "x", icons: { a: { body: 3 } } }));
+  const r = runCli([f, "--icons", p]);
+  expect(r.status).toBe(1); expect(r.stderr).toContain("invalid icon pack"); expect(r.stderr).toContain("icons.a");
+});
 test("reads stdin with '-' and writes stdout by default", () => {
   const r = spawnSync("node", [bin, "-"], { input: "a -> b\nb --> a", encoding: "utf8" });
   expect(r.status).toBe(0); expect(r.stdout.startsWith("<svg")).toBe(true); expect(r.stderr).toContain("✅ stdout");

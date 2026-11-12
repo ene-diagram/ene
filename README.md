@@ -219,6 +219,16 @@ ene flow.ene -o miss.svg --choice 1
 
 Exported SVGs use CSS animation only. They loop, follow dark mode, and under `prefers-reduced-motion` show every step at once without moving dots. Some hosts that sanitize SVGs may strip the animation.
 
+### Icon loading and network access
+
+An icon is either a pack name (`logos:redis`, from packs you register) or an SVG address: `http(s)://…`, `./`, `../`, `/` or `data:image/svg+xml,…`.
+
+- Remote icons are fetched with a 5 s timeout and a 512 KiB size limit (checked while streaming); the response must be an SVG document.
+- The CLI reads relative paths from the `.ene` file's folder (same size limit). `--no-network` disables all remote fetches; `--allow-host <host>` (repeatable) fetches only from listed hosts and refuses redirects. Use both when rendering untrusted input on a server.
+- In the browser, `ene.setIconLoading({ timeoutMs, maxBytes, allowHosts })` sets the same limits.
+- Icon packs are validated (`prefix`, `icons.*.body`, numeric sizes) before use, and pack bodies are rendered as isolated images.
+- A failed icon never fails the render: the node is drawn without an icon and a warning with the reason is printed (CLI stderr / browser console).
+
 ## Syntax
 
 | Syntax | Meaning |
