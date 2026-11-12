@@ -8,7 +8,7 @@ without errors, and every "mistake" block produces the code shown — both are c
 
 | Construct | Meaning |
 |---|---|
-| `# comment` | comment at line start or after a space. `#` inside `[...]`, `{...}`, after the first `:`, or in `title` is literal |
+| `# comment` | comment at line start or after a space. `#` inside `[...]`, `{...}`, after the first `:`, or in `title` / `note` is literal |
 | indentation | ignored (use it for readability inside blocks) |
 | empty line | ignored |
 
@@ -58,6 +58,24 @@ api -> cache : lookup & api -> db : SELECT @2s
 & api -> log : audit
 cache --> api : hit
 db -x api : timeout
+```
+
+## Notes
+
+| Construct | Meaning |
+|---|---|
+| `note <text>` | explains the step right above it (a `wait` in between is fine); shown as a caption while that step plays |
+| two `note` lines | joined into one caption |
+
+Everything after `note` is the text (`#`, `:`, `&` included). The player shows the caption under the diagram; an
+exported SVG shows it in a line under the diagram (`--no-notes` leaves it out). Sequence diagrams use the same caption.
+
+```ene
+api -> cache : GET product:42
+note Cache is checked first; TTL is 60s.
+cache --> api : miss
+api -> db : SELECT
+note Only on a miss.
 ```
 
 ## Document settings
@@ -131,6 +149,7 @@ A few characters mean different things depending on where they are. ene warns wh
 | `a -> b : hit # note` | after the `:` the `#` is label text | `W105` |
 | `a -> b : GET /items #1` | `#` not surrounded by spaces is plain label text | |
 | `title Flow # draft` | everything after `title` is the title | `W105` |
+| `note why # draft` | everything after `note` is the note | `W105` |
 | `a -> b : slow @2s` | `@2s` at the very end is the duration | |
 | `a -> b : @2s slow` | anywhere else `@2s` is label text | `W110` |
 | `a -> b : x & c -> d` | ` & ` followed by an edge starts a parallel edge; otherwise `&` is label text | |
@@ -284,6 +303,13 @@ Node used in `pin`/`group` but never in an edge (typo):
 ```ene E401
 api -> cache
 pin cahce 1,0
+```
+
+`note` with no step above it in the same block:
+
+```ene E116
+note Starts here
+a -> b
 ```
 
 A file with no edges:

@@ -14,6 +14,7 @@ type Arrow = "->" | "-->" | "-x";
 type Node_ =
   | { t: "msg"; from: string; to: string; arrow: Arrow; label: string; line: number }
   | { t: "comment"; text: string }
+  | { t: "note"; text: string; line: number }
   | { t: "block"; kind: BlockKind; arms: Arm[]; line: number };
 interface Arm { label: string; body: Node_[]; line: number }
 type BlockKind = "alt" | "opt" | "loop" | "par" | "critical" | "break" | "rect" | "box";
@@ -38,8 +39,9 @@ const text = (s: string) => s
 /**
  * Convert a Mermaid `sequenceDiagram` into `.ene` source (`diagram sequence`).
  *
- * Messages, participants, `alt`/`else`, `opt`, `loop`, `par` and comments are converted.
- * Constructs with no equivalent (notes, activation, `rect`, `box`, links) are dropped or kept as comments,
+ * Messages, participants, `alt`/`else`, `opt`, `loop`, `par`, notes and comments are converted.
+ * A note becomes an ene `note` on the message right above it (a comment when there is none).
+ * Constructs with no equivalent (activation, `rect`, `box`, links) are dropped or kept as comments,
  * each with a warning that names the source line. The result always parses without errors.
  */
 export function fromMermaid(input: string): MermaidResult {
@@ -158,8 +160,11 @@ export function fromMermaid(input: string): MermaidResult {
       continue;
     }
     if (word === "note") {
-      warn(no, "notes are not drawn; they are kept as comments", "note");
-      body().push({ t: "comment", text: `note ${text(rest)}` });
+      // `Note over A,B: text` / `Note left of A: text` → the text only; ene shows it as a caption of the step
+      const c = rest.indexOf(":");
+      const note = text(c < 0 ? "" : rest.slice(c + 1));
+      if (!note) { warn(no, "empty note is dropped"); continue; }
+      body().push({ t: "note", text: note, line: no });
       continue;
     }
     if (word === "activate" || word === "deactivate") { warn(no, "activation bars are not drawn", "activation"); continue; }
@@ -204,15 +209,39 @@ export function fromMermaid(input: string): MermaidResult {
     warn(line, `block label was adjusted so \`#\` is not read as a comment: \`${label}\``);
     return reads(safe) ? safe : fallback;
   };
-  const single = (arm: Arm) => { const real = arm.body.filter((n) => n.t !== "comment"); return real.length === 1 && real[0].t === "msg" ? real[0] : undefined; };
+  /** Note text that reads back as the same note; a leading arrow (`note -> x` is E115) gets a Unicode hyphen */
+  const safeNote = (note: string, line: number): string | undefined => {
+    const reads = (n: string) => { const r = parse(`a -> b\nnote ${n}`); const st = r.doc.body[0];
+      return !r.diagnostics.some((d) => d.severity === "error") && st?.type === "step" && st.note === n; };
+    if (reads(note)) return note;
+    const safe = note.replace(/^-/, "‐");
+    warn(line, `note text was adjusted so it is not read as an edge: \`${note}\``);
+    return reads(safe) ? safe : undefined;
+  };
+  const noteLine = (pad: string, c: Extract<Node_, { t: "note" }>) => {
+    const n = safeNote(c.text, c.line);
+    return n === undefined ? `${pad}# note: ${c.text}` : `${pad}note ${n}`;
+  };
+  const single = (arm: Arm) => { const real = arm.body.filter((n) => n.t !== "comment" && n.t !== "note"); return real.length === 1 && real[0].t === "msg" ? real[0] : undefined; };
 
   /** Returns the number of steps written */
   const emit = (nodes: Node_[], depth: number): number => {
     const pad = "  ".repeat(depth);
     let n = 0;
+    /** The last statement written in this body is a step, so a note can attach to it */
+    let afterStep = false;
     for (const node of nodes) {
       if (node.t === "comment") { out.push(`${pad}# ${node.text}`); continue; }
-      if (node.t === "msg") { out.push(pad + safeEdge(node)); n++; continue; }
+      if (node.t === "note") {
+        if (afterStep) out.push(noteLine(pad, node));
+        else {
+          warn(node.line, "a note with no message right above it is kept as a comment", "orphan-note");
+          out.push(`${pad}# note: ${node.text}`);
+        }
+        continue;
+      }
+      afterStep = false;
+      if (node.t === "msg") { out.push(pad + safeEdge(node)); n++; afterStep = true; continue; }
       const { kind, arms } = node;
       if (kind === "rect" || kind === "box") { for (const a of arms) n += emit(a.body, depth); continue; }
       if (kind === "par") {
@@ -221,6 +250,8 @@ export function fromMermaid(input: string): MermaidResult {
           for (const a of arms) for (const c of a.body) if (c.t === "comment") out.push(`${pad}# ${c.text}`);
           out.push(pad + msgs.map((m) => safeEdge(m!)).join(" & "));
           n++;
+          afterStep = true;
+          for (const a of arms) for (const c of a.body) if (c.t === "note") out.push(noteLine(pad, c));
         } else {
           warn(node.line, "`par` with more than one message per arm is played one arm after another");
           for (const a of arms) { if (a.label) out.push(`${pad}# par: ${a.label}`); n += emit(a.body, depth); }

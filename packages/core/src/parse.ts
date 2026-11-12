@@ -145,8 +145,17 @@ class Parser {
       if (rest !== "flow" && rest !== "sequence") return this.report("E112", l, 8, t.length, { value: rest });
       return void (this.doc.kind = rest);
     }
-    const EXAMPLES: Record<string, string> = { speed: "speed 1.2", wait: "wait 0.5", loop: "loop 3" };
+    const EXAMPLES: Record<string, string> = { speed: "speed 1.2", wait: "wait 0.5", loop: "loop 3", note: "note Cache is checked first" };
     if (!rest && word in EXAMPLES) return this.report("E307", l, 0, t.length, { keyword: word, example: EXAMPLES[word] });
+    if (word === "note") {
+      // Attaches to the closest step above it in the same block (a `wait` in between is fine)
+      let k = into.length - 1;
+      while (k >= 0 && into[k].type === "wait") k--;
+      const prev = into[k];
+      if (prev?.type !== "step") return this.report("E116", l, 0, 4);
+      this.labelHash(l, t, word.length, t.length);
+      return void (prev.note = prev.note === undefined ? rest : `${prev.note} ${rest}`);
+    }
     if (word === "speed") {
       const n = Number(rest);
       if (!rest || !(n > 0) || !Number.isFinite(n)) return this.report("E304", l, 0, t.length, { value: rest });

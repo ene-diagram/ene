@@ -177,6 +177,7 @@ api --> user : 200
 ```bash
 ene flow.ene -o flow.svg
 cat flow.ene | ene - > flow.svg   # "-" 는 stdin 에서 읽고, 결과는 stdout 으로
+ene flow.ene -o flow.svg --no-notes   # `note` 자막 빼기
 ene flow.ene -o -                # SVG 를 stdout 으로
 ```
 
@@ -242,7 +243,7 @@ ene from-mermaid README.md -o flow.ene       # 마크다운 파일의 첫 ```mer
 ene diagram.mmd -o diagram.svg               # 변환과 렌더링을 한 번에
 ```
 
-메시지, 참여자, `alt`/`else`, `opt`, `loop`, `par` 를 변환해요. 노트는 주석이 되고, 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요. `sequenceDiagram` 만 지원해요.
+메시지, 참여자, `alt`/`else`, `opt`, `loop`, `par` 를 변환해요. `Note` 는 바로 위 메시지의 `note` 가 되고(위에 메시지가 없으면 주석), 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요. `sequenceDiagram` 만 지원해요.
 
 ### Claude 와 함께
 
@@ -323,6 +324,7 @@ ene flow.ene -o miss.svg --choice 1
 | `a -x b : 라벨` | 실패 |
 | `a -> b & a -> c` | 동시에 |
 | `a -> b : 라벨 @2s` | 이 엣지는 2초 동안 |
+| `note 설명` | 바로 위 단계의 설명 자막 |
 | `wait 0.5` | 다음 단계 전에 쉬기 |
 | `branch …` / `else …` / `end` | 갈림길 (플레이어에서 선택) |
 | `loop 3` … `end` | 반복 |

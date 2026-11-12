@@ -45,6 +45,7 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
           start: t,
           duration,
           branchPath: path,
+          ...(s.note !== undefined ? { note: s.note } : {}),
           edges: s.edges.map((e, i) => ({
             edgeIndex: edgeIndex.get(e)!, from: e.from, to: e.to, kind: e.kind, label: e.label, start: t, duration: durs[i],
           })),
