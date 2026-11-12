@@ -169,3 +169,12 @@ test("notes become step notes on the message above; orphan notes stay comments",
     "empty note is dropped",
   ]);
 });
+
+test("note text that would read as an edge is adjusted", () => {
+  const r = conv("A->>B: x\nNote over A: -> next\npar a\n A->>B: y\n Note over B: -x z\nand b\n A->>C: w\nend");
+  clean(r.source);
+  expect(r.error).toBeUndefined();
+  expect(r.source).toContain("note ‐> next");
+  expect(r.source).toContain("note ‐x z");
+  expect(r.warnings.map((w) => w.line)).toEqual([3, 6]);
+});

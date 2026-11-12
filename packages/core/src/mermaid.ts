@@ -209,6 +209,19 @@ export function fromMermaid(input: string): MermaidResult {
     warn(line, `block label was adjusted so \`#\` is not read as a comment: \`${label}\``);
     return reads(safe) ? safe : fallback;
   };
+  /** Note text that reads back as the same note; a leading arrow (`note -> x` is E115) gets a Unicode hyphen */
+  const safeNote = (note: string, line: number): string | undefined => {
+    const reads = (n: string) => { const r = parse(`a -> b\nnote ${n}`); const st = r.doc.body[0];
+      return !r.diagnostics.some((d) => d.severity === "error") && st?.type === "step" && st.note === n; };
+    if (reads(note)) return note;
+    const safe = note.replace(/^-/, "‐");
+    warn(line, `note text was adjusted so it is not read as an edge: \`${note}\``);
+    return reads(safe) ? safe : undefined;
+  };
+  const noteLine = (pad: string, c: Extract<Node_, { t: "note" }>) => {
+    const n = safeNote(c.text, c.line);
+    return n === undefined ? `${pad}# note: ${c.text}` : `${pad}note ${n}`;
+  };
   const single = (arm: Arm) => { const real = arm.body.filter((n) => n.t !== "comment" && n.t !== "note"); return real.length === 1 && real[0].t === "msg" ? real[0] : undefined; };
 
   /** Returns the number of steps written */
@@ -220,7 +233,7 @@ export function fromMermaid(input: string): MermaidResult {
     for (const node of nodes) {
       if (node.t === "comment") { out.push(`${pad}# ${node.text}`); continue; }
       if (node.t === "note") {
-        if (afterStep) out.push(`${pad}note ${node.text}`);
+        if (afterStep) out.push(noteLine(pad, node));
         else {
           warn(node.line, "a note with no message right above it is kept as a comment", "orphan-note");
           out.push(`${pad}# note: ${node.text}`);
@@ -238,7 +251,7 @@ export function fromMermaid(input: string): MermaidResult {
           out.push(pad + msgs.map((m) => safeEdge(m!)).join(" & "));
           n++;
           afterStep = true;
-          for (const a of arms) for (const c of a.body) if (c.t === "note") out.push(`${pad}note ${c.text}`);
+          for (const a of arms) for (const c of a.body) if (c.t === "note") out.push(noteLine(pad, c));
         } else {
           warn(node.line, "`par` with more than one message per arm is played one arm after another");
           for (const a of arms) { if (a.label) out.push(`${pad}# par: ${a.label}`); n += emit(a.body, depth); }
