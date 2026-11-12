@@ -10,8 +10,14 @@ const under = (src: string, code: string) => {
 };
 
 describe("-x glued to an id (E113)", () => {
-  test("glued to the source", () => { expect(codes("a-x b")).toEqual(["E113"]); expect(under("a-x b", "E113")).toBe("-x"); });
-  test("glued to the target", () => { expect(codes("a -xb")).toEqual(["E113"]); expect(under("a -xb", "E113")).toBe("-x"); });
+  test("glued to the source", () => {
+    expect(codes("a-x b")).toEqual(["E113"]);
+    expect(under("a-x b", "E113")).toBe("-x");
+  });
+  test("glued to the target", () => {
+    expect(codes("a -xb")).toEqual(["E113"]);
+    expect(under("a -xb", "E113")).toBe("-x");
+  });
   test("with a label on the source the arrow is unambiguous", () => expect(codes("a[A] -x b")).toEqual([]));
   test("an id ending in -x still works with a real arrow", () => {
     const r = parse("proxy-x -> b\nb -x proxy-x");
@@ -58,7 +64,10 @@ describe("duration that is not last (W110)", () => {
 describe("ignored input warns", () => {
   test("W106 conflicting attribute on a later use", () => {
     const r = parse("a{shape: db} -> b\nb -> a{shape: queue}");
-    expect(r.diagnostics[0]).toMatchObject({ code: "W106", args: { name: "a", attr: "shape", first: "db", second: "queue" } });
+    expect(r.diagnostics[0]).toMatchObject({
+      code: "W106",
+      args: { name: "a", attr: "shape", first: "db", second: "queue" },
+    });
     expect(r.doc.nodes.get("a")!.shape).toBe("db");
   });
   test("W106 not raised for the same value or a new attribute", () =>
@@ -89,7 +98,8 @@ describe("keywords at line start", () => {
     for (const k of ["end", "wait", "loop", "speed", "pin", "rank", "group", "diagram"])
       expect(parse(`a -> b\n${k} -> a : x`).diagnostics[0]).toMatchObject({ code: "E115", args: { keyword: k } });
   });
-  test("E115 for `end` does not close the open block", () => expect(codes("loop 2\n  a -> b\n  end -> a\nend")).toEqual(["E115"]));
+  test("E115 for `end` does not close the open block", () =>
+    expect(codes("loop 2\n  a -> b\n  end -> a\nend")).toEqual(["E115"]));
   test("W109 for title / branch / else, which keep their meaning", () => {
     const r = parse("title -> home\nbranch -> retry\n  a -> b\nelse -x fail\n  a -x b\nend");
     expect(r.diagnostics.map((d) => d.code)).toEqual(["W109", "W109", "W109"]);
@@ -111,12 +121,17 @@ describe("node declaration lines", () => {
   test("declare label and attributes without an edge, in order", () => {
     const r = parse("db[Orders DB]{shape: db}\nuser[User]\nq{shape: queue}\nuser -> db : q\ndb -> q");
     expect(r.diagnostics).toEqual([]);
-    expect([...r.doc.nodes.values()].map((n) => [n.id, n.label, n.shape])).toEqual([["db", "Orders DB", "db"], ["user", "User", undefined], ["q", "q", "queue"]]);
+    expect([...r.doc.nodes.values()].map((n) => [n.id, n.label, n.shape])).toEqual([
+      ["db", "Orders DB", "db"],
+      ["user", "User", undefined],
+      ["q", "q", "queue"],
+    ]);
     expect(r.doc.body).toHaveLength(2);
   });
   test("a bare id is still an unknown statement", () => expect(codes("a -> b\nbrnch")).toEqual(["E102"]));
   test("only declarations is still an empty diagram", () => expect(codes("a[A]\nb[B]")).toEqual(["E101"]));
-  test("declared nodes can be pinned and grouped", () => expect(codes("a[A]\nb[B]\nc[C]\na -> b\ngroup g : b c\npin c 2,0")).toEqual([]));
+  test("declared nodes can be pinned and grouped", () =>
+    expect(codes("a[A]\nb[B]\nc[C]\na -> b\ngroup g : b c\npin c 2,0")).toEqual([]));
   test("errors inside a declaration are reported once", () => {
     expect(codes("a[Open\nb -> c")).toEqual(["E105"]);
     expect(codes("a{shape: star}\nb -> c")).toEqual(["E110"]);
@@ -129,17 +144,22 @@ describe("node declaration lines", () => {
     expect(r.doc.body[0]).toMatchObject({ type: "loop", body: [{ type: "step" }] });
   });
   test("fmt keeps declaration lines and normalizes their attributes", () =>
-    expect(formatSource("db[Orders DB]{shape:db,color:red}\n  user[User]\nuser->db")).toBe("db[Orders DB]{shape: db, color: red}\nuser[User]\nuser -> db\n"));
+    expect(formatSource("db[Orders DB]{shape:db,color:red}\n  user[User]\nuser->db")).toBe(
+      "db[Orders DB]{shape: db, color: red}\nuser[User]\nuser -> db\n",
+    ));
 });
 
 test("new diagnostics render with caret and hint in both languages", () => {
   const src = "a -> b : hit # note";
   expect(formatDiagnostic(src, parse(src).diagnostics[0], "en")).toBe(
-`warning[W105]: this \`#\` is part of the label, not a comment
+    `warning[W105]: this \`#\` is part of the label, not a comment
  --> line 1, col 14
   |
 1 | a -> b : hit # note
   |              ^
-  = hint: a comment cannot follow a label or title; move it to its own line, or ignore this if the \`#\` should be shown`);
-  expect(formatDiagnostic("end -> a", parse("end -> a").diagnostics[0], "ko")).toContain("줄 맨 앞의 `end` 는 노드가 아니라 키워드예요");
+  = hint: a comment cannot follow a label or title; move it to its own line, or ignore this if the \`#\` should be shown`,
+  );
+  expect(formatDiagnostic("end -> a", parse("end -> a").diagnostics[0], "ko")).toContain(
+    "줄 맨 앞의 `end` 는 노드가 아니라 키워드예요",
+  );
 });

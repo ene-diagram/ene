@@ -15,7 +15,9 @@ run("pnpm", ["exec", "tsc", "-b", "packages/cli"]);
 run("pnpm", ["bundle"], `${root}packages/player`);
 for (const f of ["ene.js", "ene-elk.js"]) copyFileSync(`${root}packages/player/dist/${f}`, out + f);
 
-const files = readdirSync(ex).filter((f) => f.endsWith(".ene")).sort();
+const files = readdirSync(ex)
+  .filter((f) => f.endsWith(".ene"))
+  .sort();
 const sources = files.map((f) => [f, readFileSync(ex + f, "utf8")]);
 
 // Only the icons the examples use, from the CC0 @iconify-json/logos pack.
@@ -26,17 +28,28 @@ for (const [, src] of sources)
     const name = logos.icons[m[1]] ? m[1] : logos.aliases?.[m[1]]?.parent;
     if (name) icons[m[1]] = logos.icons[name];
   }
-writeFileSync(out + "logos-subset.js",
+writeFileSync(
+  out + "logos-subset.js",
   `// Example icon pack: a subset of @iconify-json/logos (CC0). ene itself ships no icons.\n` +
-  `ene.registerIconPacks([{ pack: ${JSON.stringify({ prefix: "logos", width: logos.width, height: logos.height, icons })} }]);\n`);
+    `ene.registerIconPacks([{ pack: ${JSON.stringify({ prefix: "logos", width: logos.width, height: logos.height, icons })} }]);\n`,
+);
 
 const logosPath = createRequire(import.meta.url).resolve("@iconify-json/logos/icons.json");
 for (const [f] of sources)
-  run("node", [`${root}packages/cli/bin/ene.mjs`, ex + f, "-o", out + f.replace(/\.ene$/, ".svg"), "--icons", logosPath]);
+  run("node", [
+    `${root}packages/cli/bin/ene.mjs`,
+    ex + f,
+    "-o",
+    out + f.replace(/\.ene$/, ".svg"),
+    "--icons",
+    logosPath,
+  ]);
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const broken = "a -> b\nbrnch hit\n  cahce --> a\napi ->\n";
-writeFileSync(out + "index.html", `<!doctype html>
+writeFileSync(
+  out + "index.html",
+  `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ene examples</title>
 <style>
 body{margin:40px;font-family:system-ui,-apple-system,sans-serif;background:#f5f6f8;color:#1c2024}
@@ -50,11 +63,13 @@ ${sources.map(([f, src]) => `<section><h2>${f}</h2>\n<pre class="ene">${esc(src)
 <section><h2>error messages</h2><pre class="ene">${esc(broken)}</pre></section>
 <script src="ene.js"></script><script src="logos-subset.js"></script>
 </body></html>
-`);
+`,
+);
 // The landing page uses the same bundle, icon subset and one exported SVG.
 const site = `${root}site/`;
 mkdirSync(site, { recursive: true });
 for (const f of ["ene.js", "ene-elk.js", "logos-subset.js", "01-order.svg"]) copyFileSync(out + f, site + f);
 // The one-page syntax reference doubles as llms.txt and ships with the Claude skill (kept in sync by syntax-doc.test.ts)
-for (const f of [`${root}llms.txt`, `${site}llms.txt`, `${root}skills/ene/SYNTAX.md`]) copyFileSync(`${root}SYNTAX.md`, f);
+for (const f of [`${root}llms.txt`, `${site}llms.txt`, `${root}skills/ene/SYNTAX.md`])
+  copyFileSync(`${root}SYNTAX.md`, f);
 console.log(`demo ready: ${out}index.html · site assets: ${site}`);

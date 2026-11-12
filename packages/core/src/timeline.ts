@@ -14,7 +14,11 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
   // Pass 1: collect unique edges and branch numbers in source order, including all arms and loops
   const collect = (body: Stmt[]) => {
     for (const s of body) {
-      if (s.type === "step") for (const e of s.edges) { edgeIndex.set(e, allEdges.length); allEdges.push(e); }
+      if (s.type === "step")
+        for (const e of s.edges) {
+          edgeIndex.set(e, allEdges.length);
+          allEdges.push(e);
+        }
       else if (s.type === "loop") collect(s.body);
       else if (s.type === "branch") {
         branchIndex.set(s, branches.length);
@@ -46,7 +50,13 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
           duration,
           branchPath: path,
           edges: s.edges.map((e, i) => ({
-            edgeIndex: edgeIndex.get(e)!, from: e.from, to: e.to, kind: e.kind, label: e.label, start: t, duration: durs[i],
+            edgeIndex: edgeIndex.get(e)!,
+            from: e.from,
+            to: e.to,
+            kind: e.kind,
+            label: e.label,
+            start: t,
+            duration: durs[i],
           })),
         });
         t += duration;

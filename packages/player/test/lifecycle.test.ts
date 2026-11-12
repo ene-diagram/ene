@@ -25,14 +25,23 @@ beforeAll(() => {
   if (typeof g.Option !== "function")
     g.Option = function (text = "", value = text, defSel = false, sel = false) {
       const o = document.createElement("option");
-      o.text = text; o.value = value; o.defaultSelected = defSel; o.selected = sel;
+      o.text = text;
+      o.value = value;
+      o.defaultSelected = defSel;
+      o.selected = sel;
       return o;
     };
 });
 beforeEach(() => {
   queue = new Map();
-  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => { const id = nextId++; queue.set(id, cb); return id; });
-  vi.stubGlobal("cancelAnimationFrame", (id: number) => { queue.delete(id); });
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    const id = nextId++;
+    queue.set(id, cb);
+    return id;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+    queue.delete(id);
+  });
   document.body.replaceChildren();
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -110,10 +119,16 @@ describe("player lifecycle", () => {
   });
 });
 
-
 it("keeps the latest player when an old render finishes after destroy and host reuse", async () => {
   let release!: (pack: IconPack) => void;
-  registerIconPacks([{ loader: () => new Promise<IconPack>((resolve) => { release = resolve; }) }]);
+  registerIconPacks([
+    {
+      loader: () =>
+        new Promise<IconPack>((resolve) => {
+          release = resolve;
+        }),
+    },
+  ]);
   const el = document.createElement("div");
   const pending = render(el, "title Old\na{icon: lifecycle:x} -> b");
   const middle = (await render(el, "title Middle\n" + SRC))!;

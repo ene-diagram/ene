@@ -6,7 +6,8 @@ import { addPre, installDom } from "./dom-setup.js";
 installDom();
 const STEPS = "title Order\na[A] -> b[B] : one\nb -> c[C] : two\nc --> a : three";
 const BRANCHY = "a -> b : start\nbranch hit\n  b --> a : cached\nelse miss\n  b -> db : read\n  db --> b : row\nend";
-const key = (el: Element, k: string) => el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+const key = (el: Element, k: string) =>
+  el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
 const stepText = (root: ParentNode) => root.querySelector(".ene-step")!.textContent;
 
 describe("player DOM", () => {
@@ -25,7 +26,8 @@ describe("player DOM", () => {
   });
 
   it("Space toggles playback, arrows step and update the step text", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;
     const root = el.querySelector(".ene-player")!;
     expect(stepText(root)).toBe("1/3 · a → b one");
@@ -38,34 +40,41 @@ describe("player DOM", () => {
     const play = root.querySelectorAll(".ene-bar button")[2];
     expect(play.textContent).toBe("▶");
     key(root, " ");
-    expect(p.controller.playing).toBe(true); expect(play.textContent).toBe("⏸");
+    expect(p.controller.playing).toBe(true);
+    expect(play.textContent).toBe("⏸");
     key(root, " ");
-    expect(p.controller.playing).toBe(false); expect(play.textContent).toBe("▶");
+    expect(p.controller.playing).toBe(false);
+    expect(play.textContent).toBe("▶");
     p.destroy();
   });
 
   it("buttons drive the controller", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;
     const [restart, , , next] = [...el.querySelectorAll<HTMLButtonElement>(".ene-bar button")];
-    next.click(); next.click();
+    next.click();
+    next.click();
     expect(p.controller.currentStep()).toBe(2);
     restart.click();
     expect(p.controller.time).toBe(0);
     const rate = el.querySelector<HTMLSelectElement>('select[aria-label="Speed"]')!;
-    rate.value = "2"; rate.dispatchEvent(new Event("change"));
+    rate.value = "2";
+    rate.dispatchEvent(new Event("change"));
     expect(p.controller.rate).toBe(2);
     p.destroy();
   });
 
   it("branch select switches the played path", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, BRANCHY, { autoplay: false, lang: "en" }))!;
     const sel = el.querySelector<HTMLSelectElement>('select[aria-label="Branch 1"]')!;
     expect([...sel.options].map((o) => o.text)).toEqual(["hit", "miss"]);
     expect(p.controller.total).toBeGreaterThan(0);
     const hitTotal = p.controller.total;
-    sel.value = "1"; sel.dispatchEvent(new Event("change"));
+    sel.value = "1";
+    sel.dispatchEvent(new Event("change"));
     expect(p.controller.total).toBeGreaterThan(hitTotal);
     p.setChoices([0]);
     expect(p.controller.total).toBe(hitTotal);
@@ -73,7 +82,8 @@ describe("player DOM", () => {
   });
 
   it("shows a localized error box and returns undefined for invalid source", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     expect(await render(el, "a ->", { lang: "ko" })).toBeUndefined();
     const pre = el.querySelector("pre.ene-error")!;
     expect(pre.textContent).toContain("E103");
@@ -82,7 +92,8 @@ describe("player DOM", () => {
   });
 
   it("uses Korean control labels with lang ko", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, BRANCHY, { autoplay: false, lang: "ko" }))!;
     expect(el.querySelector('button[aria-label="재생/정지"]')).not.toBeNull();
     expect(el.querySelector('select[aria-label="분기 1"]')).not.toBeNull();

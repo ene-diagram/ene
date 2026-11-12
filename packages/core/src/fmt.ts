@@ -26,7 +26,10 @@ export function formatSource(source: string): string {
     const out: string[] = [];
     lines.forEach(({ comment }, i) => {
       const body = bodies[i];
-      if (!body && !comment) { if (out.length && out[out.length - 1] !== "") out.push(""); return; }
+      if (!body && !comment) {
+        if (out.length && out[out.length - 1] !== "") out.push("");
+        return;
+      }
       const pad = "  ".repeat(indents[i]);
       out.push(pad + (body && comment ? `${body} ${comment}` : body || comment));
     });
@@ -42,7 +45,8 @@ export function formatSource(source: string): string {
   const safe = [...original];
   formatted.forEach((f, i) => {
     if (f === original[i]) return;
-    const trial = [...safe]; trial[i] = f;
+    const trial = [...safe];
+    trial[i] = f;
     if (fingerprint(render(trial)) === want) safe[i] = f;
   });
   result = render(safe);
@@ -55,13 +59,18 @@ function splitComment(raw: string): { body: string; comment: string } {
   let start = 0;
   while (start < chars.length && (chars[start] === " " || chars[start] === "\t")) start++;
   const isTitle = chars.slice(start, start + 6).join("") === "title ";
-  let depth = 0, inLabel = false, end = chars.length;
+  let depth = 0,
+    inLabel = false,
+    end = chars.length;
   for (let j = start; j < chars.length && !(isTitle && j > start); j++) {
     const c = chars[j];
     if (c === "[" || c === "{") depth++;
     else if ((c === "]" || c === "}") && depth > 0) depth--;
     else if (c === ":" && depth === 0) inLabel = true;
-    else if (c === "#" && depth === 0 && !inLabel && (j === start || chars[j - 1] === " " || chars[j - 1] === "\t")) { end = j; break; }
+    else if (c === "#" && depth === 0 && !inLabel && (j === start || chars[j - 1] === " " || chars[j - 1] === "\t")) {
+      end = j;
+      break;
+    }
   }
   return { body: chars.slice(start, end).join("").trimEnd(), comment: chars.slice(end).join("").trimEnd() };
 }
@@ -73,7 +82,8 @@ function formatBody(body: string): string {
   if (!body) return body;
   const m = body.match(KEYWORD_LINE);
   if (m) {
-    const word = m[1], rest = body.slice(word.length).trim();
+    const word = m[1],
+      rest = body.slice(word.length).trim();
     if (word === "title" || word === "branch" || word === "else") return rest ? `${word} ${rest}` : word;
     if (word === "group") return formatGroup(rest);
     return [word, ...rest.split(/\s+/).filter(Boolean)].join(" ");
@@ -86,13 +96,21 @@ function formatBody(body: string): string {
 function formatEdges(s: string): string {
   const t = [...s];
   const parts: string[] = [];
-  let from = 0, depth = 0;
+  let from = 0,
+    depth = 0;
   for (let i = 0; i < t.length; i++) {
     const c = t[i];
     if (c === "[" || c === "{") depth++;
     else if ((c === "]" || c === "}") && depth > 0) depth--;
-    else if (depth === 0 && c === "&" && /\s/.test(t[i - 1] ?? "") && /\s/.test(t[i + 1] ?? "") && NEXT_EDGE.test(t.slice(i + 1).join(""))) {
-      parts.push(t.slice(from, i).join("")); from = i + 1;
+    else if (
+      depth === 0 &&
+      c === "&" &&
+      /\s/.test(t[i - 1] ?? "") &&
+      /\s/.test(t[i + 1] ?? "") &&
+      NEXT_EDGE.test(t.slice(i + 1).join(""))
+    ) {
+      parts.push(t.slice(from, i).join(""));
+      from = i + 1;
     }
   }
   parts.push(t.slice(from).join(""));
@@ -102,14 +120,24 @@ function formatEdges(s: string): string {
 function formatEdge(s: string): string {
   // head = everything before the first ':' outside brackets; the label after it is kept verbatim (trimmed)
   const t = [...s];
-  let depth = 0, colon = -1;
+  let depth = 0,
+    colon = -1;
   for (let i = 0; i < t.length; i++) {
     if (t[i] === "[" || t[i] === "{") depth++;
     else if ((t[i] === "]" || t[i] === "}") && depth > 0) depth--;
-    else if (t[i] === ":" && depth === 0) { colon = i; break; }
+    else if (t[i] === ":" && depth === 0) {
+      colon = i;
+      break;
+    }
   }
   const head = colon < 0 ? s : t.slice(0, colon).join("");
-  const label = colon < 0 ? "" : t.slice(colon + 1).join("").trim();
+  const label =
+    colon < 0
+      ? ""
+      : t
+          .slice(colon + 1)
+          .join("")
+          .trim();
   const h = formatHead(head);
   if (colon < 0) return h;
   return label ? `${h} : ${label}` : `${h} :`;
@@ -118,7 +146,8 @@ function formatEdge(s: string): string {
 /** `a[Label]{k:v}   ->b` → `a[Label]{k: v} -> b` (only outside brackets) */
 function formatHead(head: string): string {
   const t = [...head.trim()];
-  let out = "", depth = 0;
+  let out = "",
+    depth = 0;
   for (let i = 0; i < t.length; i++) {
     const c = t[i];
     if (c === "{" && depth === 0) {
@@ -130,41 +159,75 @@ function formatHead(head: string): string {
     }
     if (c === "[") depth++;
     else if (c === "]" && depth > 0) depth--;
-    if (depth > 0 || c === "]") { out += c; continue; }
-    const arrow = c === "-" && t[i + 1] === "-" && t[i + 2] === ">" ? "-->" : c === "-" && t[i + 1] === ">" ? "->" :
-      c === "-" && t[i + 1] === "x" && (i === 0 || /\s/.test(t[i - 1])) && (i + 2 >= t.length || /\s/.test(t[i + 2])) ? "-x" : undefined;
-    if (arrow) { out = out.trimEnd() + ` ${arrow} `; i += arrow.length - 1; continue; }
-    if (/\s/.test(c)) { if (!out.endsWith(" ")) out += " "; continue; }
+    if (depth > 0 || c === "]") {
+      out += c;
+      continue;
+    }
+    const arrow =
+      c === "-" && t[i + 1] === "-" && t[i + 2] === ">"
+        ? "-->"
+        : c === "-" && t[i + 1] === ">"
+          ? "->"
+          : c === "-" &&
+              t[i + 1] === "x" &&
+              (i === 0 || /\s/.test(t[i - 1])) &&
+              (i + 2 >= t.length || /\s/.test(t[i + 2]))
+            ? "-x"
+            : undefined;
+    if (arrow) {
+      out = out.trimEnd() + ` ${arrow} `;
+      i += arrow.length - 1;
+      continue;
+    }
+    if (/\s/.test(c)) {
+      if (!out.endsWith(" ")) out += " ";
+      continue;
+    }
     out += c;
   }
   return out.trim();
 }
 
 function formatAttrs(s: string): string {
-  return s.split(",").map((p) => {
-    const c = p.indexOf(":");
-    return c < 0 ? p.trim() : `${p.slice(0, c).trim()}: ${p.slice(c + 1).trim()}`;
-  }).join(", ");
+  return s
+    .split(",")
+    .map((p) => {
+      const c = p.indexOf(":");
+      return c < 0 ? p.trim() : `${p.slice(0, c).trim()}: ${p.slice(c + 1).trim()}`;
+    })
+    .join(", ");
 }
 
 /** `group id[Label]{..} in parent : a b c` */
 function formatGroup(rest: string): string {
   const t = [...rest];
-  let depth = 0, colon = -1;
+  let depth = 0,
+    colon = -1;
   for (let i = 0; i < t.length; i++) {
     if (t[i] === "[" || t[i] === "{") depth++;
     else if ((t[i] === "]" || t[i] === "}") && depth > 0) depth--;
-    else if (t[i] === ":" && depth === 0) { colon = i; break; }
+    else if (t[i] === ":" && depth === 0) {
+      colon = i;
+      break;
+    }
   }
   if (colon < 0) return `group ${rest}`;
   const head = formatHead(t.slice(0, colon).join(""));
-  const members = t.slice(colon + 1).join("").trim().split(/\s+/).filter(Boolean).join(" ");
+  const members = t
+    .slice(colon + 1)
+    .join("")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .join(" ");
   return `group ${head} : ${members}`;
 }
 
 /** Meaning of a source: document without positions + diagnostic codes */
 function fingerprint(src: string): string {
   const { doc, diagnostics } = parse(src);
-  return JSON.stringify({ doc: { ...doc, nodes: [...doc.nodes.values()] }, codes: diagnostics.map((d) => d.code + JSON.stringify(d.args)) },
-    (k, v) => (k === "span" ? undefined : v));
+  return JSON.stringify(
+    { doc: { ...doc, nodes: [...doc.nodes.values()] }, codes: diagnostics.map((d) => d.code + JSON.stringify(d.args)) },
+    (k, v) => (k === "span" ? undefined : v),
+  );
 }
