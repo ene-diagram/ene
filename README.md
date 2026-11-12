@@ -239,12 +239,33 @@ Then ask Claude Code for a diagram, e.g. "draw the checkout flow as an ene diagr
 Set `startOnLoad: false` in `eneConfig` to skip the automatic `pre.ene` scan and render yourself:
 
 ```js
-const player = await ene.render(element, source, { autoplay: false, loop: true });
-player.setChoices([1]);   // pick arm 1 of the first branch
-player.destroy();          // stop playback and clear the element
+const player = await ene.render(element, source, {
+  autoplay: false, loop: true,
+  choices: [1],                                  // start on arm 1 of the first branch
+  onChoicesChange: (c) => console.log(c),        // the viewer picked another arm
+});
+player.setChoices([0]);   // pick arm 0 of the first branch
+player.choices;           // [0]
+player.toSvg();           // the self-playing SVG for the current choices, as `ene -o x.svg` writes it
+player.destroy();         // stop playback and clear the element
 ```
 
 `render()` resolves to `undefined` when the source has errors (an error box is shown instead).
+
+### GIF and MP4 in the browser
+
+`pnpm build` also writes `packages/export/dist/ene-export.js` (~12 KB, no dependencies). It turns an exported SVG into a GIF, MP4 or WebM without a server, Chrome or ffmpeg:
+
+```html
+<script src="ene-export.js"></script>
+<script>
+  const { blob } = await eneExport.exportVideo(player.toSvg(), { format: "gif", fps: 15, scale: 1, theme: "light" });
+</script>
+```
+
+- `format`: `gif` (built-in encoder), `mp4` (H.264 through WebCodecs, where the browser has it) or `webm` (MediaRecorder; records in real time, so it takes as long as the animation). `eneExport.videoSupport()` tells which video formats work.
+- `theme`: `light` (default), `dark`, or `auto` (follows the viewer). `eneExport.themedSvg(svg, theme)` applies the same to a downloadable SVG.
+- Frames are computed from the SVG's animation values, not recorded from a running clock, so the GIF and MP4 match the SVG exactly. Limits: 1800 frames, 60 fps, scale 4.
 
 ### Icon packs
 

@@ -72,6 +72,25 @@ describe("player DOM", () => {
     p.destroy();
   });
 
+  it("starts from given choices, reports menu changes, keeps the menu in sync and exports the chosen path", async () => {
+    const el = document.createElement("div"); document.body.appendChild(el);
+    const seen: number[][] = [];
+    const p = (await render(el, BRANCHY, { autoplay: false, lang: "en", choices: [1], onChoicesChange: (c) => seen.push(c) }))!;
+    const sel = el.querySelector<HTMLSelectElement>('select[aria-label="Branch 1"]')!;
+    expect(sel.value).toBe("1");
+    expect(p.choices).toEqual([1]);
+    expect(p.toSvg()).toContain("3. row");
+    sel.value = "0"; sel.dispatchEvent(new Event("change"));
+    expect(seen).toEqual([[0]]);
+    expect(p.toSvg()).not.toContain("row");
+    p.setChoices([1]);
+    expect(sel.value).toBe("1");
+    expect(seen).toEqual([[0]]);
+    p.setChoices([-3]);
+    expect(p.choices).toEqual([0]);
+    p.destroy();
+  });
+
   it("shows a localized error box and returns undefined for invalid source", async () => {
     const el = document.createElement("div"); document.body.appendChild(el);
     expect(await render(el, "a ->", { lang: "ko" })).toBeUndefined();

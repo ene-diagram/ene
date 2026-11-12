@@ -42,6 +42,12 @@ importers:
 
   packages/core: {}
 
+  packages/export:
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+
   packages/layout:
     dependencies:
       '@ene-diagram/core':
