@@ -73,15 +73,26 @@ export async function layout(doc: Document, tl: Timeline): Promise<Layout> {
   resolveOverlaps(nodes, fixed);
 
   // 원점 정리
-  const minX = Math.min(...nodes.map((n) => n.x)), minY = Math.min(...nodes.map((n) => n.y));
-  const hasSelf = tl.allEdges.some((e) => e.from === e.to);
-  const offY = PAD + (hasSelf ? 50 : 0);
-  nodes.forEach((n) => { n.x = Math.round(n.x - minX + PAD); n.y = Math.round(n.y - minY + offY); });
+  const nx0 = Math.min(...nodes.map((n) => n.x)), ny0 = Math.min(...nodes.map((n) => n.y));
+  nodes.forEach((n) => { n.x = Math.round(n.x - nx0 + PAD); n.y = Math.round(n.y - ny0 + PAD); });
 
-  const edges = routeEdges(tl, byId);
-  const xs = [...nodes.map((n) => n.x + n.w), ...edges.map((e) => e.mid.x)];
-  const ys = [...nodes.map((n) => n.y + n.h), ...edges.map((e) => e.mid.y + 20)];
-  return { nodes, edges, width: Math.ceil(Math.max(...xs) + PAD), height: Math.ceil(Math.max(...ys) + PAD) };
+  // 곡선의 제어점까지 포함한 경계로 캔버스를 잡는다 (경로는 상대 위치로만 정해지므로 옮긴 뒤 다시 그린다)
+  let edges = routeEdges(tl, byId);
+  const pts = () => edges.flatMap((e) => {
+    const n = (e.d.match(/[-\d.]+/g) ?? []).map(Number);
+    return n.flatMap((_, i) => (i % 2 ? [] : [{ x: n[i], y: n[i + 1] }]));
+  });
+  let minX = Math.min(...nodes.map((n) => n.x), ...pts().map((p) => p.x));
+  let minY = Math.min(...nodes.map((n) => n.y), ...pts().map((p) => p.y - 20)); // 라벨 높이 여유
+  if (minX < PAD || minY < PAD) {
+    const dx = Math.max(0, Math.ceil(PAD - minX)), dy = Math.max(0, Math.ceil(PAD - minY));
+    nodes.forEach((n) => { n.x += dx; n.y += dy; });
+    edges = routeEdges(tl, byId);
+  }
+  const all = pts();
+  const width = Math.ceil(Math.max(...nodes.map((n) => n.x + n.w), ...all.map((p) => p.x)) + PAD);
+  const height = Math.ceil(Math.max(...nodes.map((n) => n.y + n.h), ...all.map((p) => p.y)) + PAD);
+  return { nodes, edges, width, height };
 }
 
 /** 겹치는 노드는 고정되지 않은 쪽을 아래로 민다 */
@@ -111,23 +122,42 @@ function routeEdges(tl: Timeline, byId: Map<string, LNode>): LEdge[] {
   const out: LEdge[] = [];
   for (const [key, idx] of groups) {
     const [p, q] = key.split("\u0000");
-    idx.forEach((i, k) => {
+    if (p === q) { idx.forEach((i, k) => out.push(selfLoop(i, byId.get(p)!, k))); continue; }
+    const P = byId.get(p)!, Q = byId.get(q)!;
+    const others = [...byId.values()].filter((n) => n !== P && n !== Q);
+    const pc = center(P), qc = center(Q);
+    const len = Math.hypot(qc.x - pc.x, qc.y - pc.y) || 1;
+    const nx = -(qc.y - pc.y) / len, ny = (qc.x - pc.x) / len;
+    const curve = (i: number, o: number) => {
       const e = tl.allEdges[i];
-      const a = byId.get(e.from)!, b = byId.get(e.to)!;
-      if (p === q) { out.push(selfLoop(i, a, k)); return; }
-      const P = byId.get(p)!, Q = byId.get(q)!;
-      const pc = center(P), qc = center(Q);
-      const len = Math.hypot(qc.x - pc.x, qc.y - pc.y) || 1;
-      const nx = -(qc.y - pc.y) / len, ny = (qc.x - pc.x) / len;
-      const o = (k - (idx.length - 1) / 2) * SPREAD;
-      const ac = center(a), bc = center(b);
+      const a = byId.get(e.from)!, b = byId.get(e.to)!, ac = center(a), bc = center(b);
       const cx = (ac.x + bc.x) / 2 + nx * o * 2, cy = (ac.y + bc.y) / 2 + ny * o * 2;
-      const s = clip(a, cx, cy), t = clip(b, cx, cy);
-      const mid = { x: (s.x + 2 * cx + t.x) / 4, y: (s.y + 2 * cy + t.y) / 4 };
-      out.push({ index: i, d: `M${r(s.x)},${r(s.y)} Q${r(cx)},${r(cy)} ${r(t.x)},${r(t.y)}`, mid: { x: r(mid.x), y: r(mid.y) } });
+      return { s: clip(a, cx, cy), c: { x: cx, y: cy }, t: clip(b, cx, cy) };
+    };
+    // 다른 노드를 뚫으면 묶음 전체를 한쪽으로 더 휘게 한다
+    const base = idx.map((_, k) => (k - (idx.length - 1) / 2) * SPREAD);
+    let shift = 0;
+    for (const cand of [0, 40, -40, 70, -70, 100, -100, 140, -140, 190, -190, 250, -250]) {
+      if (idx.every((i, k) => !crosses(curve(i, base[k] + cand), others))) { shift = cand; break; }
+    }
+    idx.forEach((i, k) => {
+      const { s, c, t } = curve(i, base[k] + shift);
+      const mid = { x: (s.x + 2 * c.x + t.x) / 4, y: (s.y + 2 * c.y + t.y) / 4 };
+      out.push({ index: i, d: `M${r(s.x)},${r(s.y)} Q${r(c.x)},${r(c.y)} ${r(t.x)},${r(t.y)}`, mid: { x: r(mid.x), y: r(mid.y) } });
     });
   }
   return out.sort((x, y) => x.index - y.index);
+}
+
+type Pt = { x: number; y: number };
+const MARGIN = 8;
+function crosses(q: { s: Pt; c: Pt; t: Pt }, nodes: LNode[]): boolean {
+  for (let k = 1; k < 40; k++) {
+    const u = k / 40, a = (1 - u) ** 2, b = 2 * (1 - u) * u, c = u * u;
+    const x = a * q.s.x + b * q.c.x + c * q.t.x, y = a * q.s.y + b * q.c.y + c * q.t.y;
+    if (nodes.some((n) => x > n.x - MARGIN && x < n.x + n.w + MARGIN && y > n.y - MARGIN && y < n.y + n.h + MARGIN)) return true;
+  }
+  return false;
 }
 
 function selfLoop(i: number, n: LNode, k: number): LEdge {

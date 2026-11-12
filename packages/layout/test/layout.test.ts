@@ -41,3 +41,27 @@ test("self edge and single node work", async () => {
   const l = await run("a -> a");
   expect(l.nodes).toHaveLength(1); expect(l.edges[0].d).toContain("C");
 });
+const quad = (d: string) => (d.match(/[-\d.]+/g) ?? []).map(Number);
+test.each(readdirSync(ex).filter(f => f.endsWith(".ene")))("%s: edges do not pass through other nodes", async (f) => {
+  const src = readFileSync(new URL(f, ex), "utf8");
+  const { doc } = parse(src); const tl = buildTimeline(doc); const l = await layout(doc, tl);
+  for (const e of l.edges) {
+    const ed = tl.allEdges[e.index]; if (ed.from === ed.to) continue;
+    const [x0, y0, cx, cy, x1, y1] = quad(e.d);
+    for (let k = 1; k < 20; k++) {
+      const t = k / 20, x = (1-t)**2*x0 + 2*(1-t)*t*cx + t*t*x1, y = (1-t)**2*y0 + 2*(1-t)*t*cy + t*t*y1;
+      const hit = l.nodes.find(n => n.id !== ed.from && n.id !== ed.to && x > n.x && x < n.x + n.w && y > n.y && y < n.y + n.h);
+      expect(hit?.id, `${ed.from}->${ed.to} crosses`).toBeUndefined();
+    }
+  }
+});
+test.each(readdirSync(ex).filter(f => f.endsWith(".ene")))("%s: every curve stays inside the canvas", async (f) => {
+  const { doc } = parse(readFileSync(new URL(f, ex), "utf8")); const l = await layout(doc, buildTimeline(doc));
+  for (const e of l.edges) {
+    const n = quad(e.d);
+    for (let i = 0; i < n.length; i += 2) {
+      expect(n[i]).toBeGreaterThanOrEqual(0); expect(n[i]).toBeLessThanOrEqual(l.width);
+      expect(n[i + 1]).toBeGreaterThanOrEqual(0); expect(n[i + 1]).toBeLessThanOrEqual(l.height);
+    }
+  }
+});
