@@ -302,7 +302,7 @@ jobs:
 | `fmt-check` | `true` | also run `ene fmt --check` |
 | `commit-message` | `chore: regenerate ene diagrams` | |
 
-The `changed` output lists the SVGs that were (or would be) rewritten. Commit mode pushes to the checked-out branch with `GITHUB_TOKEN`, which does not trigger another workflow run. On a `pull_request` run (detached checkout) it pushes to the PR's head branch (`GITHUB_HEAD_REF`); it cannot push to pull requests from forks, so use `check` there. The workflow needs `permissions: contents: write`.
+The `changed` output lists the SVGs that were (or would be) rewritten. Commit mode pushes to the checked-out branch with `GITHUB_TOKEN`, which does not trigger another workflow run. It needs a checked-out branch: on `pull_request` runs the default checkout is a detached merge commit, so check out the PR branch with `actions/checkout` `ref: ${{ github.head_ref }}` (commit mode refuses a detached HEAD). It cannot push to pull requests from forks, so use `check` there. The workflow needs `permissions: contents: write`.
 
 ### With Claude
 

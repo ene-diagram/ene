@@ -109,17 +109,14 @@ function installCli(version) {
 }
 
 /**
- * Branch to push commit-mode changes to: the checked-out branch, or on a detached checkout (the default for
- * pull_request runs) the PR's head branch, or the pushed branch.
+ * Branch to push commit-mode changes to: the checked-out branch, or undefined on a detached checkout.
+ * Detached is the default for pull_request runs, where HEAD is GitHub's synthetic merge commit; committing on
+ * top of it would push base-branch changes into the PR branch, so commit mode refuses there.
  */
-export function pushBranch(env = process.env) {
+export function pushBranch() {
   try {
-    const b = execFileSync("git", ["symbolic-ref", "-q", "--short", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-    if (b) return b;
-  } catch { /* detached */ }
-  if (env.GITHUB_HEAD_REF) return env.GITHUB_HEAD_REF;
-  if (env.GITHUB_REF?.startsWith("refs/heads/")) return env.GITHUB_REF.slice("refs/heads/".length);
-  return undefined;
+    return execFileSync("git", ["symbolic-ref", "-q", "--short", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || undefined;
+  } catch { return undefined; }
 }
 
 export function main(env = process.env) {
@@ -131,8 +128,8 @@ export function main(env = process.env) {
   if (outputDir && (resolve(outputDir) + sep).indexOf(resolve(".") + sep) !== 0) { console.log(`::error::output-dir must be inside the workspace`); return 1; }
 
   // Decide where commit mode pushes before writing anything, so a refusal leaves the checkout untouched
-  const target = mode === "commit" ? pushBranch(env) : undefined;
-  if (mode === "commit" && !target) { console.log("::error::ene: commit mode needs a branch to push to (detached HEAD outside a pull request); check out a branch or use mode: check"); return 1; }
+  const target = mode === "commit" ? pushBranch() : undefined;
+  if (mode === "commit" && !target) { console.log("::error::ene: commit mode needs a checked-out branch, but HEAD is detached (on pull_request runs it is a merge commit). Use actions/checkout with ref: ${{ github.head_ref }}, or mode: check"); return 1; }
 
   let jobs;
   try { jobs = plan(gitFiles(), list(env.ENE_FILES || "**/*.ene"), outputDir); }

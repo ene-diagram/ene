@@ -117,12 +117,13 @@ describe("main", () => {
     expect(run({ ENE_OUTPUT_DIR: "../x" })).toBe(1);
     expect(() => main({ ENE_FILES: "diagrams/*.ene", ENE_VERSION: "0.1 && id" })).toThrow(/invalid version/);
   });
-  it("commit mode on a detached checkout pushes to the PR head branch, and refuses without one", () => {
+  it("commit mode refuses a detached checkout (a PR's merge commit) without writing anything", () => {
     git("checkout", "-q", "--detach");
     writeFileSync("diagrams/flow.ene", readFileSync("diagrams/flow.ene", "utf8") + "api -> db : read\n");
-    expect(run({ ENE_MODE: "commit", GITHUB_HEAD_REF: "" , GITHUB_REF: "refs/pull/1/merge" })).toBe(1);
-    expect(log.join("\n")).toContain("needs a branch to push to");
-    expect(run({ ENE_MODE: "commit", GITHUB_HEAD_REF: "feature-x" })).toBe(0);
-    expect(git("ls-remote", "origin", "refs/heads/feature-x")).toMatch(/refs\/heads\/feature-x/);
+    const before = readFileSync("diagrams/flow.svg", "utf8");
+    expect(run({ ENE_MODE: "commit", GITHUB_HEAD_REF: "feature-x" })).toBe(1);
+    expect(log.join("\n")).toContain("HEAD is detached");
+    expect(readFileSync("diagrams/flow.svg", "utf8")).toBe(before);
+    expect(git("ls-remote", "origin", "refs/heads/feature-x")).toBe("");
   });
 });
