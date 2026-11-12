@@ -2,10 +2,10 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { buildTimeline, checkIcons, diagnosticToJson, formatAll, formatSource, fromMermaid, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
 import { layout, layoutSequence } from "@ene/layout";
-import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, renderSvg, type IconLoadResult } from "@ene/svg";
+import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, loopSeconds, renderSvg, type IconLoadResult } from "@ene/svg";
 
-const USAGE = `usage: ene <input.ene|input.mmd|-> [-o out.svg|-] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
-                 [--no-network] [--allow-host host ...]
+const USAGE = `usage: ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1]
+                 [--icons pack.json ...] [--no-network] [--allow-host host ...] [--fps n] [--scale n]
        ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
        ene fmt <input.ene ...> [--check | --write]
        ene from-mermaid <input.mmd|input.md|-> [-o out.ene|-]
@@ -115,6 +115,25 @@ function fmtCommand(argv: string[]): number {
   return mode === "check" && changed ? 1 : 0;
 }
 
+/** GIF/MP4 go through the optional @ene/video package (headless Chrome + ffmpeg) */
+async function exportVideo(svg: string, opts: { out: string; format: "gif" | "mp4"; seconds: number; fps?: number; scale?: number }, summary: string): Promise<number> {
+  let mod: typeof import("@ene/video");
+  try { mod = await import("@ene/video"); }
+  catch { console.error("error: GIF/MP4 export needs the @ene/video package (npm install @ene/video)"); return 1; }
+  const tty = process.stderr.isTTY;
+  try {
+    const r = await mod.renderVideo(svg, { ...opts, onFrame: tty ? (done, total) => process.stderr.write(`\rframe ${done}/${total}`) : undefined });
+    if (tty) process.stderr.write("\r\x1b[K");
+    console.log(`✅ ${opts.out} ${summary.slice(0, -1)}, ${r.frames} frames at ${r.fps} fps, ${r.width}×${r.height})`);
+    return 0;
+  } catch (e) {
+    if (tty) process.stderr.write("\r\x1b[K");
+    if (!(e instanceof mod.VideoError)) throw e;
+    console.error(`error: ${e.message}`);
+    return 1;
+  }
+}
+
 const isMermaidFile = (f: string) => /\.(mmd|mermaid)$/i.test(f);
 
 /** Convert Mermaid text, printing warnings (and the error) to stderr. undefined = nothing usable */
@@ -155,6 +174,7 @@ export async function main(argv: string[]): Promise<number> {
   const packFiles: string[] = [];
   const net: NetPolicy = { network: true };
   let input: string | undefined, out: string | undefined, lang: Lang = "en", choices: number[] = [];
+  let fps: number | undefined, scale: number | undefined;
   const bad = () => { console.error(USAGE); return 2; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -167,6 +187,10 @@ export async function main(argv: string[]): Promise<number> {
       choices = v.split(",").map(Number);
     }
     else if (a === "--icons") { const v = val(); if (!v) return bad(); packFiles.push(v); }
+    else if (a === "--fps" || a === "--scale") {
+      const v = Number(val()); if (!(v > 0) || !Number.isFinite(v)) return bad();
+      if (a === "--fps") fps = v; else scale = v;
+    }
     else if (a === "--no-network") net.network = false;
     else if (a === "--allow-host") { const v = val(); if (!v) return bad(); (net.allowHosts ??= []).push(v); }
     else if (a === "-h" || a === "--help") { console.log(USAGE); return 0; }
@@ -216,6 +240,9 @@ export async function main(argv: string[]): Promise<number> {
   const svg = renderSvg(lay, tl, { title: doc.title, icons });
   const target = out ?? (fromStdin ? "-" : input.replace(/\.[^./\\]+$/, "") + ".svg");
   const summary = `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
+  const video = /\.(gif|mp4)$/i.exec(target)?.[1].toLowerCase() as "gif" | "mp4" | undefined;
+  if (!video && (fps !== undefined || scale !== undefined)) console.error("warning: --fps and --scale only apply to .gif and .mp4 output");
+  if (video) return exportVideo(svg, { out: target, format: video, seconds: loopSeconds(tl), fps, scale }, summary);
   if (target === "-") { process.stdout.write(svg); console.error(`✅ stdout ${summary}`); }
   else { writeFileSync(target, svg); console.log(`✅ ${target} ${summary}`); }
   return 0;

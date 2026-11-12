@@ -109,8 +109,11 @@ export const STYLE = `
   @media (prefers-color-scheme: dark){svg{--bg:#111113;--node:#1c1d21;--line:#3b3e45;--faint:#2e3036;--fg:#edeef0;--fg2:#b0b4ba;--ok:#7b9bff;--fail:#ff6369;--reply:#4cc38a}}
   @media (prefers-reduced-motion: reduce){.dot,.x{display:none}.hl,.lbl{opacity:1 !important}}`;
 
+/** Length of one loop of the exported animation: the timeline plus a hold on the final state */
+export const loopSeconds = (tl: Timeline) => Math.max(tl.total + HOLD, 0.1);
+
 export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): string {
-  const total = Math.max(tl.total + HOLD, 0.1);
+  const total = loopSeconds(tl);
   const kt = (t: number) => (Math.min(1, Math.max(0, t / total))).toFixed(4);
   const anim = (attr: string, values: string, times: string) =>
     `<animate attributeName="${attr}" values="${values}" keyTimes="${times}" dur="${total}s" repeatCount="indefinite"/>`;

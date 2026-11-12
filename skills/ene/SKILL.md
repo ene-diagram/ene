@@ -14,6 +14,7 @@ All commands below go through the wrapper next to this file. `<skill>` is this s
 node <skill>/ene.mjs check flow.ene --json    # diagnostics as JSON, exit 1 on errors
 node <skill>/ene.mjs fmt --write flow.ene     # canonical formatting
 node <skill>/ene.mjs flow.ene -o flow.svg     # render (add --choice 1 to pick another branch arm)
+node <skill>/ene.mjs flow.ene -o flow.gif     # or .mp4, for places that do not play SVG
 ```
 
 ## Workflow
@@ -92,6 +93,7 @@ Other Mermaid diagram kinds cannot be converted.
 ## When something does not fit
 
 - The user wants a static structure (classes, tables, org chart): say ene is the wrong tool and suggest Mermaid.
-- The user wants GIF/MP4 or a live page: the CLI writes SVG only. For a web page, the browser player turns
-  `<pre class="ene">` blocks into players (see the project README).
+- The user wants to paste it into Slack, Notion or slides, which do not play animated SVG: render a GIF or MP4
+  instead (`-o flow.gif`, `-o flow.mp4`; needs Chrome and ffmpeg — if the command reports one missing, tell the user).
+- The user wants a live page: the browser player turns `<pre class="ene">` blocks into players (see the project README).
 - A check error you cannot resolve after two attempts: show the user the diagnostic and the line, and ask.

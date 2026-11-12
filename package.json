@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -b packages/core packages/layout packages/svg packages/player packages/cli && pnpm -C packages/player bundle",
+    "build": "tsc -b packages/core packages/layout packages/svg packages/player packages/video packages/cli && pnpm -C packages/player bundle",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/cli",
+    "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/video packages/cli",
     "demo": "node scripts/demo.mjs",
     "skill:install": "node scripts/install-skill.mjs"
   },
