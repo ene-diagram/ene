@@ -1,0 +1,10 @@
+title 주문 요청 흐름
+speed 1.2
+
+user[사용자] -> api[API 서버] : POST /order
+api -> cache[Redis] : 재고 조회
+cache -> api : miss
+api -> db[MySQL] : SELECT stock & api -> pay[결제 서버] : 결제 요청
+db -> api : 재고 OK
+pay -x api : timeout
+api -> user : 502 다시 시도
