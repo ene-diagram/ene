@@ -24,8 +24,8 @@ export function scan(source: string): Line[] {
     let depth = 0, inLabel = false;
     for (let j = start; j < chars.length && !(isTitle && j > start); j++) {
       const c = chars[j];
-      if (c === "[") depth++;
-      else if (c === "]" && depth > 0) depth--;
+      if (c === "[" || c === "{") depth++;
+      else if ((c === "]" || c === "}") && depth > 0) depth--;
       else if (c === ":" && depth === 0) inLabel = true;
       else if (c === "#" && depth === 0 && !inLabel && (j === start || isSpace(chars[j - 1]))) { end = j; break; }
     }

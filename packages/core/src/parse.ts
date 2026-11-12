@@ -3,10 +3,10 @@ import { KEYWORDS, suggest, type Code } from "./diagnostics.js";
 import type { Diagnostic, Document, Edge, EdgeKind, NodeDecl, ParseResult, Span, Stmt } from "./types.js";
 
 const ID_CHAR = /[\p{L}\p{N}_-]/u;
-const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?\s*(-->|->|-x)(\s|$)/u;
+const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x)(\s|$)/u;
 const DURATION = /^(\d+(?:\.\d+)?)s$/;
 
-interface Ref { id: string; label?: string; start: number; end: number }
+interface Ref { id: string; label?: string; icon?: string; start: number; end: number }
 
 export function parse(source: string): ParseResult {
   return new Parser(source).run();
@@ -209,14 +209,35 @@ class Parser {
     while (i < t.length && ID_CHAR.test(t[i]) && !isArrow(t, i)) i++;
     if (i === pos) return undefined;
     const id = t.slice(pos, i).join("");
-    if (t[i] !== "[") return { id, start: pos, end: i };
-    let depth = 0;
-    for (let j = i; j < t.length; j++) {
-      if (t[j] === "[") depth++;
-      else if (t[j] === "]" && --depth === 0) return { id, label: t.slice(i + 1, j).join(""), start: pos, end: j + 1 };
+    const r: Ref = { id, start: pos, end: i };
+    if (t[i] === "[") {
+      let depth = 0, closed = false;
+      for (let j = i; j < t.length; j++) {
+        if (t[j] === "[") depth++;
+        else if (t[j] === "]" && --depth === 0) { r.label = t.slice(i + 1, j).join(""); r.end = j + 1; closed = true; break; }
+      }
+      if (!closed) { this.report("E105", l, i, i + 1); return null; }
     }
-    this.report("E105", l, i, i + 1);
-    return null;
+    if (t[r.end] === "{") return this.attrs(l, t, r);
+    return r;
+  }
+
+  /** `{key: value, ...}` 노드 속성. 지금은 icon 만 */
+  attrs(l: Line, t: string[], r: Ref): Ref | null {
+    const open = r.end, close = t.indexOf("}", open);
+    if (close < 0) { this.report("E109", l, open, open + 1); return null; }
+    let at = open + 1;
+    for (const part of t.slice(open + 1, close).join("").split(",")) {
+      const len = [...part].length;
+      const c = part.indexOf(":");
+      const key = (c < 0 ? part : part.slice(0, c)).trim();
+      const value = c < 0 ? "" : part.slice(c + 1).trim();
+      if (key === "icon" && value) r.icon = value;
+      else if (key) { const k0 = at + [...part].findIndex((ch) => ch.trim()); this.report("E108", l, k0, k0 + [...key].length, { name: key }); return null; }
+      at += len + 1;
+    }
+    r.end = close + 1;
+    return r;
   }
 
   hint(l: Line, t: string[], kind: "pin" | "rank") {
@@ -275,8 +296,9 @@ class Parser {
   declare(l: Line, r: Ref) {
     const span = this.span(l, r.start, r.end);
     const prev = this.nodes.get(r.id);
+    if (prev && r.icon && !prev.icon) prev.icon = r.icon;
     if (!prev) {
-      this.nodes.set(r.id, { id: r.id, label: r.label ?? r.id, span });
+      this.nodes.set(r.id, { id: r.id, label: r.label ?? r.id, span, ...(r.icon ? { icon: r.icon } : {}) });
       if (r.label !== undefined) this.labeled.add(r.id);
       return;
     }

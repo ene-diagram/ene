@@ -1,9 +1,9 @@
 export const CODES = [
-  "E101", "E102", "E103", "E104", "E105", "E106", "E107",
+  "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109",
   "E201", "E203", "E204",
   "E301", "E302", "E303", "E304",
   "E401", "E402", "E403",
-  "W101", "W102", "W103",
+  "W101", "W102", "W103", "W104",
 ] as const;
 export type Code = (typeof CODES)[number];
 
@@ -52,6 +52,8 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E105: { message: "unclosed `[` in node label", hint: "close the label with `]`, e.g. `api[API server]`" },
     E106: { message: "`&` needs an edge on both sides", hint: "join two edges, e.g. `a -> b & a -> c`" },
     E107: { message: 'character "{char}" is not allowed in a node id', hint: "ids use letters, digits, `_` and `-`; put other text in a label: `id[My Label]`" },
+    E108: { message: 'unknown node attribute "{name}"', hint: "only `icon` is supported, e.g. `api{icon: aws:lambda}`" },
+    E109: { message: "`{` of node attributes is not closed", hint: "close it with `}`, e.g. `api{icon: aws:lambda}`" },
     E201: { message: 'branch arm "{arm}" has no steps', hint: "add at least one edge under this `branch` line" },
     E203: { message: "`{block}` block is never closed", hint: "add `end` after the last step of this block" },
     E204: { message: "`end` without an open block", hint: "remove this line or open a block with `branch` or `loop`" },
@@ -65,6 +67,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     W101: { message: 'node "{name}" is used only once and looks like "{suggestion}"', hint: "if it is a typo, rename it; otherwise ignore this warning" },
     W102: { message: 'node "{name}" was labeled "{first}" before, now "{second}"', hint: "the first label is kept; remove one of them" },
     W103: { message: 'edge goes from "{name}" to itself', hint: "self-loops are drawn but usually mean a typo" },
+    W104: { message: 'icon "{name}" was not found in the registered icon packs', hint: "register a pack that has it (ene.registerIconPacks / --icons) or use an SVG URL" },
   },
   ko: {
     E101: { message: "재생할 단계가 없어요", hint: "엣지를 하나 이상 써 주세요. 예: `user -> api : 요청`" },
@@ -74,6 +77,8 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E105: { message: "노드 라벨의 `[` 가 닫히지 않았어요", hint: "`]` 로 닫아 주세요. 예: `api[API 서버]`" },
     E106: { message: "`&` 양쪽에 엣지가 있어야 해요", hint: "엣지 두 개를 이어 주세요. 예: `a -> b & a -> c`" },
     E107: { message: '노드 id 에 "{char}" 는 쓸 수 없어요', hint: "id 는 글자·숫자·`_`·`-` 만 돼요. 다른 글자는 라벨에: `id[내 라벨]`" },
+    E108: { message: '"{name}" 은(는) 알 수 없는 노드 속성이에요', hint: "지금은 `icon` 만 돼요. 예: `api{icon: aws:lambda}`" },
+    E109: { message: "노드 속성의 `{` 가 닫히지 않았어요", hint: "`}` 로 닫아 주세요. 예: `api{icon: aws:lambda}`" },
     E201: { message: '분기 갈래 "{arm}" 에 단계가 없어요', hint: "이 `branch` 줄 아래에 엣지를 하나 이상 써 주세요" },
     E203: { message: "`{block}` 블록이 닫히지 않았어요", hint: "블록의 마지막 단계 뒤에 `end` 를 써 주세요" },
     E204: { message: "열린 블록 없이 `end` 가 나왔어요", hint: "이 줄을 지우거나 `branch`·`loop` 로 블록을 열어 주세요" },
@@ -87,6 +92,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     W101: { message: '"{name}" 노드가 한 번만 쓰였고 "{suggestion}" 와 비슷해요', hint: "오타라면 고치고, 아니라면 무시해도 돼요" },
     W102: { message: '"{name}" 노드 라벨이 처음엔 "{first}", 지금은 "{second}" 예요', hint: "처음 라벨을 써요. 하나를 지워 주세요" },
     W103: { message: '"{name}" 에서 자기 자신으로 가는 엣지예요', hint: "그려지긴 하지만 대개 오타예요" },
+    W104: { message: '등록된 아이콘 팩에서 "{name}" 아이콘을 찾지 못했어요', hint: "그 아이콘이 있는 팩을 등록하거나(ene.registerIconPacks / --icons) SVG URL 을 써 주세요" },
   },
 };
 
