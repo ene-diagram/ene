@@ -1,4 +1,5 @@
-// Builds the demo page: player bundle, icon subset, animated SVGs and demo/index.html.
+// Builds the demo page (demo/) and the landing page assets (site/):
+// player bundle, icon subset, animated SVGs and demo/index.html.
 // Usage: pnpm demo
 import { execFileSync } from "node:child_process";
 import { copyFileSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -50,4 +51,8 @@ ${sources.map(([f, src]) => `<section><h2>${f}</h2>\n<pre class="ene">${esc(src)
 <script src="ene.js"></script><script src="logos-subset.js"></script>
 </body></html>
 `);
-console.log(`demo ready: ${out}index.html`);
+// The landing page uses the same bundle, icon subset and one exported SVG.
+const site = `${root}site/`;
+mkdirSync(site, { recursive: true });
+for (const f of ["ene.js", "ene-elk.js", "logos-subset.js", "01-order.svg"]) copyFileSync(out + f, site + f);
+console.log(`demo ready: ${out}index.html · site assets: ${site}`);
