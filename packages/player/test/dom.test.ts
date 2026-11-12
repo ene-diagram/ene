@@ -129,6 +129,8 @@ describe("player DOM", () => {
     let p = (await render(el, "theme mono\na -> b", { autoplay: false, lang: "en" }))!;
     expect(el.querySelector("svg")!.getAttribute("class")).toBe("ene ene-theme-mono");
     expect(p.toSvg()).toContain("ene-theme-mono");
+    // The page-level rule must not reach other SVGs on the page (zero-specificity, class-scoped)
+    expect(el.querySelector("svg style")?.textContent ?? "").not.toMatch(/(^|[}\s])svg\{/);
     p = (await render(el, "theme mono\na -> b", { autoplay: false, lang: "en", theme: "high-contrast" }))!;
     expect(el.querySelector("svg")!.getAttribute("class")).toBe("ene ene-theme-high-contrast");
     expect(p.toSvg()).toContain("ene-theme-high-contrast");

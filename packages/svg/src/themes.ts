@@ -25,9 +25,14 @@ const vars = (v: ThemeVars) => Object.entries(v).map(([k, c]) => `--${k}:${c}`).
 /** Theme class on the root <svg> */
 export const themeClass = (name: ThemeName = "default") => `ene-theme-${name}`;
 
-/** Variable rules for one theme: light, and dark under `prefers-color-scheme: dark` */
-export function themeCss(name: ThemeName = "default"): string {
-  const t = THEME_VARS[name] ?? THEME_VARS.default, sel = `svg.${themeClass(name)}`;
+/**
+ * Variable rules for one theme: light, and dark under `prefers-color-scheme: dark`.
+ * `standalone` (an exported SVG file) uses a plain `svg` selector, which every SVG renderer understands.
+ * Inline (the player, possibly several themes on one page) scopes the rule to the theme class with
+ * zero specificity, so any host-page rule that sets the variables wins.
+ */
+export function themeCss(name: ThemeName = "default", standalone = false): string {
+  const t = THEME_VARS[name] ?? THEME_VARS.default, sel = standalone ? "svg" : `:where(svg.${themeClass(name)})`;
   return `${sel}{${vars(t.light)}}@media (prefers-color-scheme: dark){${sel}{${vars(t.dark)}}}`;
 }
 

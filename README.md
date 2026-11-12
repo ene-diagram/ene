@@ -312,7 +312,7 @@ Every colour is a CSS variable on the root `<svg class="ene ene-theme-<name>">`:
 | `--fg` / `--fg2` | node labels and title / edge labels |
 | `--ok` / `--fail` / `--reply` | request, failure and response highlights and dots |
 
-A page that embeds the player (or an inline SVG) can override them. The SVG's own rule is `svg.ene-theme-<name>`, so use a more specific selector:
+A page that embeds the player can override them with any selector (the player's own rule has zero specificity). An exported SVG pasted inline sets them with a plain `svg` rule, so use something more specific; this works for both:
 
 ```css
 :root svg.ene { --ok: #e11d48; --bg: transparent; }

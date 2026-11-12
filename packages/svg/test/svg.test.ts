@@ -1,6 +1,6 @@
 import { parse, buildTimeline } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
-import { renderSvg, THEMES, THEME_VARS, type ThemeName } from "../src/index";
+import { renderSvg, themeCss, THEMES, THEME_VARS, type ThemeName } from "../src/index";
 const make = async (src: string) => {
   const { doc } = parse(src); const tl = buildTimeline(doc);
   return renderSvg(await layout(doc, tl), tl, { title: doc.title });
@@ -36,9 +36,12 @@ describe("themes", () => {
     for (const t of THEMES) {
       const svg = out(t);
       expect(svg).toContain(`class="ene ene-theme-${t}"`);
-      expect(svg).toContain(`svg.ene-theme-${t}{--bg:${THEME_VARS[t].light.bg}`);
-      expect(svg).toContain(`@media (prefers-color-scheme: dark){svg.ene-theme-${t}{--bg:${THEME_VARS[t].dark.bg}`);
+      expect(svg).toContain(`svg{--bg:${THEME_VARS[t].light.bg}`);
+      expect(svg).toContain(`@media (prefers-color-scheme: dark){svg{--bg:${THEME_VARS[t].dark.bg}`);
     }
+  });
+  it("scopes inline rules to the theme class with zero specificity", () => {
+    expect(themeCss("mono")).toMatch(/^:where\(svg\.ene-theme-mono\)\{--bg:/);
   });
   it("falls back to default for no or unknown theme", () => {
     expect(out()).toContain("ene-theme-default");

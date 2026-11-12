@@ -165,7 +165,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
   const W = l.width, H = l.height + offY;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="ene ${themeClass(theme)}" role="img" font-family="Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif">` +
     `<title>${esc(opts.title ?? "ene diagram")}</title><desc>${esc(desc)}</desc><style>${STYLE}
-  ${themeCss(theme)}</style>${ARROW_DEFS}` +
+  ${themeCss(theme, true)}</style>${ARROW_DEFS}` +
     `<rect width="100%" height="100%" class="bg"/>` +
     (opts.title ? `<text x="40" y="34" class="t">${esc(opts.title)}</text>` : "") +
     `<g transform="translate(0 ${offY})">${(l.groups ?? []).map(groupMarkup).join("")}${sequenceMarkup(l)}${base}${nodes}${hl}${labels}${dots}</g></svg>`;
