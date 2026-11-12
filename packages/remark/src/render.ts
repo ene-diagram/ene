@@ -61,7 +61,11 @@ export async function renderEne(src: string, opts: RenderOptions = {}): Promise<
 export function scopeSvg(svg: string, prefix: string): string {
   const scope = `${prefix}root`;
   return svg
-    .replace(/^<svg /, `<svg class="${scope}" `)
+    // Add the scope to the root's class list (it may already carry `ene ene-theme-…`; a second class attribute would be dropped by HTML parsers)
+    .replace(/^<svg([^>]*)>/, (_, attrs: string) => {
+      const withClass = attrs.replace(/ class="([^"]*)"/, (_m: string, c: string) => ` class="${c} ${scope}"`);
+      return `<svg${withClass === attrs ? ` class="${scope}"${attrs}` : withClass}>`;
+    })
     .replace(/<style>([\s\S]*?)<\/style>/, (_, css: string) => `<style>${scopeCss(css, scope)}</style>`)
     .replace(/ id="([^"]+)"/g, ` id="${prefix}$1"`)
     .replace(/ href="#([^"]+)"/g, ` href="#${prefix}$1"`)

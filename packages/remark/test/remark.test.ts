@@ -53,7 +53,7 @@ describe("remark-ene static", () => {
       if (m[1].trim().startsWith("@")) continue;
       for (const sel of m[1].split(",")) expect(sel.trim()).toMatch(/^(svg)?\.ene-[\w-]+root\b/);
     }
-    expect(html).toMatch(/<svg class="ene-[\w-]+root"/);
+    expect(html).toMatch(/<svg [^>]*class="[^"]*\bene-[\w-]+root"/);
   });
   it("does not rewrite reference-like text in labels", async () => {
     const { html } = await toHtml(md(fence('user -> api : url(#x) href="#y" id=z')));
@@ -140,5 +140,15 @@ describe("themes and notes from main", () => {
     expect(bgRules[0].join(" ")).not.toContain("#000000");
     expect(bgRules[1].join(" ")).toContain("#000000");
     expect(html).toContain('class="note"');
+  });
+  it("puts the scope into the one class attribute of the root svg, next to the theme class", async () => {
+    const { html } = await toHtml(md(fence("theme mono\na -> b")));
+    const root = html.match(/<svg[^>]*>/)![0];
+    expect(root.match(/ class=/g)).toHaveLength(1);
+    const cls = root.match(/ class="([^"]*)"/)![1].split(" ");
+    expect(cls).toContain("ene-theme-mono");
+    const scoped = html.match(/svg\.([\w-]+-root)\.ene-theme-mono\{--bg:/);
+    expect(scoped).toBeTruthy();
+    expect(cls).toContain(scoped![1]);
   });
 });
