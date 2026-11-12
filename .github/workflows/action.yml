@@ -1,0 +1,39 @@
+name: Action
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Published CLI from npm, as users run it
+      - name: Check fixtures (npm CLI)
+        uses: ./action
+        with:
+          files: action/test/fixtures/*.ene
+          mode: check
+          version: "0.1.0"  # exact: fixtures were rendered by this release
+      - name: Make a fixture stale
+        run: echo "api -> db : read" >> action/test/fixtures/flow.ene
+      - name: Check fails on a stale SVG
+        id: stale
+        continue-on-error: true
+        uses: ./action
+        with:
+          files: action/test/fixtures/*.ene
+          mode: check
+          version: "0.1.0"  # exact: fixtures were rendered by this release
+      - name: Expect the failure
+        env:
+          OUTCOME: ${{ steps.stale.outcome }}
+          CHANGED: ${{ steps.stale.outputs.changed }}
+        run: |
+          test "$OUTCOME" = failure
+          test "$CHANGED" = action/test/fixtures/flow.svg

@@ -263,6 +263,47 @@ export default defineConfig({ markdown: { remarkPlugins: [remarkEne] } });
 
 Setup for each framework, options and error handling: [packages/remark](packages/remark/README.md).
 
+### In GitHub Actions
+
+The action in [`action/`](action/action.yml) renders `.ene` files to SVGs with the published `@ene-diagram/cli`. In `check` mode it fails a PR when a diagram has errors, is not formatted (`ene fmt --check`), or its SVG is missing or stale, with annotations on the offending lines. In `commit` mode it regenerates the SVGs and pushes a commit.
+
+```yaml
+# .github/workflows/diagrams.yml
+name: Diagrams
+on:
+  pull_request:
+    paths: ["**/*.ene"]
+  push:
+    branches: [main]
+    paths: ["**/*.ene"]
+jobs:
+  diagrams:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit mode only; check mode needs read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ene-diagram/ene/action@main
+        with:
+          files: docs/**/*.ene
+          mode: ${{ github.event_name == 'push' && 'commit' || 'check' }}
+          version: "0.1"
+```
+
+| Input | Default | |
+|---|---|---|
+| `files` | `**/*.ene` | globs, one per line or comma-separated (tracked and untracked, non-ignored files) |
+| `output-dir` | next to each file | write SVGs here; the path below the glob's fixed prefix is kept (`docs/**/*.ene` → `out/a/b.svg`) |
+| `mode` | `check` | `check` or `commit` |
+| `version` | `0.1` | `@ene-diagram/cli` version or range |
+| `choice` | | branch arms, like `--choice 0,1` |
+| `icons` | | icon pack JSON files (`--icons`) |
+| `network` | `false` | allow fetching `https://` icons; otherwise `--no-network` |
+| `fmt-check` | `true` | also run `ene fmt --check` |
+| `commit-message` | `chore: regenerate ene diagrams` | |
+
+The `changed` output lists the SVGs that were (or would be) rewritten. Commit mode pushes to the checked-out branch with `GITHUB_TOKEN`, which does not trigger another workflow run. It needs a checked-out branch: on `pull_request` runs the default checkout is a detached merge commit, so check out the PR branch with `actions/checkout` `ref: ${{ github.head_ref }}` (commit mode refuses a detached HEAD). It cannot push to pull requests from forks, so use `check` there. The workflow needs `permissions: contents: write`.
+
 ### With Claude
 
 The repo ships a Claude skill (`skills/ene`) that writes a `.ene` file from a description or from your code, runs `ene check --json` until it is clean, formats it and renders the SVG.
