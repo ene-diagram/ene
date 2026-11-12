@@ -125,6 +125,8 @@ class Parser {
       if (rest !== "flow" && rest !== "sequence") return this.report("E112", l, 8, t.length, { value: rest });
       return void (this.doc.kind = rest);
     }
+    const EXAMPLES: Record<string, string> = { speed: "speed 1.2", wait: "wait 0.5", loop: "loop 3" };
+    if (!rest && word in EXAMPLES) return this.report("E307", l, 0, t.length, { keyword: word, example: EXAMPLES[word] });
     if (word === "speed") {
       const n = Number(rest);
       if (!rest || !(n > 0) || !Number.isFinite(n)) return this.report("E304", l, 0, t.length, { value: rest });
