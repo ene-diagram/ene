@@ -1,13 +1,22 @@
-import ElkModule from "elkjs/lib/elk.bundled.js";
 import type { ELK as ElkApi } from "elkjs/lib/elk-api.js";
+export type { ElkApi };
 import type { Document, Timeline } from "@ene/core";
 
 export interface LNode { id: string; label: string; icon?: string; x: number; y: number; w: number; h: number }
 export interface LEdge { index: number; d: string; mid: { x: number; y: number } }
 export interface Layout { nodes: LNode[]; edges: LEdge[]; width: number; height: number }
 
-// elkjs 는 CJS — 번들러/Node 에 따라 default 가 한 겹 더 감싸질 수 있다
-const ELK = ((ElkModule as unknown as { default?: unknown }).default ?? ElkModule) as unknown as new () => ElkApi;
+export interface LayoutOptions {
+  /** 미리 만든 ELK 인스턴스. 없으면 elkjs 를 그때 불러온다 (브라우저 플레이어는 별도 파일로 주입) */
+  elk?: Pick<ElkApi, "layout">;
+}
+
+async function defaultElk(): Promise<Pick<ElkApi, "layout">> {
+  const m = await import("elkjs/lib/elk.bundled.js");
+  // elkjs 는 CJS — 환경에 따라 default 가 한 겹 더 감싸질 수 있다
+  const Ctor = ((m as { default?: unknown }).default ?? m) as { default?: unknown };
+  return new ((Ctor.default ?? Ctor) as new () => ElkApi)();
+}
 
 export const NODE_H = 52;
 /** 아이콘(24px) + 여백이 차지하는 가로 공간 */
@@ -21,7 +30,7 @@ export function textWidth(s: string): number {
   return w;
 }
 
-export async function layout(doc: Document, tl: Timeline): Promise<Layout> {
+export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = {}): Promise<Layout> {
   const nodes: LNode[] = [...doc.nodes.values()].map((n) => ({
     id: n.id, label: n.label, ...(n.icon ? { icon: n.icon } : {}), x: 0, y: 0,
     w: Math.max(110, Math.ceil(textWidth(n.label) + 36 + (n.icon ? ICON_SPACE : 0))), h: NODE_H,
@@ -38,7 +47,7 @@ export async function layout(doc: Document, tl: Timeline): Promise<Layout> {
     seen.add(key);
     elkEdges.push({ id: `e${i}`, sources: [e.from], targets: [e.to] });
   });
-  const elk = new ELK();
+  const elk = opts.elk ?? (await defaultElk());
   const g = await elk.layout({
     id: "root",
     layoutOptions: {

@@ -1,7 +1,11 @@
-import { autoRun, render, registerIconPacks } from "./player.js";
+import { autoRun, render, registerIconPacks, setElkUrl } from "./player.js";
 import { createController } from "./controller.js";
-export { render, autoRun, registerIconPacks, createController };
-declare global { interface Window { eneConfig?: { startOnLoad?: boolean; lang?: "en" | "ko" } } }
+export { render, autoRun, registerIconPacks, setElkUrl, createController };
+// ene-elk.js 는 기본으로 ene.js 와 같은 폴더에서 찾는다
+const me = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null)?.src : undefined;
+if (me) setElkUrl(new URL("ene-elk.js", me).href);
+declare global { interface Window { eneConfig?: { startOnLoad?: boolean; lang?: "en" | "ko"; elkUrl?: string } } }
+if (typeof window !== "undefined" && window.eneConfig?.elkUrl) setElkUrl(window.eneConfig.elkUrl);
 if (typeof window !== "undefined" && window.eneConfig?.startOnLoad !== false) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => void autoRun(undefined, { lang: window.eneConfig?.lang }));
   else void autoRun(undefined, { lang: window.eneConfig?.lang });

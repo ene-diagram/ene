@@ -11,7 +11,7 @@
     }
   },
   "scripts": {
-    "bundle": "esbuild src/browser.ts --bundle --format=iife --global-name=ene --outfile=dist/ene.js --minify"
+    "bundle": "esbuild src/browser.ts --bundle --format=iife --global-name=ene --outfile=dist/ene.js --minify --external:elkjs/lib/elk.bundled.js && cp \"$(node -p \"require.resolve('elkjs/lib/elk.bundled.js',{paths:['../layout']})\")\" dist/ene-elk.js"
   },
   "dependencies": {
     "@ene/core": "workspace:*",

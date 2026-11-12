@@ -1,9 +1,27 @@
 import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
-import { layout as computeLayout, type Layout } from "@ene/layout";
+import { layout as computeLayout, type ElkApi, type Layout } from "@ene/layout";
 import { STYLE, esc, iconFromSvgText, nodeMarkup } from "@ene/svg";
 import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
+
+// ---- ELK 지연 로딩: ene.js 옆의 ene-elk.js 를 처음 필요할 때 한 번만 불러온다 ----
+let elkUrl: string | undefined;
+let elkPromise: Promise<ElkApi> | undefined;
+/** ene-elk.js 위치 지정 (기본: ene.js 와 같은 폴더) */
+export function setElkUrl(url: string): void { elkUrl = url; }
+function loadElk(): Promise<ElkApi> {
+  const w = window as unknown as { ELK?: new () => ElkApi };
+  if (w.ELK) return Promise.resolve(new w.ELK());
+  elkPromise ??= new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = elkUrl ?? "ene-elk.js";
+    s.onload = () => (w.ELK ? resolve(new w.ELK()) : reject(new Error("ene-elk.js did not define ELK")));
+    s.onerror = () => { elkPromise = undefined; reject(new Error(`cannot load ${s.src}`)); };
+    document.head.appendChild(s);
+  });
+  return elkPromise;
+}
 export interface Player { controller: Controller; setChoices(choices: number[]): void; destroy(): void }
 
 const NS = "http://www.w3.org/2000/svg";
@@ -82,7 +100,15 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   if (iconWarnings.length) console.warn(formatAll(source, iconWarnings, lang));
   let choices: number[] = [];
   let tl = buildTimeline(doc, { choices });
-  const lay = await computeLayout(doc, tl);
+  let lay: Layout;
+  try { lay = await computeLayout(doc, tl, { elk: await loadElk() }); }
+  catch (e) {
+    const pre = document.createElement("pre");
+    pre.className = "ene-error";
+    pre.textContent = `ene: ${(e as Error).message}`;
+    el.appendChild(pre);
+    return undefined;
+  }
   const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const root = document.createElement("div");

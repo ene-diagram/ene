@@ -86,3 +86,9 @@ test("large example lays out in under 3s", async () => {
   const t0 = performance.now(); const l = await run(src);
   expect(performance.now() - t0).toBeLessThan(3000); expect(l.nodes.length).toBe(28);
 });
+test("accepts an injected ELK instance", async () => {
+  let called = 0;
+  const fake = { layout: async (g: any) => { called++; return { ...g, children: g.children.map((c: any, i: number) => ({ ...c, x: i * 300, y: 0 })) }; } };
+  const { doc } = parse("a -> b"); const l = await layout(doc, buildTimeline(doc), { elk: fake as any });
+  expect(called).toBe(1); expect(l.nodes[1].x - l.nodes[0].x).toBe(300);
+});
