@@ -1,6 +1,6 @@
 {
   "name": "@ene/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Parser, timeline and diagnostics for the ene animated diagram language",
   "license": "MIT",
   "repository": {
@@ -25,5 +25,8 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

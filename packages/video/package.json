@@ -1,6 +1,6 @@
 {
   "name": "@ene/video",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "GIF and MP4 export for ene diagrams (needs Chrome and ffmpeg on the machine)",
   "license": "MIT",
   "repository": {
@@ -25,5 +25,8 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

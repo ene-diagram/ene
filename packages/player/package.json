@@ -1,6 +1,6 @@
 {
   "name": "@ene/player",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Browser player for ene diagrams",
   "license": "MIT",
   "repository": {
@@ -37,5 +37,8 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

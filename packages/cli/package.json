@@ -1,6 +1,6 @@
 {
   "name": "@ene/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Command-line renderer for ene diagrams",
   "license": "MIT",
   "repository": {
@@ -29,5 +29,8 @@
   },
   "optionalDependencies": {
     "@ene/video": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

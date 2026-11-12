@@ -1,6 +1,6 @@
 {
   "name": "@ene/svg",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Animated SVG renderer for ene diagrams",
   "license": "MIT",
   "repository": {
@@ -29,5 +29,8 @@
   "dependencies": {
     "@ene/core": "workspace:*",
     "@ene/layout": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
