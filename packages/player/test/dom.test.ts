@@ -100,6 +100,8 @@ describe("player DOM", () => {
     expect(el2.querySelector<HTMLInputElement>(".ene-opt input")!.checked).toBe(false);
     expect(el2.querySelector<HTMLSelectElement>('select[aria-label="Branch 2"]')!.value).toBe("0");
     expect(p2.choices).toEqual([1, 0]);
+    p2.setChoices([2]); // out of range: the timeline plays arm 0, so the box shows checked
+    expect(el2.querySelector<HTMLInputElement>(".ene-opt input")!.checked).toBe(true);
     p2.destroy();
   });
 

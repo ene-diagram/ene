@@ -245,7 +245,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   // One control per branch, indexed like tl.branches (an `opt` checkbox or an arm menu)
   const branchCtls: (HTMLSelectElement | HTMLInputElement)[] = [];
   const syncSels = () => branchCtls.forEach((c, bi) => {
-    if (c instanceof HTMLInputElement) { c.checked = (choices[bi] ?? 0) === 0; return; }
+    if (c instanceof HTMLInputElement) { c.checked = choices[bi] !== 1; return; // only arm 1 skips; out-of-range falls back to arm 0 in buildTimeline }
     c.value = String(choices[bi] ?? 0); if (c.selectedIndex < 0) c.value = "0";
   });
   const pick = (bi: number, arm: number) => {
@@ -260,7 +260,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       const lab = document.createElement("label");
       lab.className = "ene-opt";
       const box = document.createElement("input");
-      box.type = "checkbox"; box.checked = (choices[bi] ?? 0) === 0;
+      box.type = "checkbox"; box.checked = choices[bi] !== 1;
       branchCtls[bi] = box;
       box.addEventListener("change", () => pick(bi, box.checked ? 0 : 1));
       lab.append(box, b.arms[0] || "opt");
