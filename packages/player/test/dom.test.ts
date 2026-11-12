@@ -70,6 +70,10 @@ describe("player DOM", () => {
     expect(el.querySelector(".ene-opt")!.textContent).toBe("cached");
     expect(box.checked).toBe(true);
     expect(p.controller.total).toBeCloseTo(3 * 1.2);
+    const ev = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    box.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    expect(p.controller.playing).toBe(false);
     box.checked = false; box.dispatchEvent(new Event("change"));
     expect(p.controller.total).toBeCloseTo(2 * 1.2);
     p.destroy();

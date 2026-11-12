@@ -232,6 +232,9 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   el.appendChild(root);
 
   root.addEventListener("keydown", (ev) => {
+    // Form controls (the `opt` checkbox, menus) keep their own keys
+    const tag = (ev.target as HTMLElement | null)?.tagName;
+    if (tag === "INPUT" || tag === "SELECT") return;
     if (ev.key === " ") { ctl.toggle(); ev.preventDefault(); }
     else if (ev.key === "ArrowRight") { ctl.pause(); ctl.next(); ev.preventDefault(); }
     else if (ev.key === "ArrowLeft") { ctl.pause(); ctl.prev(); ev.preventDefault(); }
