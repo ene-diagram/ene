@@ -1,6 +1,20 @@
 {
   "name": "@ene/player",
   "version": "0.0.0",
+  "description": "Browser player for ene diagrams",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slop-makers/ene.git",
+    "directory": "packages/player"
+  },
+  "homepage": "https://github.com/slop-makers/ene#readme",
+  "bugs": "https://github.com/slop-makers/ene/issues",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
