@@ -1,5 +1,5 @@
 import { scan, type Line } from "./scan.js";
-import { suggest, type Code } from "./diagnostics.js";
+import { KEYWORDS, suggest, type Code } from "./diagnostics.js";
 import type { Diagnostic, Document, Edge, NodeDecl, ParseResult, Span, Stmt } from "./types.js";
 
 const ID_CHAR = /[\p{L}\p{N}_-]/u;
@@ -18,6 +18,7 @@ type Frame =
 
 class Parser {
   private stack: Frame[] = [];
+  private uses = new Map<string, { line: Line; from: number; to: number }[]>();
   private hints: { kind: "pin" | "rank"; ids: { id: string; from: number; to: number }[]; line: Line; col?: number; row?: number }[] = [];
   private nodes = new Map<string, NodeDecl>();
   private labeled = new Set<string>();
@@ -36,6 +37,7 @@ class Parser {
       this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind });
     }
     this.resolveHints();
+    this.typos();
     if (this.doc.body.length === 0 && !this.diags.some((d) => d.severity === "error"))
       this.diags.push({ code: "E101", severity: "error", span: { line: 1, col: 1, length: 0 }, args: {} });
     return { doc: this.doc, diagnostics: this.diags };
@@ -47,6 +49,10 @@ class Parser {
     return { line: l.no, col, length: Math.max(1, to - from) };
   }
   report(code: Code, l: Line, from: number, to: number, args: Record<string, string> = {}) {
+    if (code === "E102" && args.word && !args.suggestion) {
+      const sug = suggest(args.word.split(/\s/, 1)[0], KEYWORDS);
+      if (sug) args = { ...args, suggestion: sug };
+    }
     this.diags.push({ code, severity: code.startsWith("W") ? "warning" : "error", span: this.span(l, from, to), args });
   }
 
@@ -181,6 +187,8 @@ class Parser {
     }
     this.declare(l, a);
     this.declare(l, b);
+    for (const r of [a, b]) this.uses.set(r.id, [...(this.uses.get(r.id) ?? []), { line: l, from: r.start, to: r.end }]);
+    if (a.id === b.id) this.report("W103", l, begin, pos, { name: a.id });
     const edge: Edge = { from: a.id, to: b.id, kind: arrow === "-x" ? "fail" : "ok", label, span: this.span(l, begin, end) };
     if (duration !== undefined) edge.duration = duration;
     return { edge, next };
@@ -222,6 +230,17 @@ class Parser {
       return this.report("E402", l, at.from, at.to, { value: ids[1]?.id ?? "" });
     }
     this.hints.push({ kind, ids: [ids[0]], line: l, col: Number(coord[1]), row: Number(coord[2]) });
+  }
+
+  /** 한 번만 쓰인 id 가 먼저 선언된 id 와 비슷하면 W101 */
+  typos() {
+    const ids = [...this.nodes.keys()];
+    ids.forEach((id, i) => {
+      const u = this.uses.get(id) ?? [];
+      if (u.length !== 1) return;
+      const sug = suggest(id, ids.slice(0, i));
+      if (sug) this.report("W101", u[0].line, u[0].from, u[0].to, { name: id, suggestion: sug });
+    });
   }
 
   resolveHints() {
