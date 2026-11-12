@@ -208,6 +208,47 @@ ene diagram.mmd -o diagram.svg               # convert and render in one go
 
 Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. Notes become comments, and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
 
+### In GitHub Actions
+
+The action in [`action/`](action/action.yml) renders `.ene` files to SVGs with the published `@ene-diagram/cli`. In `check` mode it fails a PR when a diagram has errors, is not formatted (`ene fmt --check`), or its SVG is missing or stale, with annotations on the offending lines. In `commit` mode it regenerates the SVGs and pushes a commit.
+
+```yaml
+# .github/workflows/diagrams.yml
+name: Diagrams
+on:
+  pull_request:
+    paths: ["**/*.ene"]
+  push:
+    branches: [main]
+    paths: ["**/*.ene"]
+jobs:
+  diagrams:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit mode only; check mode needs read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ene-diagram/ene/action@main
+        with:
+          files: docs/**/*.ene
+          mode: ${{ github.event_name == 'push' && 'commit' || 'check' }}
+          version: "0.1"
+```
+
+| Input | Default | |
+|---|---|---|
+| `files` | `**/*.ene` | globs, one per line or comma-separated (tracked and untracked, non-ignored files) |
+| `output-dir` | next to each file | write SVGs here; the path below the glob's fixed prefix is kept (`docs/**/*.ene` → `out/a/b.svg`) |
+| `mode` | `check` | `check` or `commit` |
+| `version` | `0.1` | `@ene-diagram/cli` version or range |
+| `choice` | | branch arms, like `--choice 0,1` |
+| `icons` | | icon pack JSON files (`--icons`) |
+| `network` | `false` | allow fetching `https://` icons; otherwise `--no-network` |
+| `fmt-check` | `true` | also run `ene fmt --check` |
+| `commit-message` | `chore: regenerate ene diagrams` | |
+
+The `changed` output lists the SVGs that were (or would be) rewritten. Commit mode pushes to the checked-out branch with `GITHUB_TOKEN`, which does not trigger another workflow run; it cannot push to pull requests from forks, so use `check` there.
+
 ### With Claude
 
 The repo ships a Claude skill (`skills/ene`) that writes a `.ene` file from a description or from your code, runs `ene check --json` until it is clean, formats it and renders the SVG.
