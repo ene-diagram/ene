@@ -128,12 +128,23 @@ end
 
 ## 시작하기
 
-ene 는 아직 npm 에 배포되지 않았어요. 소스에서 빌드해 써요.
-
-**필요한 것:** Node.js 20 이상, pnpm 10(`corepack enable` 을 켜면 `package.json` 에 고정된 버전을 써요).
+**필요한 것:** Node.js 20 이상.
 
 ```bash
-git clone https://github.com/slop-makers/ene.git
+npm install -g @ene-diagram/cli
+
+printf 'user -> api : GET /\napi --> user : 200\n' > flow.ene
+ene flow.ene -o flow.svg
+```
+
+설치 없이 한 번만 돌리려면 `npx @ene-diagram/cli flow.ene -o flow.svg` 를 써요.
+
+### 소스에서
+
+pnpm 10 도 필요해요(`corepack enable` 을 켜면 `package.json` 에 고정된 버전을 써요).
+
+```bash
+git clone https://github.com/ene-diagram/ene.git
 cd ene
 pnpm install
 pnpm build          # 모든 패키지와 브라우저 번들을 빌드해요
@@ -299,7 +310,7 @@ ene flow.ene -o miss.svg --choice 1
 
 ## 릴리스
 
-아직 공개되지 않았습니다.
+0.1.0 이 npm 의 [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) 스코프에 있어요: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player`, 선택 사항인 `video`.
 
 ## 관련 프로젝트
 

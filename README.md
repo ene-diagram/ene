@@ -128,12 +128,23 @@ More examples in [`packages/core/examples`](packages/core/examples).
 
 ## Getting started
 
-ene is not published to npm yet; use it from source.
-
-**Requirements:** Node.js 20 or newer, pnpm 10 (`corepack enable` picks the pinned version from `package.json`).
+**Requirements:** Node.js 20 or newer.
 
 ```bash
-git clone https://github.com/slop-makers/ene.git
+npm install -g @ene-diagram/cli
+
+printf 'user -> api : GET /\napi --> user : 200\n' > flow.ene
+ene flow.ene -o flow.svg
+```
+
+Or run it once without installing: `npx @ene-diagram/cli flow.ene -o flow.svg`.
+
+### From source
+
+Needs pnpm 10 as well (`corepack enable` picks the pinned version from `package.json`).
+
+```bash
+git clone https://github.com/ene-diagram/ene.git
 cd ene
 pnpm install
 pnpm build          # compiles all packages and the browser bundle
@@ -299,7 +310,7 @@ One line is one step, played top to bottom. The complete reference, with common 
 
 ## Release
 
-ene has not been released yet.
+0.1.0 is on npm under the [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) scope: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player` and the optional `video`.
 
 ## Related projects
 
