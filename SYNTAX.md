@@ -20,7 +20,7 @@ without errors, and every "mistake" block produces the code shown — both are c
 | `api[Order API]` | label shown on the node (declare once, then use the id) |
 | `db{shape: db}` | shape: `box` (default), `round`, `db`, `queue`, `circle` |
 | `api{color: #f59e0b}` | color: `#rgb`, `#rrggbb`, `#rrggbbaa` or a CSS color name |
-| `api{icon: logos:redis}` | icon from a registered pack (`prefix:name`) or an SVG address (`https://…`, `./x.svg`, `data:image/svg+xml,…`) |
+| `api{icon: logos:redis}` | icon from a registered pack (`prefix:name`) or an SVG address (`https://…`, `./x.svg`) |
 | `api[API]{icon: logos:nodejs, shape: round}` | label and attributes together; attributes are comma-separated |
 
 ```ene
@@ -110,6 +110,13 @@ rank api db
 ## Common mistakes
 
 Each block is a wrong input and the diagnostic code it produces.
+
+Inline data URLs are not supported in node attributes: the comma is an attribute separator.
+Save the SVG to a file or serve it over HTTP(S), then use `icon: ./x.svg` or its URL.
+
+```ene E108
+a{icon: data:image/svg+xml,%3Csvg/%3E} -> b
+```
 
 Arrow with nothing after it:
 
