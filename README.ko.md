@@ -207,7 +207,7 @@ ene from-mermaid README.md -o flow.ene       # 마크다운 파일의 첫 ```mer
 ene diagram.mmd -o diagram.svg               # 변환과 렌더링을 한 번에
 ```
 
-메시지, 참여자, `alt`/`else`, `opt`, `loop`, `par` 를 변환해요. `Note` 는 바로 위 메시지의 `note` 가 되고(위에 메시지가 없으면 주석), 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요. `sequenceDiagram` 만 지원해요.
+메시지, 참여자, `alt`/`else`, `opt`(`break` 도 `opt` 로), `loop`, `par`, 비동기 화살표 `-)`(`~>` 로) 를 변환해요. `Note` 는 바로 위 메시지의 `note` 가 되고(위에 메시지가 없으면 주석), 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요. `sequenceDiagram` 만 지원해요.
 
 ### Claude 와 함께
 
@@ -261,7 +261,7 @@ CLI 에서는 `--icons pack.json`(여러 번 가능)을 써요. `ene icons <svg-
 
 ### 플레이어와 SVG 의 갈림길
 
-플레이어는 `branch` 마다 메뉴를 보여줘서 다른 경로를 다시 재생할 수 있어요. 내보낸 SVG 에는 컨트롤이 없어서 한 경로만 재생해요. 경로는 `--choice` 로 골라요(branch 순서대로 0부터 센 갈래 번호, 기본값은 모두 `0`):
+플레이어는 `branch` 마다 메뉴를 보여줘서 다른 경로를 다시 재생할 수 있어요. 내보낸 SVG 에는 컨트롤이 없어서 한 경로만 재생해요. 경로는 `--choice` 로 골라요(`branch`·`opt` 순서대로 0부터 센 갈래 번호, `opt` 는 `0` = 실행·`1` = 건너뜀, 기본값은 모두 `0`):
 
 ```bash
 ene flow.ene -o miss.svg --choice 1
@@ -286,11 +286,13 @@ ene flow.ene -o miss.svg --choice 1
 | `a -> b : 라벨` | 요청 |
 | `a --> b : 라벨` | 응답 (점선) |
 | `a -x b : 라벨` | 실패 |
+| `a ~> b : 라벨` | 비동기 (보내고 기다리지 않음) |
 | `a -> b & a -> c` | 동시에 |
 | `a -> b : 라벨 @2s` | 이 엣지는 2초 동안 |
 | `note 설명` | 바로 위 단계의 설명 자막 |
 | `wait 0.5` | 다음 단계 전에 쉬기 |
 | `branch …` / `else …` / `end` | 갈림길 (플레이어에서 선택) |
+| `opt …` / `end` | 선택 단계 (플레이어에서 켜고 끄기) |
 | `loop 3` … `end` | 반복 |
 | `group vpc[VPC] : a b` | 묶음 상자 |
 | `id[라벨]{icon: …, shape: db, color: #f59e0b}` | 노드 라벨과 모양 |

@@ -34,6 +34,7 @@ const PLAYER_CSS = `
 .ene-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:#3a4048}
 .ene-bar button,.ene-bar select{font:inherit;padding:4px 10px;border:1px solid #c1c8d2;border-radius:6px;background:#fff;color:#1c2024;cursor:pointer}
 .ene-bar button:hover{background:#f1f3f5}
+.ene-opt{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
 .ene-note{font-size:14px;line-height:1.5;color:#3a4048;min-height:1.5em;width:0;min-width:100%}
 .ene-step{margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
 .ene-error{color:#e5484d;background:#fff5f5;border:1px solid #ffd1d1;border-radius:8px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre;overflow:auto}
@@ -206,6 +207,17 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   rateSel.addEventListener("change", () => ctl.setRate(Number(rateSel.value)));
   bar.appendChild(rateSel);
   tl.branches.forEach((b, bi) => {
+    if (b.optional) {
+      // `opt`: a toggle; checked = the steps play (arm 0), unchecked = skipped (arm 1)
+      const lab = document.createElement("label");
+      lab.className = "ene-opt";
+      const box = document.createElement("input");
+      box.type = "checkbox"; box.checked = true;
+      box.addEventListener("change", () => { choices[bi] = box.checked ? 0 : 1; rebuild(); });
+      lab.append(box, b.arms[0] || "opt");
+      bar.appendChild(lab);
+      return;
+    }
     const sel = document.createElement("select");
     sel.setAttribute("aria-label", `${ko ? "분기" : "Branch"} ${bi + 1}`);
     b.arms.forEach((a, ai) => sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai))));
