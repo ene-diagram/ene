@@ -1,0 +1,13 @@
+title 검색 인덱싱 파이프라인
+app[앱] -> db[MySQL] : 상품 수정
+db -> cdc[CDC 커넥터] : binlog
+cdc -> kafka[Kafka] : product-changed
+kafka -> indexer[인덱서] : 소비
+indexer -> es[Elasticsearch] : 문서 갱신
+user[사용자] -> search[검색 API] : 검색
+search -> es : query
+es -> search : 결과
+search -> user : 200
+pin user 0,2
+pin search 3,2
+rank db cdc

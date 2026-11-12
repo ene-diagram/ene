@@ -1,0 +1,10 @@
+title 결제 재시도
+order[주문 서비스] -> pg[결제 게이트웨이] : 승인 요청
+pg -x order : timeout
+wait 1
+order -> pg : 승인 요청 (재시도 1)
+pg -x order : 503
+wait 2
+order -> pg : 승인 요청 (재시도 2)
+pg -> order : 승인 완료
+order -> ledger[원장] : 결제 기록

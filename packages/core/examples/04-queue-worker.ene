@@ -1,0 +1,8 @@
+title 메시지 큐 워커
+producer[주문 서비스] -> queue[SQS] : 주문 생성 이벤트
+loop 3
+  worker[워커] -> queue : poll
+  queue -> worker : 메시지
+  worker -> mail[메일 서버] : 확인 메일 발송
+  worker -> queue : delete
+end

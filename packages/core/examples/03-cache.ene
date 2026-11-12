@@ -1,0 +1,12 @@
+title 캐시 hit / miss
+client[클라이언트] -> api[API] : GET /product/42
+api -> redis[Redis] : GET product:42
+branch 캐시 hit
+  redis -> api : 상품 데이터
+branch 캐시 miss
+  redis -> api : nil
+  api -> db[MySQL] : SELECT
+  db -> api : 상품 데이터
+  api -> redis : SET product:42
+end
+api -> client : 200
