@@ -197,17 +197,19 @@ ene fmt --check *.ene       # exit 1 if any file is not formatted (CI)
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
-### From a Mermaid sequence diagram
+### From Mermaid
 
-Already have a Mermaid `sequenceDiagram`? Convert it, or render it directly:
+Already have a Mermaid `sequenceDiagram`, `flowchart` or `graph`? Convert it, or render it directly:
 
 ```bash
 ene from-mermaid diagram.mmd > diagram.ene   # editable .ene source
-ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid sequence block in a Markdown file
+ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid block it can convert in a Markdown file
 ene diagram.mmd -o diagram.svg               # convert and render in one go
 ```
 
-Messages, participants, `alt`/`else`, `opt` (and `break`, as `opt`), `loop`, `par` and the async arrow `-)` (as `~>`) are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
+Messages, participants, `alt`/`else`, `opt` (and `break`, as `opt`), `loop`, `par` and the async arrow `-)` (as `~>`) are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number.
+
+A `flowchart` / `graph` becomes a flow diagram: nodes keep their labels and the shapes ene has (`(( ))` circle, `( )` / `([ ])` round, `[( )]` db; others are drawn as boxes with a warning), each link becomes one step in source order (`|label|` and `-- label -->` become labels, dotted links become `-->`, `--x` becomes `-x`), and `subgraph` becomes `group` (nested ones use `in`). Styles, classes, click handlers and links to a subgraph are dropped with a warning. A flowchart has no time axis, so the output starts with a comment asking you to review the step order.
 
 ### With Claude
 
