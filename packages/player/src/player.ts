@@ -77,7 +77,7 @@ const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<strin
 
 // One live player per host element. `token` guards against overlapping async renders:
 // only the most recent render() call for an element may touch it.
-const hosts = new WeakMap<HTMLElement, { token: number; player?: Player }>();
+const hosts = new WeakMap<HTMLElement, { token: symbol; player?: Player }>();
 
 /**
  * Create a player inside the target element. Shows error messages if there are diagnostic errors.
@@ -88,7 +88,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   injectCss();
   const prev = hosts.get(el);
   prev?.player?.destroy();
-  const token = (prev?.token ?? 0) + 1;
+  const token = Symbol();
   hosts.set(el, { token });
   const stale = () => hosts.get(el)?.token !== token;
   const lang = opts.lang ?? (navigator.language.startsWith("ko") ? "ko" : "en");

@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { createRequire } from "node:module";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { autoRun, render } from "../src/player.js";
+import type { IconPack } from "@ene/core";
+import { autoRun, registerIconPacks, render } from "../src/player.js";
 
 const require = createRequire(`${process.cwd()}/packages/layout/package.json`);
 const SRC = "a[A] -> b[B] : hello\nb --> a : ok";
@@ -107,4 +108,28 @@ describe("player lifecycle", () => {
     expect(queue.size).toBe(0);
     expect(document.querySelectorAll(".ene-player").length).toBe(0);
   });
+});
+
+
+it("keeps the latest player when an old render finishes after destroy and host reuse", async () => {
+  let release!: (pack: IconPack) => void;
+  registerIconPacks([{ loader: () => new Promise<IconPack>((resolve) => { release = resolve; }) }]);
+  const el = document.createElement("div");
+  const pending = render(el, "title Old\na{icon: lifecycle:x} -> b");
+  const middle = (await render(el, "title Middle\n" + SRC))!;
+  middle.destroy();
+  const latest = (await render(el, "title Latest\n" + SRC))!;
+  release({ prefix: "lifecycle", width: 24, height: 24, icons: { x: { body: "<path/>" } } });
+  const old = await pending;
+  try {
+    expect(el.querySelector(".ene-player")?.getAttribute("aria-label")).toBe("Latest");
+    expect(old).toBeUndefined();
+    expect(queue.size).toBe(1);
+    latest.destroy();
+    expect(queue.size).toBe(0);
+    expect(el.childElementCount).toBe(0);
+  } finally {
+    old?.destroy();
+    latest.destroy();
+  }
 });
