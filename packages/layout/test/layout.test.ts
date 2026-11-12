@@ -92,3 +92,23 @@ test("accepts an injected ELK instance", async () => {
   const { doc } = parse("a -> b"); const l = await layout(doc, buildTimeline(doc), { elk: fake as any });
   expect(called).toBe(1); expect(l.nodes[1].x - l.nodes[0].x).toBe(300);
 });
+test.each(readdirSync(ex).filter(f => f.endsWith(".ene")))("%s: group boxes contain members, exclude others, nest", async (f) => {
+  const { doc } = parse(readFileSync(new URL(f, ex), "utf8")); const l = await layout(doc, buildTimeline(doc));
+  const inBox = (n: { x: number; y: number; w: number; h: number }, g: { x: number; y: number; w: number; h: number }) =>
+    n.x >= g.x && n.y >= g.y && n.x + n.w <= g.x + g.w && n.y + n.h <= g.y + g.h;
+  const overlap = (n: { x: number; y: number; w: number; h: number }, g: { x: number; y: number; w: number; h: number }) =>
+    n.x < g.x + g.w && g.x < n.x + n.w && n.y < g.y + g.h && g.y < n.y + n.h;
+  expect(l.groups).toHaveLength(doc.groups.length);
+  for (const g of doc.groups) {
+    const box = l.groups.find(b => b.id === g.id)!;
+    const all = new Set(doc.groups.filter(x => x.id === g.id || isDesc(doc.groups, x.id, g.id)).flatMap(x => x.members));
+    for (const n of l.nodes) {
+      if (all.has(n.id)) expect(inBox(n, box), `${n.id} in ${g.id}`).toBe(true);
+      else expect(overlap(n, box), `${n.id} outside ${g.id}`).toBe(false);
+    }
+    if (g.parent) expect(inBox(box, l.groups.find(b => b.id === g.parent)!)).toBe(true);
+  }
+});
+const isDesc = (gs: { id: string; parent?: string }[], id: string, anc: string): boolean => {
+  const g = gs.find(x => x.id === id); return !!g?.parent && (g.parent === anc || isDesc(gs, g.parent, anc));
+};

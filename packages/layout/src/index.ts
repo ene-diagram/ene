@@ -2,9 +2,12 @@ import type { ELK as ElkApi } from "elkjs/lib/elk-api.js";
 export type { ElkApi };
 import type { Document, Timeline } from "@ene/core";
 
-export interface LNode { id: string; label: string; icon?: string; x: number; y: number; w: number; h: number }
+export interface LNode { id: string; label: string; icon?: string; shape?: string; color?: string; x: number; y: number; w: number; h: number }
 export interface LEdge { index: number; d: string; mid: { x: number; y: number } }
-export interface Layout { nodes: LNode[]; edges: LEdge[]; width: number; height: number }
+export interface LGroup { id: string; label: string; color?: string; depth: number; x: number; y: number; w: number; h: number }
+export interface Layout { nodes: LNode[]; edges: LEdge[]; groups: LGroup[]; width: number; height: number }
+
+const G_PAD = 18, G_TOP = 34;
 
 export interface LayoutOptions {
   /** 미리 만든 ELK 인스턴스. 없으면 elkjs 를 그때 불러온다 (브라우저 플레이어는 별도 파일로 주입) */
@@ -32,7 +35,7 @@ export function textWidth(s: string): number {
 
 export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = {}): Promise<Layout> {
   const nodes: LNode[] = [...doc.nodes.values()].map((n) => ({
-    id: n.id, label: n.label, ...(n.icon ? { icon: n.icon } : {}), x: 0, y: 0,
+    id: n.id, label: n.label, ...(n.icon ? { icon: n.icon } : {}), ...(n.shape ? { shape: n.shape } : {}), ...(n.color ? { color: n.color } : {}), x: 0, y: 0,
     w: Math.max(110, Math.ceil(textWidth(n.label) + 36 + (n.icon ? ICON_SPACE : 0))), h: NODE_H,
   }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -48,6 +51,19 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
     elkEdges.push({ id: `e${i}`, sources: [e.from], targets: [e.to] });
   });
   const elk = opts.elk ?? (await defaultElk());
+  // 그룹은 ELK 의 계층 노드로 넘긴다 (멤버는 자식)
+  type ElkN = { id: string; width?: number; height?: number; children?: ElkN[]; layoutOptions?: Record<string, string>; x?: number; y?: number };
+  const direct = new Map<string, string>(); // 노드 → 가장 안쪽 그룹
+  for (const g of doc.groups) for (const m of g.members) direct.set(m, g.id);
+  const elkNode = (n: LNode): ElkN => ({ id: n.id, width: n.w, height: n.h });
+  const elkGroup = (gid: string): ElkN => ({
+    id: `group:${gid}`,
+    layoutOptions: { "elk.padding": `[top=${G_TOP},left=${G_PAD},bottom=${G_PAD},right=${G_PAD}]` },
+    children: [
+      ...nodes.filter((n) => direct.get(n.id) === gid).map(elkNode),
+      ...doc.groups.filter((g) => g.parent === gid).map((g) => elkGroup(g.id)),
+    ],
+  });
   const g = await elk.layout({
     id: "root",
     layoutOptions: {
@@ -56,11 +72,21 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
       "elk.spacing.nodeNode": String(GAP_NODE),
       "elk.layered.spacing.nodeNodeBetweenLayers": String(GAP_LAYER),
       "elk.spacing.componentComponent": String(GAP_NODE),
+      "elk.hierarchyHandling": "INCLUDE_CHILDREN",
     },
-    children: nodes.map((n) => ({ id: n.id, width: n.w, height: n.h })),
+    children: [
+      ...nodes.filter((n) => !direct.has(n.id)).map(elkNode),
+      ...doc.groups.filter((gr) => !gr.parent).map((gr) => elkGroup(gr.id)),
+    ],
     edges: elkEdges,
-  });
-  for (const c of g.children ?? []) { const n = byId.get(c.id)!; n.x = c.x ?? 0; n.y = c.y ?? 0; }
+  } as never) as unknown as ElkN;
+  const walk = (c: ElkN, ox: number, oy: number) => {
+    const x = ox + (c.x ?? 0), y = oy + (c.y ?? 0);
+    const n = byId.get(c.id);
+    if (n) { n.x = x; n.y = y; }
+    for (const ch of c.children ?? []) walk(ch, x, y);
+  };
+  for (const c of g.children ?? []) walk(c, 0, 0);
 
   const fixed = new Set<string>();
   // rank: 그룹의 x 를 가장 왼쪽에 맞춘다
@@ -83,9 +109,24 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
     }
   }
   resolveOverlaps(nodes, fixed);
+  let groups = groupBoxes(doc, byId);
+  // 멤버가 아닌 노드가 그룹 상자에 걸치면 상자 아래로 내린다
+  for (let iter = 0; iter < 60 && groups.length; iter++) {
+    let moved = false;
+    for (const gb of groups) {
+      const members = membersDeep(doc, gb.id);
+      for (const n of nodes) {
+        if (members.has(n.id) || fixed.has(n.id)) continue;
+        if (n.x < gb.x + gb.w && gb.x < n.x + n.w && n.y < gb.y + gb.h && gb.y < n.y + n.h) { n.y = gb.y + gb.h + GAP_NODE / 2; moved = true; }
+      }
+    }
+    if (!moved) break;
+    resolveOverlaps(nodes, fixed);
+    groups = groupBoxes(doc, byId);
+  }
 
   // 원점 정리
-  const nx0 = Math.min(...nodes.map((n) => n.x)), ny0 = Math.min(...nodes.map((n) => n.y));
+  const nx0 = Math.min(...nodes.map((n) => n.x), ...groups.map((b) => b.x)), ny0 = Math.min(...nodes.map((n) => n.y), ...groups.map((b) => b.y));
   nodes.forEach((n) => { n.x = Math.round(n.x - nx0 + PAD); n.y = Math.round(n.y - ny0 + PAD); });
 
   // 곡선의 제어점까지 포함한 경계로 캔버스를 잡는다 (경로는 상대 위치로만 정해지므로 옮긴 뒤 다시 그린다)
@@ -94,17 +135,47 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
     const n = (e.d.match(/[-\d.]+/g) ?? []).map(Number);
     return n.flatMap((_, i) => (i % 2 ? [] : [{ x: n[i], y: n[i + 1] }]));
   });
-  let minX = Math.min(...nodes.map((n) => n.x), ...pts().map((p) => p.x));
-  let minY = Math.min(...nodes.map((n) => n.y), ...pts().map((p) => p.y - 20)); // 라벨 높이 여유
+  groups = groupBoxes(doc, byId);
+  let minX = Math.min(...nodes.map((n) => n.x), ...groups.map((b) => b.x), ...pts().map((p) => p.x));
+  let minY = Math.min(...nodes.map((n) => n.y), ...groups.map((b) => b.y), ...pts().map((p) => p.y - 20)); // 라벨 높이 여유
   if (minX < PAD || minY < PAD) {
     const dx = Math.max(0, Math.ceil(PAD - minX)), dy = Math.max(0, Math.ceil(PAD - minY));
     nodes.forEach((n) => { n.x += dx; n.y += dy; });
     edges = routeEdges(tl, byId);
+    groups = groupBoxes(doc, byId);
   }
   const all = pts();
-  const width = Math.ceil(Math.max(...nodes.map((n) => n.x + n.w), ...all.map((p) => p.x)) + PAD);
-  const height = Math.ceil(Math.max(...nodes.map((n) => n.y + n.h), ...all.map((p) => p.y)) + PAD);
-  return { nodes, edges, width, height };
+  const width = Math.ceil(Math.max(...nodes.map((n) => n.x + n.w), ...groups.map((b) => b.x + b.w), ...all.map((p) => p.x)) + PAD);
+  const height = Math.ceil(Math.max(...nodes.map((n) => n.y + n.h), ...groups.map((b) => b.y + b.h), ...all.map((p) => p.y)) + PAD);
+  return { nodes, edges, groups, width, height };
+}
+
+function membersDeep(doc: Document, gid: string): Set<string> {
+  const out = new Set<string>();
+  const add = (id: string) => {
+    doc.groups.find((g) => g.id === id)?.members.forEach((m) => out.add(m));
+    doc.groups.filter((g) => g.parent === id).forEach((g) => add(g.id));
+  };
+  add(gid);
+  return out;
+}
+
+/** 그룹 상자 = 멤버(와 안쪽 그룹) 경계 + 여백. 안쪽부터 계산한다 */
+function groupBoxes(doc: Document, byId: Map<string, LNode>): LGroup[] {
+  const depth = (id: string): number => { const g = doc.groups.find((x) => x.id === id); return g?.parent ? depth(g.parent) + 1 : 0; };
+  const boxes = new Map<string, LGroup>();
+  const order = [...doc.groups].sort((a, b) => depth(b.id) - depth(a.id));
+  for (const g of order) {
+    const rects = [
+      ...g.members.map((m) => byId.get(m)!).filter(Boolean),
+      ...doc.groups.filter((c) => c.parent === g.id).map((c) => boxes.get(c.id)!).filter(Boolean),
+    ];
+    if (!rects.length) continue;
+    const x = Math.min(...rects.map((r) => r.x)) - G_PAD, y = Math.min(...rects.map((r) => r.y)) - G_TOP;
+    const w = Math.max(...rects.map((r) => r.x + r.w)) + G_PAD - x, h = Math.max(...rects.map((r) => r.y + r.h)) + G_PAD - y;
+    boxes.set(g.id, { id: g.id, label: g.label, ...(g.color ? { color: g.color } : {}), depth: depth(g.id), x, y, w, h });
+  }
+  return doc.groups.map((g) => boxes.get(g.id)!).filter(Boolean);
 }
 
 /** 겹치는 노드는 고정되지 않은 쪽을 아래로 민다 */
