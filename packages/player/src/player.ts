@@ -1,6 +1,6 @@
-import { buildTimeline, formatAll, parse, type Lang, type Timeline } from "@ene/core";
+import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
 import { layout as computeLayout, type Layout } from "@ene/layout";
-import { STYLE, esc } from "@ene/svg";
+import { STYLE, esc, iconFromSvgText, nodeMarkup } from "@ene/svg";
 import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
@@ -19,6 +19,28 @@ const PLAYER_CSS = `
 .ene-step{margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
 .ene-error{color:#e5484d;background:#fff5f5;border:1px solid #ffd1d1;border-radius:8px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre;overflow:auto}
 @media (prefers-color-scheme: dark){.ene-bar{color:#b0b4ba}.ene-bar button,.ene-bar select{background:#1c1d21;color:#edeef0;border-color:#3b3e45}.ene-error{background:#2a1215;border-color:#5c1a1f;color:#ff9592}}`;
+
+export interface IconPackSource { name?: string; pack?: IconPack; loader?: () => Promise<IconPack> }
+const packSources: IconPackSource[] = [];
+let packsPromise: Promise<IconPack[]> | undefined;
+const urlIcons = new Map<string, Promise<ResolvedIcon | undefined>>();
+
+/** 아이콘 팩 등록 (Iconify JSON). loader 는 아이콘이 처음 필요할 때 한 번만 불린다 */
+export function registerIconPacks(sources: IconPackSource[]): void {
+  packSources.push(...sources);
+  packsPromise = undefined;
+}
+async function loadPacks(): Promise<IconPack[]> {
+  packsPromise ??= Promise.all(packSources.map(async (s) => {
+    try { return s.pack ?? (await s.loader?.()); } catch { return undefined; }
+  })).then((ps) => ps.filter((p): p is IconPack => !!p));
+  return packsPromise;
+}
+function loadUrlIcon(url: string): Promise<ResolvedIcon | undefined> {
+  if (!urlIcons.has(url))
+    urlIcons.set(url, fetch(url).then((r) => (r.ok ? r.text() : Promise.reject())).then(iconFromSvgText).catch(() => undefined));
+  return urlIcons.get(url)!;
+}
 
 let cssInjected = false;
 function injectCss() {
@@ -48,6 +70,16 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     el.appendChild(pre);
     return undefined;
   }
+  const needIcons = [...doc.nodes.values()].some((n) => n.icon);
+  const packs = needIcons ? await loadPacks() : [];
+  const icons = new Map<string, ResolvedIcon>();
+  for (const n of doc.nodes.values()) {
+    if (!n.icon || icons.has(n.icon)) continue;
+    const ic = isIconUrl(n.icon) ? await loadUrlIcon(n.icon) : resolveIcon(n.icon, packs);
+    if (ic) icons.set(n.icon, ic);
+  }
+  const iconWarnings = checkIcons(doc, packs);
+  if (iconWarnings.length) console.warn(formatAll(source, iconWarnings, lang));
   let choices: number[] = [];
   let tl = buildTimeline(doc, { choices });
   const lay = await computeLayout(doc, tl);
@@ -66,7 +98,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     (doc.title ? `<text x="40" y="34" class="t">${esc(doc.title)}</text>` : "") +
     `<g transform="translate(0 ${offY})">` +
     lay.edges.map((e) => `<path d="${e.d}" class="edge"/>`).join("") +
-    lay.nodes.map((n) => `<g><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="10" class="node"/><text x="${n.x + n.w / 2}" y="${n.y + n.h / 2}" class="nl">${esc(n.label)}</text></g>`).join("") +
+    lay.nodes.map((n) => nodeMarkup(n, icons)).join("") +
     `</g>`;
   const dyn = svgEl("g", { transform: `translate(0 ${offY})` });
   svg.appendChild(dyn);

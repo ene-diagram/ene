@@ -37,3 +37,29 @@ test("out-of-range choice warns", () => {
   writeFileSync(f, "branch a\n x -> y\nbranch b\n x -> z\nend\ny -> z");
   const r = runCli([f, "--choice", "9"]); expect(r.status).toBe(0); expect(r.stderr).toContain("choice 9");
 });
+const logos = new URL("../../../node_modules/@iconify-json/logos/icons.json", import.meta.url).pathname;
+test("--icons embeds pack icons and warns on unknown", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "i.ene");
+  writeFileSync(f, "fn[람다]{icon: logos:aws-lambda} -> db[디비]{icon: logos:aws-dynamoo}");
+  const r = runCli([f, "--icons", logos, "--lang", "ko"]);
+  expect(r.status).toBe(0); expect(r.stderr).toContain("W104"); expect(r.stderr).toContain("logos:aws-dynamodb");
+  expect(readFileSync(join(d, "i.svg"), "utf8")).toContain('viewBox="0 0 256 256"');
+});
+test("relative file icon is resolved next to the input", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-"));
+  writeFileSync(join(d, "x.svg"), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect/></svg>');
+  writeFileSync(join(d, "i.ene"), "a{icon: ./x.svg} -> b");
+  expect(runCli([join(d, "i.ene")]).status).toBe(0);
+  expect(readFileSync(join(d, "i.svg"), "utf8")).toContain("data:image/svg+xml;base64,");
+});
+test("ene icons converts a folder of svgs to an iconify pack", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-"));
+  writeFileSync(join(d, "Arch_AWS-Lambda_48.svg"), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path d="M0 0"/></svg>');
+  writeFileSync(join(d, "Amazon Simple Storage Service.svg"), '<svg viewBox="0 0 64 64"><g/></svg>');
+  const out = join(d, "aws.json");
+  const r = runCli(["icons", d, "--prefix", "aws", "-o", out]); expect(r.status).toBe(0);
+  const j = JSON.parse(readFileSync(out, "utf8"));
+  expect(j.prefix).toBe("aws");
+  expect(j.icons["aws-lambda"]).toEqual({ body: '<path d="M0 0"/>', width: 48, height: 48 });
+  expect(Object.keys(j.icons)).toContain("amazon-simple-storage-service");
+});
