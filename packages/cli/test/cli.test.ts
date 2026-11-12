@@ -82,3 +82,22 @@ test("check on a clean file exits 0 and prints [] with --json", () => {
   expect(r.status).toBe(0); expect(JSON.parse(r.stdout)).toEqual([]);
   expect(runCli(["check", f]).stdout).toContain("no problems");
 });
+
+test.each([null, [], {}, { prefix: "x", icons: null }, { prefix: "x", icons: { a: { body: 3 } } }].map((pack) => [pack]))("check rejects malformed icon packs without a stack trace: %j", (pack) => {
+  const d = mkdtempSync(join(tmpdir(), "ene-"));
+  const f = join(d, "input.ene"), p = join(d, "pack.json");
+  writeFileSync(f, "a{icon: x:a} -> b"); writeFileSync(p, JSON.stringify(pack));
+  const r = runCli(["check", f, "--json", "--icons", p]);
+  expect(r.status).toBe(1);
+  expect(r.stderr).toContain("invalid icon pack");
+  expect(r.stderr).not.toContain("TypeError");
+  expect(r.stderr).not.toContain("at checkCommand");
+});
+test("check accepts a valid icon pack", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-"));
+  const f = join(d, "input.ene"), p = join(d, "pack.json");
+  writeFileSync(f, "a{icon: x:a} -> b");
+  writeFileSync(p, JSON.stringify({ prefix: "x", icons: { a: { body: "<path/>" } } }));
+  const r = runCli(["check", f, "--json", "--icons", p]);
+  expect(r.status).toBe(0); expect(JSON.parse(r.stdout)).toEqual([]);
+});

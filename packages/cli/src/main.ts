@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { buildTimeline, checkIcons, diagnosticToJson, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
+import { buildTimeline, checkIcons, diagnosticToJson, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
 import { layout, layoutSequence } from "@ene/layout";
 import { iconFromSvgText, renderSvg } from "@ene/svg";
 
@@ -61,9 +61,15 @@ function checkCommand(argv: string[]): number {
   let src: string;
   try { src = readFileSync(input, "utf8"); }
   catch (e) { console.error(`error: cannot read ${input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
-  let packs: IconPack[];
-  try { packs = packFiles.map((f) => JSON.parse(readFileSync(f, "utf8")) as IconPack); }
-  catch (e) { console.error(`error: cannot load icon pack (${(e as Error).message})`); return 1; }
+  const packs: IconPack[] = [];
+  for (const f of packFiles) {
+    let data: unknown;
+    try { data = JSON.parse(readFileSync(f, "utf8")); }
+    catch (e) { console.error(`error: cannot load icon pack ${f} (${(e as Error).message})`); return 1; }
+    const errs = validateIconPack(data);
+    if (errs.length) { console.error(`error: invalid icon pack ${f}:\n  - ${errs.join("\n  - ")}`); return 1; }
+    packs.push(data as IconPack);
+  }
   const { doc, diagnostics } = parse(src);
   diagnostics.push(...checkIcons(doc, packs));
   diagnostics.sort((a, b) => a.span.line - b.span.line || a.span.col - b.span.col);
