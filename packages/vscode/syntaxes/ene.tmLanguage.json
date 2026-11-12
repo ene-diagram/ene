@@ -37,7 +37,7 @@
   ],
   "repository": {
     "title": {
-      "match": "^\\s*(title)\\b(.*)$",
+      "match": "^\\s*(title|note)\\b(.*)$",
       "captures": {
         "1": {
           "name": "keyword.other.title.ene"
@@ -103,7 +103,7 @@
       }
     },
     "settings": {
-      "match": "^\\s*(speed|wait|diagram)\\b\\s*(\\S*)",
+      "match": "^\\s*(speed|wait|diagram|theme)\\b\\s*(\\S*)",
       "captures": {
         "1": {
           "name": "keyword.other.setting.ene"
@@ -115,7 +115,7 @@
     },
     "keywords": {
       "comment": "Line-start keywords. Extend this list for new syntax (e.g. note, opt).",
-      "match": "^\\s*(loop|branch|else|end|pin|rank|group)\\b",
+      "match": "^\\s*(loop|branch|opt|else|end|pin|rank|group)\\b",
       "captures": {
         "1": {
           "name": "keyword.control.ene"
@@ -124,7 +124,7 @@
     },
     "arrows": {
       "comment": "Longest first. Extend for new arrows (e.g. ~>).",
-      "match": "(?<=\\s)(-->|->|-x)(?=\\s|$)",
+      "match": "(?<=\\s)(-->|->|-x|~>)(?=\\s|$)",
       "name": "keyword.operator.arrow.ene"
     },
     "parallel": {

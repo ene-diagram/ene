@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -b packages/core packages/layout packages/svg packages/player packages/video packages/cli && pnpm -C packages/player bundle && pnpm -C packages/vscode build",
+    "build": "tsc -b packages/core packages/layout packages/svg packages/player packages/video packages/cli packages/export && pnpm -C packages/player bundle && pnpm -C packages/export bundle && pnpm -C packages/vscode build",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/video packages/cli && pnpm -C packages/vscode typecheck",
+    "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/video packages/cli packages/export && pnpm -C packages/vscode typecheck",
     "demo": "node scripts/demo.mjs",
     "skill:install": "node scripts/install-skill.mjs"
   },

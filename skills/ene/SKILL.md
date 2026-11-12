@@ -80,15 +80,16 @@ api --> client : 200
 
 ## Starting from Mermaid
 
-If the user already has a Mermaid `sequenceDiagram` (a `.mmd` file or a ```` ```mermaid ```` block in Markdown),
+If the user already has a Mermaid `sequenceDiagram`, `flowchart` or `graph` (a `.mmd` file or a ```` ```mermaid ```` block in Markdown),
 convert it instead of rewriting it by hand, then continue from step 4 of the workflow:
 
 ```bash
 node <skill>/ene.mjs from-mermaid diagram.mmd -o diagram.ene
 ```
 
-Read the warnings: they name each line that was dropped or changed (notes, activation, `loop` counts).
-Other Mermaid diagram kinds cannot be converted.
+Read the warnings: they name each line that was dropped or changed (orphan notes, activation, `loop` counts).
+A flowchart has no time axis: each link becomes one step in source order, so reorder the steps to match the
+real flow before rendering. Other Mermaid diagram kinds cannot be converted.
 
 ## When something does not fit
 
