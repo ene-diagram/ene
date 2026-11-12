@@ -3,9 +3,72 @@ export type { ElkApi };
 import type { Document, Timeline } from "@ene/core";
 
 export interface LNode { id: string; label: string; icon?: string; shape?: string; color?: string; x: number; y: number; w: number; h: number }
-export interface LEdge { index: number; d: string; mid: { x: number; y: number } }
+export interface LEdge { index: number; d: string; mid: { x: number; y: number }; step?: number; k?: number }
 export interface LGroup { id: string; label: string; color?: string; depth: number; x: number; y: number; w: number; h: number }
-export interface Layout { nodes: LNode[]; edges: LEdge[]; groups: LGroup[]; width: number; height: number }
+export interface LFrame { label: string; x: number; y: number; w: number; h: number }
+export interface Layout {
+  nodes: LNode[]; edges: LEdge[]; groups: LGroup[]; width: number; height: number;
+  /** 시퀀스 전용: 생명선, 분기 갈래 틀 */
+  lifelines?: { id: string; x: number; y1: number; y2: number }[];
+  frames?: LFrame[];
+}
+
+/** 단계의 k번째 엣지 경로. 시퀀스는 단계마다 따로, 흐름도는 고유 엣지 하나를 같이 쓴다 */
+export function edgeFor(l: Layout, step: number, k: number, edgeIndex: number): LEdge | undefined {
+  return l.edges.find((e) => e.step === step && e.k === k) ?? l.edges.find((e) => e.index === edgeIndex && e.step === undefined);
+}
+
+const S_ROW = 52, S_TOP = 24, S_GAP = 60;
+/**
+ * 시퀀스 다이어그램 배치: 참여자는 선언 순서대로 위쪽 한 줄, 단계마다 한 행.
+ * 분기 선택에 따라 행이 달라지므로 타임라인마다 다시 배치한다 (참여자 위치는 그대로).
+ */
+export function layoutSequence(doc: Document, tl: Timeline): Layout {
+  let x = PAD;
+  const nodes: LNode[] = [...doc.nodes.values()].map((n) => {
+    const w = Math.max(110, Math.ceil(textWidth(n.label) + 36 + (n.icon ? ICON_SPACE : 0)));
+    const node: LNode = { id: n.id, label: n.label, ...(n.icon ? { icon: n.icon } : {}), ...(n.shape ? { shape: n.shape } : {}), ...(n.color ? { color: n.color } : {}), x, y: PAD, w, h: NODE_H };
+    x += w + S_GAP;
+    return node;
+  });
+  const cx = new Map(nodes.map((n) => [n.id, n.x + n.w / 2]));
+  const rowY = (i: number) => PAD + NODE_H + S_TOP + 20 + i * S_ROW;
+  const edges: LEdge[] = [];
+  tl.steps.forEach((s, i) => {
+    const y = rowY(i);
+    s.edges.forEach((e, k) => {
+      const a = cx.get(e.from)!, b = cx.get(e.to)!;
+      if (e.from === e.to) {
+        edges.push({ index: e.edgeIndex, step: s.index, k, d: `M${a},${y - 8} C${a + 50},${y - 8} ${a + 50},${y + 16} ${a},${y + 16}`, mid: { x: a + 44, y: y - 4 } });
+        return;
+      }
+      const dir = b > a ? 1 : -1;
+      edges.push({ index: e.edgeIndex, step: s.index, k, d: `M${a + dir * 4},${y} L${b - dir * 4},${y}`, mid: { x: (a + b) / 2, y } });
+    });
+  });
+  // 분기 갈래 틀: 같은 [분기, 갈래] 를 가진 연속 행
+  const frames: LFrame[] = [];
+  const minX = PAD - 12, maxX = x - S_GAP + 12;
+  for (let depth = 0; ; depth++) {
+    let any = false;
+    for (let i = 0; i < tl.steps.length; ) {
+      const p = tl.steps[i].branchPath;
+      if (p.length < (depth + 1) * 2) { i++; continue; }
+      any = true;
+      const key = p.slice(0, (depth + 1) * 2).join(",");
+      let j = i;
+      while (j + 1 < tl.steps.length && tl.steps[j + 1].branchPath.slice(0, (depth + 1) * 2).join(",") === key) j++;
+      const [bi, ai] = p.slice(depth * 2, depth * 2 + 2);
+      const inset = depth * 8;
+      frames.push({ label: tl.branches[bi].arms[ai] || `#${ai + 1}`, x: minX + inset, y: rowY(i) - 34 + inset, w: maxX - minX - inset * 2, h: rowY(j) - rowY(i) + 46 - inset * 2 });
+      i = j + 1;
+    }
+    if (!any) break;
+  }
+  const bottom = rowY(Math.max(0, tl.steps.length - 1)) + S_ROW;
+  const lifelines = nodes.map((n) => ({ id: n.id, x: n.x + n.w / 2, y1: n.y + n.h, y2: bottom }));
+  return { nodes, edges, groups: [], lifelines, frames, width: Math.max(maxX + PAD, ...edges.map((e) => e.mid.x + 60)), height: bottom + PAD };
+}
 
 const G_PAD = 18, G_TOP = 34;
 

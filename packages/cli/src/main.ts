@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
-import { layout } from "@ene/layout";
+import { layout, layoutSequence } from "@ene/layout";
 import { iconFromSvgText, renderSvg } from "@ene/svg";
 
 const USAGE = `usage: ene <input.ene> [-o out.svg] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
@@ -86,7 +86,8 @@ export async function main(argv: string[]): Promise<number> {
     if (ic) icons.set(n.icon, ic);
     else if (isIconUrl(n.icon)) console.error(`warning: cannot load icon ${n.icon}`);
   }
-  const svg = renderSvg(await layout(doc, tl), tl, { title: doc.title, icons });
+  const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
+  const svg = renderSvg(lay, tl, { title: doc.title, icons });
   const target = out ?? input.replace(/\.[^./\\]+$/, "") + ".svg";
   writeFileSync(target, svg);
   console.log(`✅ ${target} (${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`);

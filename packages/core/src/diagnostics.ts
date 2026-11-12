@@ -1,5 +1,5 @@
 export const CODES = [
-  "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109", "E110", "E111",
+  "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109", "E110", "E111", "E112",
   "E201", "E203", "E204", "E205",
   "E301", "E302", "E303", "E304",
   "E401", "E402", "E403", "E404",
@@ -37,7 +37,7 @@ export function suggest(word: string, candidates: Iterable<string>): string | un
   return best;
 }
 
-export const KEYWORDS = ["title", "speed", "wait", "loop", "branch", "else", "end", "pin", "rank", "group"];
+export const KEYWORDS = ["title", "speed", "wait", "loop", "branch", "else", "end", "pin", "rank", "group", "diagram"];
 
 export type Lang = "en" | "ko";
 interface Msg { message: string; hint: string }
@@ -56,6 +56,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E109: { message: "`{` of node attributes is not closed", hint: "close it with `}`, e.g. `api{icon: aws:lambda}`" },
     E110: { message: 'unknown shape "{value}"', hint: "use one of box, round, db, queue, circle" },
     E111: { message: 'color "{value}" is not valid', hint: "use a color name like `orange` or hex like `#f59e0b`" },
+    E112: { message: 'unknown diagram kind "{value}"', hint: "use `diagram flow` (default) or `diagram sequence`" },
     E201: { message: 'branch arm "{arm}" has no steps', hint: "add at least one edge under this `branch` line" },
     E203: { message: "`{block}` block is never closed", hint: "add `end` after the last step of this block" },
     E204: { message: "`end` without an open block", hint: "remove this line or open a block with `branch` or `loop`" },
@@ -85,6 +86,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E109: { message: "노드 속성의 `{` 가 닫히지 않았어요", hint: "`}` 로 닫아 주세요. 예: `api{icon: aws:lambda}`" },
     E110: { message: '"{value}" 는 알 수 없는 모양이에요', hint: "box, round, db, queue, circle 중에서 골라 주세요" },
     E111: { message: '색 "{value}" 형식이 맞지 않아요', hint: "`orange` 같은 색 이름이나 `#f59e0b` 같은 16진수로 써 주세요" },
+    E112: { message: '"{value}" 는 알 수 없는 다이어그램 종류예요', hint: "`diagram flow`(기본) 또는 `diagram sequence` 를 써 주세요" },
     E201: { message: '분기 갈래 "{arm}" 에 단계가 없어요', hint: "이 `branch` 줄 아래에 엣지를 하나 이상 써 주세요" },
     E203: { message: "`{block}` 블록이 닫히지 않았어요", hint: "블록의 마지막 단계 뒤에 `end` 를 써 주세요" },
     E204: { message: "열린 블록 없이 `end` 가 나왔어요", hint: "이 줄을 지우거나 `branch`·`loop` 로 블록을 열어 주세요" },

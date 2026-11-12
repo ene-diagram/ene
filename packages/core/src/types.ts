@@ -13,6 +13,7 @@ export type Stmt =
 export interface Pin { id: string; col: number; row: number; span: Span }
 export interface Rank { ids: string[]; span: Span }
 export interface Document {
+  kind: "flow" | "sequence";
   title?: string;
   speed: number;
   nodes: Map<string, NodeDecl>;

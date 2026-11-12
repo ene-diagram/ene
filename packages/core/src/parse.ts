@@ -28,7 +28,7 @@ class Parser {
   private doc: Document;
 
   constructor(private source: string) {
-    this.doc = { speed: 1.2, nodes: this.nodes, body: [], pins: [], ranks: [], groups: [] };
+    this.doc = { kind: "flow", speed: 1.2, nodes: this.nodes, body: [], pins: [], ranks: [], groups: [] };
   }
 
   run(): ParseResult {
@@ -77,6 +77,10 @@ class Parser {
     const word = l.text.split(/\s/, 1)[0];
     const rest = l.text.slice(word.length).trim();
     if (word === "title") return void (this.doc.title = rest);
+    if (word === "diagram") {
+      if (rest !== "flow" && rest !== "sequence") return this.report("E112", l, 8, t.length, { value: rest });
+      return void (this.doc.kind = rest);
+    }
     if (word === "speed") {
       const n = Number(rest);
       if (!rest || !(n > 0)) return this.report("E304", l, 0, t.length, { value: rest });

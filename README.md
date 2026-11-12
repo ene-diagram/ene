@@ -6,6 +6,10 @@
 
 ![서버리스 (아이콘)](demo/11-serverless.svg)
 
+![VPC 그룹](demo/13-vpc.svg)
+
+![시퀀스](demo/14-sequence-checkout.svg)
+
 ```
 title 주문 요청 흐름
 user[사용자] -> api[API 서버] : POST /order

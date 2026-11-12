@@ -1,0 +1,19 @@
+diagram sequence
+title 결제 시퀀스
+user[사용자]{icon: logos:chrome} -> api[주문 API] : POST /checkout
+api -> redis[Redis]{shape: db} : 재고 확인
+branch 재고 있음
+  redis --> api : OK
+  api -> pg[결제사] : 승인 요청
+  branch 승인
+    pg --> api : approved
+    api -> kafka[Kafka]{shape: queue} : order.paid
+    api --> user : 201
+  else 거절
+    pg -x api : declined
+    api --> user : 402
+  end
+else 품절
+  redis -x api : sold out
+  api --> user : 409
+end

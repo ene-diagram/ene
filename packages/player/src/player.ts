@@ -1,6 +1,6 @@
 import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
-import { layout as computeLayout, type ElkApi, type Layout } from "@ene/layout";
-import { STYLE, esc, groupMarkup, iconFromSvgText, nodeMarkup } from "@ene/svg";
+import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene/layout";
+import { ARROW_DEFS, STYLE, esc, groupMarkup, iconFromSvgText, nodeMarkup, sequenceMarkup } from "@ene/svg";
 import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
@@ -101,7 +101,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   let choices: number[] = [];
   let tl = buildTimeline(doc, { choices });
   let lay: Layout;
-  try { lay = await computeLayout(doc, tl, { elk: await loadElk() }); }
+  try { lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await computeLayout(doc, tl, { elk: await loadElk() }); }
   catch (e) {
     const pre = document.createElement("pre");
     pre.className = "ene-error";
@@ -118,14 +118,21 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   root.setAttribute("aria-label", doc.title ?? "ene diagram");
 
   const offY = doc.title ? TITLE_H : 0;
-  const svg = svgEl("svg", { viewBox: `0 0 ${lay.width} ${lay.height + offY}`, width: lay.width, height: lay.height + offY, role: "img" });
+  const svg = svgEl("svg", { role: "img" });
+  const staticG = svgEl("g", { transform: `translate(0 ${offY})` });
+  function drawStatic() {
+    svg.setAttribute("viewBox", `0 0 ${lay.width} ${lay.height + offY}`);
+    svg.setAttribute("width", String(lay.width));
+    svg.setAttribute("height", String(lay.height + offY));
+    staticG.innerHTML = lay.groups.map(groupMarkup).join("") + sequenceMarkup(lay) +
+      lay.edges.map((e) => `<path d="${e.d}" class="edge"/>`).join("") +
+      lay.nodes.map((n) => nodeMarkup(n, icons)).join("");
+  }
   svg.innerHTML =
-    `<style>${STYLE}</style><rect width="100%" height="100%" class="bg"/>` +
-    (doc.title ? `<text x="40" y="34" class="t">${esc(doc.title)}</text>` : "") +
-    `<g transform="translate(0 ${offY})">` + lay.groups.map(groupMarkup).join("") +
-    lay.edges.map((e) => `<path d="${e.d}" class="edge"/>`).join("") +
-    lay.nodes.map((n) => nodeMarkup(n, icons)).join("") +
-    `</g>`;
+    `<style>${STYLE}</style>${ARROW_DEFS}<rect width="100%" height="100%" class="bg"/>` +
+    (doc.title ? `<text x="40" y="34" class="t">${esc(doc.title)}</text>` : "");
+  svg.appendChild(staticG);
+  drawStatic();
   const dyn = svgEl("g", { transform: `translate(0 ${offY})` });
   svg.appendChild(dyn);
   root.appendChild(svg);
@@ -177,15 +184,14 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   let items: ReturnType<typeof buildItems>;
   function buildItems(t: Timeline, l: Layout) {
     dyn.replaceChildren();
-    const byIdx = new Map(l.edges.map((e) => [e.index, e]));
     const byNode = new Map(l.nodes.map((n) => [n.id, n]));
     const uses = new Map<number, number[]>();
     t.steps.forEach((s) => s.edges.forEach((e) => uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start])));
     const hl: SVGPathElement[] = [], lbl: SVGTextElement[] = [], dots: SVGCircleElement[] = [], xs: SVGTextElement[] = [];
-    const list = t.steps.flatMap((s) => s.edges.map((e) => {
-      const le = byIdx.get(e.edgeIndex)!;
-      const p = svgEl("path", { d: le.d, class: `hl ${e.kind}` }); hl.push(p); dyn.appendChild(p);
-      const nextUse = (uses.get(e.edgeIndex) ?? []).find((x) => x > s.start) ?? Infinity;
+    const list = t.steps.flatMap((s) => s.edges.map((e, k) => {
+      const le = edgeFor(l, s.index, k, e.edgeIndex)!;
+      const p = svgEl("path", { d: le.d, class: `hl ${e.kind}`, "marker-end": "url(#ene-ah)" }); hl.push(p); dyn.appendChild(p);
+      const nextUse = le.step !== undefined ? Infinity : (uses.get(e.edgeIndex) ?? []).find((x) => x > s.start) ?? Infinity;
       return { s, e, le, p, nextUse, len: p.getTotalLength() };
     }));
     for (const it of list) {
@@ -196,7 +202,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     for (const it of list) {
       const c = svgEl("circle", { r: 7, class: `dot ${it.e.kind}` }); dots.push(c); dyn.appendChild(c);
       const n = byNode.get(it.e.to)!;
-      const x = svgEl("text", { x: n.x + n.w / 2, y: n.y - 8, class: "x" }); x.textContent = it.e.kind === "fail" ? "✕" : "";
+      const endPt = it.le.step !== undefined ? it.p.getPointAtLength(it.len) : undefined;
+      const x = svgEl("text", endPt ? { x: endPt.x, y: endPt.y + 4, class: "x" } : { x: n.x + n.w / 2, y: n.y - 8, class: "x" }); x.textContent = it.e.kind === "fail" ? "✕" : "";
       xs.push(x); dyn.appendChild(x);
     }
     return { list, hl, lbl, dots, xs };
@@ -228,6 +235,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
 
   function rebuild() {
     tl = buildTimeline(doc, { choices });
+    // 시퀀스는 분기에 따라 행이 바뀌므로 다시 배치한다
+    if (doc.kind === "sequence" && ctl) { lay = layoutSequence(doc, tl); drawStatic(); }
     const wasPlaying = ctl ? ctl.playing : (opts.autoplay ?? true) && !reduce;
     ctl = createController(tl, { loop: opts.loop ?? true });
     if (reduce) ctl.time = tl.total;
