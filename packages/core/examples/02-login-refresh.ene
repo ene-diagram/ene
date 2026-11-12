@@ -1,3 +1,5 @@
+# A browser logs in and gets access and refresh tokens. Later its access token has expired: the API
+# answers 401, the browser refreshes the token with the auth server and retries successfully.
 title Login and token refresh
 browser[Browser] -> auth[Auth Server] : POST /login
 auth -> users[Users DB] : verify password

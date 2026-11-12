@@ -1,3 +1,5 @@
+# An order service publishes order.created to SQS. A worker repeats three times: poll the queue,
+# receive a message, send a confirmation mail, delete the message.
 title Queue worker
 producer[Order Service] -> queue[SQS] : order.created
 loop 3
