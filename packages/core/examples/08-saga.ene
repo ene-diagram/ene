@@ -1,10 +1,10 @@
-title 주문 사가와 보상 트랜잭션
-orch[오케스트레이터] -> order[주문] : 주문 생성
-order --> orch : 생성됨
-orch -> stock[재고] : 재고 차감
-stock --> orch : 차감됨
-orch -> pay[결제] : 결제
-pay -x orch : 한도 초과
-orch -> stock : 재고 복구 (보상)
-& orch -> order : 주문 취소 (보상)
-stock --> orch : 복구됨
+title Order saga with compensation
+orch[Orchestrator] -> order[Orders] : create order
+order --> orch : created
+orch -> stock[Inventory] : reserve stock
+stock --> orch : reserved
+orch -> pay[Payments] : charge
+pay -x orch : limit exceeded
+orch -> stock : release stock (compensate)
+& orch -> order : cancel order (compensate)
+stock --> orch : released

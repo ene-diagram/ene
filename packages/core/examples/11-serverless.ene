@@ -1,10 +1,10 @@
-title 서버리스 주문 처리 (아이콘)
-user[사용자]{icon: logos:chrome} -> cdn[CloudFront]{icon: logos:aws-cloudfront} : GET /
+title Serverless order processing (icons)
+user[User]{icon: logos:chrome} -> cdn[CloudFront]{icon: logos:aws-cloudfront} : GET /
 cdn -> gw[API Gateway]{icon: logos:aws-api-gateway} : POST /orders
-gw -> fn[주문 람다]{icon: logos:aws-lambda} : invoke
+gw -> fn[Order Lambda]{icon: logos:aws-lambda} : invoke
 fn -> db[DynamoDB]{icon: logos:aws-dynamodb} : PutItem
-& fn -> q[SQS]{icon: logos:aws-sqs} : 주문 이벤트
+& fn -> q[SQS]{icon: logos:aws-sqs} : order event
 db --> fn : OK
-q -> bq[BigQuery]{icon: logos:google-cloud} : 분석 적재 @2s
+q -> bq[BigQuery]{icon: logos:google-cloud} : load analytics @2s
 fn --> gw : 201
 gw --> user : 201 Created

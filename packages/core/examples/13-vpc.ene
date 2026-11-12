@@ -1,13 +1,13 @@
-title VPC 안의 주문 서비스
-user[사용자]{icon: logos:chrome, shape: circle} -> alb[ALB]{icon: logos:aws-elb} : HTTPS
-alb -> api[주문 API]{icon: logos:aws-ec2} : /orders
-api -> cache[Redis]{icon: logos:redis, shape: db} : 재고 조회
+title Order service in a VPC
+user[User]{icon: logos:chrome, shape: circle} -> alb[ALB]{icon: logos:aws-elb} : HTTPS
+alb -> api[Order API]{icon: logos:aws-ec2} : /orders
+api -> cache[Redis]{icon: logos:redis, shape: db} : check stock
 cache --> api : hit
-api -> db[주문 DB]{icon: logos:aws-rds, shape: db, color: #f59e0b} : INSERT
+api -> db[Orders DB]{icon: logos:aws-rds, shape: db, color: #f59e0b} : INSERT
 db --> api : OK
 api -> q[SQS]{icon: logos:aws-sqs, shape: queue} : order.created
-q -> worker[워커]{icon: logos:aws-lambda} : 소비
-worker -> mail[SES]{icon: logos:aws-ses} : 확인 메일
+q -> worker[Worker]{icon: logos:aws-lambda} : consume
+worker -> mail[SES]{icon: logos:aws-ses} : confirmation email
 api --> user : 201
 group vpc[VPC 10.0.0.0/16]{color: #8b5cf6} : alb api cache db worker
 group pub[Public subnet]{color: #22c55e} in vpc : alb

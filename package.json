@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/cli"
+    "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/cli",
+    "demo": "node scripts/demo.mjs"
   },
   "devDependencies": {
     "@iconify-json/logos": "^1.2.19",

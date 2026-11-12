@@ -1,10 +1,10 @@
-title 주문 요청 흐름
+title Order request
 speed 1.2
 
-user[사용자] -> api[API 서버] : POST /order
-api -> cache[Redis] : 재고 조회
+user[User] -> api[API Server] : POST /order
+api -> cache[Redis] : check stock
 cache --> api : miss
-api -> db[MySQL] : SELECT stock & api -> pay[결제 서버] : 결제 요청
-db --> api : 재고 OK
+api -> db[MySQL] : SELECT stock & api -> pay[Payment] : charge
+db --> api : in stock
 pay -x api : timeout
-api --> user : 502 다시 시도
+api --> user : 502 retry later

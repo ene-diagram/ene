@@ -9,7 +9,7 @@ test("renders example to svg", () => {
   const out = join(mkdtempSync(join(tmpdir(), "ene-")), "o.svg");
   execFileSync("node", [bin, ex, "-o", out, "--choice", "1"]);
   const svg = readFileSync(out, "utf8");
-  expect(svg.startsWith("<svg")).toBe(true); expect(svg).toContain("캐시 hit / miss");
+  expect(svg.startsWith("<svg")).toBe(true); expect(svg).toContain("Cache hit / miss");
 });
 test("default output path is input with .svg", () => {
   const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "x.ene");

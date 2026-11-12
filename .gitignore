@@ -1,4 +1,7 @@
 node_modules
 dist
-.superpowers
 *.tsbuildinfo
+demo/ene.js
+demo/ene-elk.js
+demo/logos-subset.js
+demo/index.html

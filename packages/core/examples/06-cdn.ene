@@ -1,10 +1,10 @@
-title CDN 캐시
-browser[브라우저] -> edge[CDN 엣지] : GET /app.js
-branch 엣지 hit
+title CDN cache
+browser[Browser] -> edge[CDN Edge] : GET /app.js
+branch edge hit
   edge --> browser : 200 (cached)
-else 엣지 miss
-  edge -> origin[오리진] : GET /app.js
+else edge miss
+  edge -> origin[Origin] : GET /app.js
   origin --> edge : 200 + Cache-Control
   edge --> browser : 200
 end
-edge -> logs[로그 수집기] : 접근 로그
+edge -> logs[Log Collector] : access log
