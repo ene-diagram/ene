@@ -2,6 +2,7 @@
   "name": "@ene/video",
   "version": "0.0.0",
   "description": "GIF and MP4 export for ene diagrams (needs Chrome and ffmpeg on the machine)",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/slop-makers/ene.git",
@@ -13,7 +14,8 @@
     "node": ">=22"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "type": "module",
   "main": "./dist/index.js",

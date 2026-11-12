@@ -314,3 +314,7 @@ ene flow.ene -o miss.svg --choice 1
 ## 보안
 
 SVG 파일이나 URL 에서 불러온 아이콘은 이미지로 넣기 때문에 그 안의 스크립트는 실행되지 않습니다. 라벨은 항상 이스케이프됩니다.
+
+## 라이선스
+
+MIT © HelloWook. [LICENSE](LICENSE)를 보세요. ELK 레이아웃 번들(`ene-elk.js`)은 EPL-2.0이며 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 적혀 있어요.
