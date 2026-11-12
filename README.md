@@ -146,6 +146,14 @@ Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Sp
 ene flow.ene -o flow.svg
 ```
 
+Format sources canonically (comments are kept; a rewrite that would change the meaning is skipped):
+
+```bash
+ene fmt flow.ene            # print
+ene fmt --write *.ene       # in place
+ene fmt --check *.ene       # exit 1 if any file is not formatted (CI)
+```
+
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
 ## Syntax

@@ -63,3 +63,12 @@ test("ene icons converts a folder of svgs to an iconify pack", () => {
   expect(j.icons["aws-lambda"]).toEqual({ body: '<path d="M0 0"/>', width: 48, height: 48 });
   expect(Object.keys(j.icons)).toContain("amazon-simple-storage-service");
 });
+test("fmt prints, --check exits 1 on unformatted files, --write fixes them", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "f.ene");
+  writeFileSync(f, "a->b:hi\nbranch x\nb-->a\nend");
+  expect(runCli(["fmt", f]).stdout).toBe("a -> b : hi\nbranch x\n  b --> a\nend\n");
+  const c = runCli(["fmt", "--check", f]); expect(c.status).toBe(1); expect(c.stderr).toContain("not formatted");
+  expect(runCli(["fmt", "--write", f]).status).toBe(0);
+  expect(readFileSync(f, "utf8")).toBe("a -> b : hi\nbranch x\n  b --> a\nend\n");
+  expect(runCli(["fmt", "--check", f]).status).toBe(0);
+});

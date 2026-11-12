@@ -146,6 +146,14 @@ api --> user : 200
 ene flow.ene -o flow.svg
 ```
 
+소스를 표준 형식으로 정리해요(주석은 그대로 두고, 의미가 바뀔 수 있는 줄은 건드리지 않아요):
+
+```bash
+ene fmt flow.ene            # 출력
+ene fmt --write *.ene       # 파일에 덮어쓰기
+ene fmt --check *.ene       # 정리 안 된 파일이 있으면 종료 코드 1 (CI 용)
+```
+
 만들어진 SVG 는 스크립트 없이 스스로 반복 재생되고, 다크 모드와 모션 줄이기 설정을 따릅니다.
 
 ## 문법

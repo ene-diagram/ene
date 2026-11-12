@@ -5,3 +5,4 @@ export { buildTimeline, type TimelineOptions } from "./timeline.js";
 export { formatDiagnostic, formatAll } from "./format.js";
 export { CODES, MESSAGES, KEYWORDS, type Code, type Lang } from "./diagnostics.js";
 export { resolveIcon, checkIcons, isIconUrl, type IconPack, type ResolvedIcon } from "./icons.js";
+export { formatSource } from "./fmt.js";
