@@ -3,7 +3,7 @@ import { parse } from "./parse.js";
 /**
  * Canonical formatter for .ene sources.
  *
- * - 2-space indentation inside `branch` / `else` / `loop` blocks
+ * - 2-space indentation inside `branch` / `opt` / `else` / `loop` blocks
  * - single spaces around arrows, `&` and the label `:`; `key: value, key: value` inside `{...}`
  * - single space after keywords; collapses runs of blank lines; trailing newline
  * - comments are kept (full-line comments are re-indented, trailing comments get one space before `#`)
@@ -20,7 +20,7 @@ export function formatSource(source: string): string {
     const word = body.split(/\s/, 1)[0];
     if (word === "end" || word === "else") depth = Math.max(0, depth - 1);
     indents.push(depth);
-    if (word === "loop" || word === "branch" || word === "else") depth++;
+    if (word === "loop" || word === "branch" || word === "opt" || word === "else") depth++;
   }
   const render = (bodies: string[]) => {
     const out: string[] = [];
@@ -66,15 +66,15 @@ function splitComment(raw: string): { body: string; comment: string } {
   return { body: chars.slice(start, end).join("").trimEnd(), comment: chars.slice(end).join("").trimEnd() };
 }
 
-const KEYWORD_LINE = /^(title|speed|wait|loop|branch|else|end|note|pin|rank|group|diagram)(\s|$)/;
-const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x)(\s|$)/u;
+const KEYWORD_LINE = /^(title|speed|wait|loop|branch|opt|else|end|note|pin|rank|group|diagram)(\s|$)/;
+const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x|~>)(\s|$)/u;
 
 function formatBody(body: string): string {
   if (!body) return body;
   const m = body.match(KEYWORD_LINE);
   if (m) {
     const word = m[1], rest = body.slice(word.length).trim();
-    if (word === "title" || word === "branch" || word === "else" || word === "note") return rest ? `${word} ${rest}` : word;
+    if (word === "title" || word === "branch" || word === "opt" || word === "else" || word === "note") return rest ? `${word} ${rest}` : word;
     if (word === "group") return formatGroup(rest);
     return [word, ...rest.split(/\s+/).filter(Boolean)].join(" ");
   }
@@ -132,6 +132,7 @@ function formatHead(head: string): string {
     else if (c === "]" && depth > 0) depth--;
     if (depth > 0 || c === "]") { out += c; continue; }
     const arrow = c === "-" && t[i + 1] === "-" && t[i + 2] === ">" ? "-->" : c === "-" && t[i + 1] === ">" ? "->" :
+      c === "~" && t[i + 1] === ">" ? "~>" :
       c === "-" && t[i + 1] === "x" && (i === 0 || /\s/.test(t[i - 1])) && (i + 2 >= t.length || /\s/.test(t[i + 2])) ? "-x" : undefined;
     if (arrow) { out = out.trimEnd() + ` ${arrow} `; i += arrow.length - 1; continue; }
     if (/\s/.test(c)) { if (!out.endsWith(" ")) out += " "; continue; }

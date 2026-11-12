@@ -63,6 +63,22 @@ describe("player DOM", () => {
     p.destroy();
   });
 
+  it("opt is a checkbox toggle that skips its steps", async () => {
+    const el = document.createElement("div"); document.body.appendChild(el);
+    const p = (await render(el, "a -> b : one\nopt cached\n  b --> a : two\nend\na -> c : three", { autoplay: false, lang: "en" }))!;
+    const box = el.querySelector<HTMLInputElement>(".ene-opt input")!;
+    expect(el.querySelector(".ene-opt")!.textContent).toBe("cached");
+    expect(box.checked).toBe(true);
+    expect(p.controller.total).toBeCloseTo(3 * 1.2);
+    const ev = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    box.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    expect(p.controller.playing).toBe(false);
+    box.checked = false; box.dispatchEvent(new Event("change"));
+    expect(p.controller.total).toBeCloseTo(2 * 1.2);
+    p.destroy();
+  });
+
   it("buttons drive the controller", async () => {
     const el = document.createElement("div"); document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;

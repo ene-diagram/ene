@@ -10,7 +10,7 @@ export interface MermaidResult {
   error?: string;
 }
 
-type Arrow = "->" | "-->" | "-x";
+type Arrow = "->" | "-->" | "-x" | "~>";
 type Node_ =
   | { t: "msg"; from: string; to: string; arrow: Arrow; label: string; line: number }
   | { t: "comment"; text: string }
@@ -23,7 +23,7 @@ type BlockKind = "alt" | "opt" | "loop" | "par" | "critical" | "break" | "rect" 
 const ARROWS: [string, Arrow, boolean][] = [
   ["<<-->>", "-->", true], ["<<->>", "->", true],
   ["-->>", "-->", false], ["--)", "-->", false], ["--x", "-x", false], ["-->", "-->", false],
-  ["->>", "->", false], ["-)", "->", false], ["-x", "-x", false], ["->", "->", false],
+  ["->>", "->", false], ["-)", "~>", false], ["-x", "-x", false], ["->", "->", false],
 ];
 const ARROW_RE = new RegExp(`^(.+?)\\s*(${ARROWS.map(([a]) => a.replace(/[)>]/g, "\\$&")).join("|")})\\s*([+-])?\\s*([^:]+?)\\s*(?::(.*))?$`);
 const ENTITIES: Record<string, string> = { quot: '"', amp: "&", lt: "<", gt: ">", nbsp: " ", colon: ":", semi: ";", hash: "#" };
@@ -39,7 +39,8 @@ const text = (s: string) => s
 /**
  * Convert a Mermaid `sequenceDiagram` into `.ene` source (`diagram sequence`).
  *
- * Messages, participants, `alt`/`else`, `opt`, `loop`, `par`, notes and comments are converted.
+ * Messages, participants, `alt`/`else`, `opt`, `loop`, `par`, notes and comments are converted
+ * (`opt` and `break` become ene `opt`; the async arrow `-)` becomes `~>`).
  * A note becomes an ene `note` on the message right above it (a comment when there is none).
  * Constructs with no equivalent (activation, `rect`, `box`, links) are dropped or kept as comments,
  * each with a warning that names the source line. The result always parses without errors.
@@ -146,7 +147,7 @@ export function fromMermaid(input: string): MermaidResult {
     if (word === "alt" || word === "opt" || word === "loop" || word === "par" || word === "critical" || word === "break" || word === "rect" || word === "box") {
       if (word === "par" && /^par\s+over\b/i.test(s)) warn(no, "`par over` is read as `par`", "parover");
       if (word === "critical") warn(no, "`critical` / `option` are converted to `branch` / `else`", "critical");
-      if (word === "break") warn(no, "`break` is converted to an optional branch; ene keeps playing the steps after it", "break");
+      if (word === "break") warn(no, "`break` is converted to `opt`; ene keeps playing the steps after it", "break");
       if (word === "rect") warn(no, "`rect` background highlights are dropped", "rect");
       if (word === "box") warn(no, "`box` participant groups are dropped (groups are not drawn in sequence diagrams)", "box");
       open(word, text(rest), no);
@@ -272,8 +273,17 @@ export function fromMermaid(input: string): MermaidResult {
         n += inner * (count || 2);
         continue;
       }
-      // alt / critical → branch with one arm per `else` / `option`; opt / break → branch with a "skip" arm
-      const all = kind === "opt" || kind === "break" ? [arms[0], { label: "skip", body: [], line: arms[0].line }] : arms;
+      if (kind === "opt" || kind === "break") {
+        const at = out.length;
+        out.push(`${pad}opt ${safeLabel(arms[0].label, "", arms[0].line)}`.trimEnd());
+        const inner = emit(arms[0].body, depth + 1);
+        if (!inner) { out.length = at; continue; }
+        out.push(`${pad}end`);
+        n += inner;
+        continue;
+      }
+      // alt / critical → branch with one arm per `else` / `option`
+      const all = arms;
       const at = out.length;
       let any = 0;
       all.forEach((a, k) => {

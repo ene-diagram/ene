@@ -28,7 +28,7 @@ A -> B : hello
 B --> A : hi
 A -x B : lost
 A -x B : lost reply
-A -> B : async
+A ~> B : async
 B --> A : async reply
 A -> B : plain
 B --> A : plain reply
@@ -67,14 +67,16 @@ else else 2
 end`);
 });
 
-test("opt becomes a branch with a skip arm; empty arms get `wait 0`", () => {
-  const r = conv("opt notify\n A->>B: email\nend\nalt a\n A->>B: x\nelse b\n Note over A: nothing\nend");
+test("opt and break become ene opt; empty alt arms get `wait 0`", () => {
+  const r = conv("opt notify\n A->>B: email\nend\nalt a\n A->>B: x\nelse b\n Note over A: nothing\nend\nbreak\n A-)B: fire\nend\nopt empty\nend");
   clean(r.source);
-  expect(r.source).toContain("branch notify\n  A -> B : email\nelse skip\n  wait 0\nend");
+  expect(r.source).toContain("opt notify\n  A -> B : email\nend");
   expect(r.source).toContain("else b\n  # note: nothing\n  wait 0\nend");
-  const tl = buildTimeline(parse(r.source).doc, { choices: [1, 1] });
+  expect(r.source).toContain("opt\n  A ~> B : fire\nend\n");
+  expect(r.source).not.toContain("opt empty");
+  const tl = buildTimeline(parse(r.source).doc, { choices: [1, 1, 1] });
   expect(tl.steps).toHaveLength(0);
-  expect(tl.branches.map((b) => b.arms)).toEqual([["notify", "skip"], ["a", "b"]]);
+  expect(tl.branches.map((b) => [b.arms, b.optional])).toEqual([[["notify", "skip"], true], [["a", "b"], undefined], [["", "skip"], true]]);
 });
 
 test("loop takes a count from its label, or 2 with a warning", () => {

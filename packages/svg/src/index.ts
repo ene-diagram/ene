@@ -126,14 +126,15 @@ export const STYLE = `
   .nl{text-anchor:middle;dominant-baseline:central;font-size:15px;font-weight:600;fill:var(--fg)}
   .edge{fill:none;stroke:var(--faint);stroke-width:1.5;stroke-dasharray:4 4}
   .hl{fill:none;stroke-width:2.5} .hl.ok{stroke:var(--ok)} .hl.fail{stroke:var(--fail)} .hl.reply{stroke:var(--reply);stroke-dasharray:7 5}
-  .dot.ok{fill:var(--ok)} .dot.fail{fill:var(--fail)} .dot.reply{fill:var(--reply)}
+  .hl.async{stroke:var(--async);stroke-dasharray:1 5;stroke-linecap:round}
+  .dot.ok{fill:var(--ok)} .dot.fail{fill:var(--fail)} .dot.reply{fill:var(--reply)} .dot.async{fill:var(--async)}
   .lbl{text-anchor:middle;font-size:12px;fill:var(--fg2);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
   .x{text-anchor:middle;font-size:18px;font-weight:700;fill:var(--fail)}
   .t{font-size:17px;font-weight:700;fill:var(--fg)} .gl{font-size:12px;font-weight:600}
   .life{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5} .frame{fill:var(--ok);fill-opacity:.04;stroke:var(--line);stroke-width:1.2}
   .fl{font-size:11px;font-weight:700;fill:var(--fg2)} .note{font-size:13px;fill:var(--fg2)}
-  svg{--bg:#fbfcfd;--node:#fff;--line:#c1c8d2;--faint:#d9dde3;--fg:#1c2024;--fg2:#3a4048;--ok:#3e63dd;--fail:#e5484d;--reply:#30a46c}
-  @media (prefers-color-scheme: dark){svg{--bg:#111113;--node:#1c1d21;--line:#3b3e45;--faint:#2e3036;--fg:#edeef0;--fg2:#b0b4ba;--ok:#7b9bff;--fail:#ff6369;--reply:#4cc38a}}
+  svg{--bg:#fbfcfd;--node:#fff;--line:#c1c8d2;--faint:#d9dde3;--fg:#1c2024;--fg2:#3a4048;--ok:#3e63dd;--fail:#e5484d;--reply:#30a46c;--async:#8e4ec6}
+  @media (prefers-color-scheme: dark){svg{--bg:#111113;--node:#1c1d21;--line:#3b3e45;--faint:#2e3036;--fg:#edeef0;--fg2:#b0b4ba;--ok:#7b9bff;--fail:#ff6369;--reply:#4cc38a;--async:#bf7af0}}
   @media (prefers-reduced-motion: reduce){.dot,.x,.note{display:none}.hl,.lbl{opacity:1 !important}}`;
 
 /** Length of one loop of the exported animation: the timeline plus a hold on the final state */
@@ -194,7 +195,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
   });
 
   const desc = tl.steps.flatMap((s) => s.edges.map((e) =>
-    `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : ""}`)
+    `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : e.kind === "async" ? " (async)" : ""}`)
     .concat(s.note && opts.notes !== false ? [`(${s.note})`] : []).join(" ")).join("; ");
 
   const W = l.width, H = l.height + offY + noteH;

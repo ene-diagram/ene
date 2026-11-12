@@ -243,7 +243,7 @@ ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid sequen
 ene diagram.mmd -o diagram.svg               # convert and render in one go
 ```
 
-Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
+Messages, participants, `alt`/`else`, `opt` (and `break`, as `opt`), `loop`, `par` and the async arrow `-)` (as `~>`) are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
 
 ### With Claude
 
@@ -297,7 +297,7 @@ For the CLI, pass `--icons pack.json` (repeatable). `ene icons <svg-dir> --prefi
 
 ### Branches in the player and in SVG
 
-The player shows one menu per `branch`, so the reader can replay another path. An exported SVG has no controls: it plays one path, chosen with `--choice` (one zero-based arm per branch, in order; default all `0`):
+The player shows one menu per `branch`, so the reader can replay another path. An exported SVG has no controls: it plays one path, chosen with `--choice` (one zero-based arm per `branch` or `opt`, in order; for `opt`, `0` = taken and `1` = skipped; default all `0`):
 
 ```bash
 ene flow.ene -o miss.svg --choice 1
@@ -322,11 +322,13 @@ An icon is either a pack name (`logos:redis`, from packs you register) or an SVG
 | `a -> b : label` | request |
 | `a --> b : label` | response (dashed) |
 | `a -x b : label` | failure |
+| `a ~> b : label` | async (fire-and-forget) |
 | `a -> b & a -> c` | at the same time |
 | `a -> b : label @2s` | this edge takes 2 seconds |
 | `note text` | caption for the step above |
 | `wait 0.5` | pause before the next step |
 | `branch …` / `else …` / `end` | alternative paths, chosen in the player |
+| `opt …` / `end` | optional steps, toggled in the player |
 | `loop 3` … `end` | repeat |
 | `group vpc[VPC] : a b` | container box |
 | `id[Label]{icon: …, shape: db, color: #f59e0b}` | node label and style |

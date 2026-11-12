@@ -47,6 +47,7 @@ api -> db : INSERT
 | `a -> b` | request |
 | `a --> b` | response (dashed) |
 | `a -x b` | failure (ends with ✕) |
+| `a ~> b` | async message (dotted): fire-and-forget, the next step starts without waiting for it |
 | `a -> b : label` | label after the first `:` (may contain `#`, `:`, spaces) |
 | `a -> b : label @2s` | this edge takes 2 seconds (`@0.5s` …), written last |
 | `a -> b & a -> c` | edges on one line play at the same time; `&` needs spaces around it |
@@ -58,6 +59,7 @@ api -> cache : lookup & api -> db : SELECT @2s
 & api -> log : audit
 cache --> api : hit
 db -x api : timeout
+api ~> queue : publish order.created
 ```
 
 ## Notes
@@ -101,8 +103,10 @@ api --> user : 201
 | `wait 0.5` | pause (seconds, ≥ 0) before the next step |
 | `loop 3` … `end` | repeat the enclosed steps (whole number ≥ 1) |
 | `branch label` … `else label` … `end` | alternative paths; the player shows a menu, SVG export uses `--choice` |
+| `opt label` … `end` | optional steps; the player shows a toggle, SVG export uses `--choice` (`0` = taken, `1` = skipped) |
 
-Blocks nest (up to 32 levels). Every arm needs at least one step.
+Blocks nest (up to 32 levels). Every arm needs at least one step; `opt` has one arm and no `else`.
+`--choice` counts `branch` and `opt` blocks together, in source order.
 
 ```ene
 api -> cache : get
@@ -117,6 +121,16 @@ else miss
   db --> api : rows
 end
 api --> user : 200
+```
+
+```ene
+user -> api : POST /order
+opt coupon given
+  api -> coupons : validate
+  coupons --> api : ok
+end
+api ~> queue : order.created
+api --> user : 201
 ```
 
 ## Layout hints and groups
@@ -145,6 +159,8 @@ A few characters mean different things depending on where they are. ene warns wh
 |---|---|---|
 | `a -x b` | failure arrow — only with a space on both sides of `-x` | |
 | `a-x b`, `a -xb` | `-x` glued to an id is part of the id | `E113` |
+| `a ~> b` | async arrow — needs a space on both sides too | |
+| `a~> b`, `a ~>b` | glued `~>` is an error | `E117` |
 | `a -> b # note` | `# note` is a comment (no label on the line yet) | |
 | `a -> b : hit # note` | after the `:` the `#` is label text | `W105` |
 | `a -> b : GET /items #1` | `#` not surrounded by spaces is plain label text | |
@@ -211,6 +227,22 @@ a ->
 
 ```ene E113
 a-x b
+```
+
+`~>` glued to an id:
+
+```ene E117
+a~>b
+```
+
+`else` inside `opt` (use `branch` for two paths):
+
+```ene E205
+opt cached
+  a -> b
+else
+  a -> c
+end
 ```
 
 A node named like a keyword at the start of a line:

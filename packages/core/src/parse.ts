@@ -4,7 +4,7 @@ import { SHAPES, type Shape } from "./types.js";
 import type { Diagnostic, Document, Edge, EdgeKind, Group, NodeDecl, ParseResult, Span, Stmt } from "./types.js";
 
 const ID_CHAR = /[\p{L}\p{N}_-]/u;
-const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x)(\s|$)/u;
+const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x|~>)(\s|$)/u;
 const DURATION = /^(\d+(?:\.\d+)?)s$/;
 
 /** Limits that keep untrusted input from exhausting CPU/memory */
@@ -59,8 +59,8 @@ class Parser {
     for (const line of scan(this.source)) this.line(line);
     // Report unclosed blocks starting from the outermost (topmost line)
     for (const f of this.stack.splice(0)) {
-      if (f.kind === "branch") this.checkArm(f);
-      this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind });
+      this.close(f);
+      this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind === "branch" && f.stmt.optional ? "opt" : f.kind });
     }
     this.resolveHints();
     this.resolveGroups();
@@ -118,6 +118,13 @@ class Parser {
     return f.kind === "loop" ? f.stmt.body : f.stmt.arms[f.stmt.arms.length - 1].body;
   }
 
+  /** Closing a block: the last arm needs a step; `opt` gets its empty "skip" arm */
+  close(f: Frame) {
+    if (f.kind !== "branch") return;
+    this.checkArm(f);
+    if (f.stmt.optional) f.stmt.arms.push({ label: "skip", body: [], span: f.stmt.span });
+  }
+
   checkArm(f: Extract<Frame, { kind: "branch" }>) {
     const arm = f.stmt.arms[f.stmt.arms.length - 1];
     if (arm.body.length === 0) this.report("E201", f.armLine, 0, [...f.armLine.text].length, { arm: arm.label });
@@ -169,8 +176,7 @@ class Parser {
       if (rest) { const at = skip(t, 3); this.report("W108", l, at, t.length, { word: rest }); }
       const f = this.stack.pop();
       if (!f) return this.report("E204", l, 0, 3);
-      if (f.kind === "branch") this.checkArm(f);
-      return;
+      return this.close(f);
     }
     if (word === "wait") {
       const n = Number(rest);
@@ -188,17 +194,18 @@ class Parser {
     }
     if (word === "else") {
       const top = this.stack[this.stack.length - 1];
-      if (top?.kind !== "branch") return this.report("E205", l, 0, 4);
+      if (top?.kind !== "branch" || top.stmt.optional) return this.report("E205", l, 0, 4);
       this.checkArm(top);
       this.labelHash(l, t, word.length, t.length);
       top.stmt.arms.push({ label: rest, body: [], span: whole });
       top.armLine = l;
       return;
     }
-    if (word === "branch") {
+    if (word === "branch" || word === "opt") {
       this.labelHash(l, t, word.length, t.length);
       const arm = { label: rest, body: [] as Stmt[], span: whole };
-      const stmt: Stmt = { type: "branch", arms: [arm], span: whole };
+      const stmt: Extract<Stmt, { type: "branch" }> = { type: "branch", arms: [arm], span: whole };
+      if (word === "opt") stmt.optional = true;
       into.push(stmt);
       this.depthCheck(l);
       return void this.stack.push({ kind: "branch", stmt, line: l, armLine: l });
@@ -267,6 +274,7 @@ class Parser {
       return void this.report("E102", l, pos, pos + [...w].length, { word: w });
     }
     pos = a.end;
+    if (t[pos] === "~" && t[pos + 1] === ">") return void this.report("E117", l, pos, pos + 2);
     if (pos < t.length && !/\s/.test(t[pos]) && t[pos] !== "-")
       return void this.report("E107", l, pos, pos + 1, { char: t[pos] });
     pos = skip(t, pos);
@@ -281,6 +289,7 @@ class Parser {
       return void this.report("E102", l, begin, begin + [...w].length, { word: w });
     }
     const arrowPos = pos;
+    if (arrow.kind === "async" && pos + 2 < t.length && !/\s/.test(t[pos + 2])) return void this.report("E117", l, pos, pos + 2);
     pos = skip(t, pos + arrow.len);
     if (pos >= t.length) return void this.report("E103", l, arrowPos, arrowPos + arrow.len);
     const b = this.ref(l, t, pos);
@@ -554,10 +563,11 @@ class Parser {
 }
 
 /**
- * Arrow at position i. `-->` reply, `->` normal, `-x` failure.
+ * Arrow at position i. `-->` reply, `->` normal, `-x` failure, `~>` async (spacing is checked by the caller: E117).
  * `-x` only when preceded by whitespace/line start and followed by whitespace/line end (to distinguish from `-x` inside an id)
  */
 const arrowAt = (t: string[], i: number): { kind: EdgeKind; len: number } | undefined => {
+  if (t[i] === "~" && t[i + 1] === ">") return { kind: "async", len: 2 };
   if (t[i] !== "-") return;
   if (t[i + 1] === "-" && t[i + 2] === ">") return { kind: "reply", len: 3 };
   if (t[i + 1] === ">") return { kind: "ok", len: 2 };

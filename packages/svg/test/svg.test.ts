@@ -55,3 +55,10 @@ test("long notes wrap to the diagram width and grow the caption", async () => {
   expect(svg.match(/<tspan/g)).toHaveLength(n);
   expect(svg).toContain(`height="${l.height + 22 + 18 * n}"`);
 });
+test("async edges get their own style", async () => {
+  const svg = await make("a ~> q : publish\na -> b");
+  expect(svg).toContain('class="hl async"');
+  expect(svg).toContain('class="dot async"');
+  expect(svg).toContain(".hl.async{");
+  expect(svg).toContain("a → q: publish (async)");
+});
