@@ -1,7 +1,8 @@
 {
   "name": "@ene/svg",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Animated SVG renderer for ene diagrams",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/slop-makers/ene.git",
@@ -13,7 +14,8 @@
     "node": ">=20"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -27,5 +29,8 @@
   "dependencies": {
     "@ene/core": "workspace:*",
     "@ene/layout": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

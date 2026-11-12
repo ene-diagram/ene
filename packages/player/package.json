@@ -1,7 +1,8 @@
 {
   "name": "@ene/player",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Browser player for ene diagrams",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/slop-makers/ene.git",
@@ -13,7 +14,9 @@
     "node": ">=20"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -34,5 +37,8 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

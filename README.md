@@ -314,3 +314,7 @@ Contributions will be welcome once the project is public.
 ## Security
 
 Icons loaded from SVG files or URLs are embedded as images, so scripts inside them never run. Labels are always escaped.
+
+## License
+
+MIT © HelloWook. See [LICENSE](LICENSE). The ELK layout bundle (`ene-elk.js`) is EPL-2.0; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
