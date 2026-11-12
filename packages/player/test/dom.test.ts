@@ -44,6 +44,41 @@ describe("player DOM", () => {
     p.destroy();
   });
 
+  it("shows the note of the current step in a caption (flow and sequence)", async () => {
+    for (const head of ["", "diagram sequence\n"]) {
+      const el = document.createElement("div"); document.body.appendChild(el);
+      const p = (await render(el, `${head}a -> b : one\nnote why one\nb -> c : two\nc --> a : three\nnote why three`, { autoplay: false, lang: "en" }))!;
+      const root = el.querySelector(".ene-player")!;
+      const note = () => root.querySelector(".ene-note")!.textContent;
+      expect(note()).toBe("why one");
+      key(root, "ArrowRight");
+      expect(note()).toBe("");
+      key(root, "ArrowRight");
+      expect(note()).toBe("why three");
+      p.destroy();
+    }
+    const el = document.createElement("div"); document.body.appendChild(el);
+    const p = (await render(el, STEPS, { autoplay: false }))!;
+    expect(el.querySelector(".ene-note")).toBeNull();
+    p.destroy();
+  });
+
+  it("opt is a checkbox toggle that skips its steps", async () => {
+    const el = document.createElement("div"); document.body.appendChild(el);
+    const p = (await render(el, "a -> b : one\nopt cached\n  b --> a : two\nend\na -> c : three", { autoplay: false, lang: "en" }))!;
+    const box = el.querySelector<HTMLInputElement>(".ene-opt input")!;
+    expect(el.querySelector(".ene-opt")!.textContent).toBe("cached");
+    expect(box.checked).toBe(true);
+    expect(p.controller.total).toBeCloseTo(3 * 1.2);
+    const ev = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    box.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    expect(p.controller.playing).toBe(false);
+    box.checked = false; box.dispatchEvent(new Event("change"));
+    expect(p.controller.total).toBeCloseTo(2 * 1.2);
+    p.destroy();
+  });
+
   it("buttons drive the controller", async () => {
     const el = document.createElement("div"); document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;

@@ -128,12 +128,23 @@ More examples in [`packages/core/examples`](packages/core/examples).
 
 ## Getting started
 
-ene is not published to npm yet; use it from source.
-
-**Requirements:** Node.js 20 or newer, pnpm 10 (`corepack enable` picks the pinned version from `package.json`).
+**Requirements:** Node.js 20 or newer.
 
 ```bash
-git clone https://github.com/slop-makers/ene.git
+npm install -g @ene-diagram/cli
+
+printf 'user -> api : GET /\napi --> user : 200\n' > flow.ene
+ene flow.ene -o flow.svg
+```
+
+Or run it once without installing: `npx @ene-diagram/cli flow.ene -o flow.svg`.
+
+### From source
+
+Needs pnpm 10 as well (`corepack enable` picks the pinned version from `package.json`).
+
+```bash
+git clone https://github.com/ene-diagram/ene.git
 cd ene
 pnpm install
 pnpm build          # compiles all packages and the browser bundle
@@ -167,6 +178,7 @@ Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Sp
 ene flow.ene -o flow.svg
 cat flow.ene | ene - > flow.svg   # "-" reads stdin; output goes to stdout
 ene flow.ene -o -                # write the SVG to stdout
+ene flow.ene -o flow.svg --no-notes   # leave out the `note` captions
 ```
 
 For places that do not play animated SVG (Slack, Notion, slides, social posts), export a GIF or MP4. The format comes from the extension:
@@ -196,17 +208,44 @@ ene fmt --check *.ene       # exit 1 if any file is not formatted (CI)
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
-### From a Mermaid sequence diagram
+### Use in a blog
 
-Already have a Mermaid `sequenceDiagram`? Convert it, or render it directly:
+**Hosts that allow a script** (your own site, a Tistory skin, self-hosted WordPress): load the player from a CDN. The major version is pinned, so fixes arrive without breaking changes:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js"></script>
+<pre class="ene">
+user -> api : POST /order
+api --> user : 201
+</pre>
+```
+
+`https://unpkg.com/@ene-diagram/player@0.1/dist/ene.js` works the same way. `ene.js` (~64 KB) loads `ene-elk.js` (~1.6 MB) from the same folder the first time it draws a flow diagram; pages with only `diagram sequence` diagrams never download it.
+
+**Markdown-only hosts** (no scripts): upload an image instead. Use the SVG (`ene flow.ene -o flow.svg`) where the host keeps SVG animation, otherwise a GIF (`-o flow.gif`).
+
+| Host | Route | Status |
+|---|---|---|
+| Self-built sites (Astro, Next, Hugo, Jekyll) | CDN script in the layout | the script works in any HTML page; framework plugins are tracked in #52 |
+| Tistory (skin HTML), self-hosted WordPress | CDN script | untested |
+| velog, Medium, dev.to, Brunch | GIF upload; SVG upload support unknown | untested |
+| Hosts that accept iframes | playground embed view (#47) | not available yet |
+
+Entries marked untested have not been checked on the host yet; reports are welcome.
+
+### From Mermaid
+
+Already have a Mermaid `sequenceDiagram`, `flowchart` or `graph`? Convert it, or render it directly:
 
 ```bash
 ene from-mermaid diagram.mmd > diagram.ene   # editable .ene source
-ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid sequence block in a Markdown file
+ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid block it can convert in a Markdown file
 ene diagram.mmd -o diagram.svg               # convert and render in one go
 ```
 
-Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. Notes become comments, and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
+Messages, participants, `alt`/`else`, `opt` (and `break`, as `opt`), `loop`, `par` and the async arrow `-)` (as `~>`) are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number.
+
+A `flowchart` / `graph` becomes a flow diagram: nodes keep their labels and the shapes ene has (`(( ))` circle, `( )` / `([ ])` round, `[( )]` db; others are drawn as boxes with a warning), each link becomes one step in source order (`|label|` and `-- label -->` become labels, dotted links become `-->`, `--x` becomes `-x`), and `subgraph` becomes `group` (nested ones use `in`). Styles, classes, click handlers and links to a subgraph are dropped with a warning. A flowchart has no time axis, so the output starts with a comment asking you to review the step order.
 
 ### With Claude
 
@@ -283,7 +322,7 @@ For the CLI, pass `--icons pack.json` (repeatable). `ene icons <svg-dir> --prefi
 
 ### Branches in the player and in SVG
 
-The player shows one menu per `branch`, so the reader can replay another path. An exported SVG has no controls: it plays one path, chosen with `--choice` (one zero-based arm per branch, in order; default all `0`):
+The player shows one menu per `branch`, so the reader can replay another path. An exported SVG has no controls: it plays one path, chosen with `--choice` (one zero-based arm per `branch` or `opt`, in order; for `opt`, `0` = taken and `1` = skipped; default all `0`):
 
 ```bash
 ene flow.ene -o miss.svg --choice 1
@@ -310,7 +349,7 @@ Every colour is a CSS variable on the root `<svg class="ene ene-theme-<name>">`:
 | `--line` | node borders, lifelines |
 | `--faint` | idle edges |
 | `--fg` / `--fg2` | node labels and title / edge labels |
-| `--ok` / `--fail` / `--reply` | request, failure and response highlights and dots |
+| `--ok` / `--fail` / `--reply` / `--async` | request, failure, response and async highlights and dots |
 
 A page that embeds the player can override them with any selector (the player's own rule has zero specificity). An exported SVG pasted inline sets them with a plain `svg` rule, so use something more specific; this works for both:
 
@@ -337,10 +376,13 @@ An icon is either a pack name (`logos:redis`, from packs you register) or an SVG
 | `a -> b : label` | request |
 | `a --> b : label` | response (dashed) |
 | `a -x b : label` | failure |
+| `a ~> b : label` | async (fire-and-forget) |
 | `a -> b & a -> c` | at the same time |
 | `a -> b : label @2s` | this edge takes 2 seconds |
+| `note text` | caption for the step above |
 | `wait 0.5` | pause before the next step |
 | `branch …` / `else …` / `end` | alternative paths, chosen in the player |
+| `opt …` / `end` | optional steps, toggled in the player |
 | `loop 3` … `end` | repeat |
 | `group vpc[VPC] : a b` | container box |
 | `id[Label]{icon: …, shape: db, color: #f59e0b}` | node label and style |
@@ -352,7 +394,7 @@ One line is one step, played top to bottom. The complete reference, with common 
 
 ## Release
 
-ene has not been released yet.
+0.1.0 is on npm under the [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) scope: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player` and the optional `video`.
 
 ## Related projects
 

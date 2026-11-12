@@ -162,10 +162,10 @@ describe("from-mermaid", () => {
     expect(r.status).toBe(0); expect(r.stdout).toBe("");
     expect(spawnSync("node", [bin, "check", out, "--json"], { encoding: "utf8" }).stdout.trim()).toBe("[]");
   });
-  test("exit 1 with a message for a diagram that is not a sequence diagram; 2 on usage errors", () => {
-    const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "f.mmd"); writeFileSync(f, "flowchart LR\n a-->b\n");
+  test("exit 1 with a message for a diagram that cannot be converted; 2 on usage errors", () => {
+    const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "f.mmd"); writeFileSync(f, "pie\n \"a\": 1\n");
     const r = spawnSync("node", [bin, "from-mermaid", f], { encoding: "utf8" });
-    expect(r.status).toBe(1); expect(r.stdout).toBe(""); expect(r.stderr).toContain("only `sequenceDiagram` can be converted");
+    expect(r.status).toBe(1); expect(r.stdout).toBe(""); expect(r.stderr).toContain("only `sequenceDiagram`, `flowchart` and `graph` can be converted");
     expect(spawnSync("node", [bin, "from-mermaid"], { encoding: "utf8" }).status).toBe(2);
     expect(spawnSync("node", [bin, "from-mermaid", join(d, "missing.mmd")], { encoding: "utf8" }).status).toBe(1);
   });
@@ -175,7 +175,12 @@ describe("from-mermaid", () => {
     expect(r.status).toBe(0);
     const svg = readFileSync(join(d, "s.svg"), "utf8");
     expect(svg).toContain("503"); expect(svg).toContain("Alice");
-    writeFileSync(f, "flowchart LR\n a-->b\n");
+    writeFileSync(f, "flowchart LR\n a[Start]-->|go| b\n");
+    const fc = spawnSync("node", [bin, f], { encoding: "utf8" });
+    expect(fc.status).toBe(0);
+    expect(fc.stderr).toContain("review the order");
+    expect(readFileSync(join(d, "s.svg"), "utf8")).toContain("Start");
+    writeFileSync(f, "pie\n \"a\": 1\n");
     expect(spawnSync("node", [bin, f], { encoding: "utf8" }).status).toBe(1);
   });
 });
@@ -188,4 +193,10 @@ test("--theme overrides the document theme; an unknown theme exits 2", () => {
   expect(readFileSync(join(d, "t.svg"), "utf8")).toContain("ene-theme-high-contrast");
   const r = runCli([f, "--theme", "neon"]);
   expect(r.status).toBe(2); expect(r.stderr).toContain('unknown theme "neon"');
+});
+test("notes are captions in the SVG unless --no-notes", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "n.ene");
+  writeFileSync(f, "a -> b\nnote why this step\n");
+  expect(runCli([f, "-o", "-"]).stdout).toContain('class="note"');
+  expect(runCli([f, "-o", "-", "--no-notes"]).stdout).not.toContain('class="note"');
 });

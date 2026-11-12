@@ -48,3 +48,37 @@ describe("themes", () => {
     expect(out("nope" as ThemeName)).toContain("ene-theme-default");
   });
 });
+test("step notes are a caption under the diagram, shown while their step plays; notes: false omits them", async () => {
+  const src = "a -> b : one\nnote first <why>\nb -> c : two\nc --> a : three\nnote third";
+  const { doc } = parse(src); const tl = buildTimeline(doc); const l = await layout(doc, tl);
+  const svg = renderSvg(l, tl);
+  const notes = [...svg.matchAll(/class="note"[^>]*><tspan[^>]*>([^<]*)/g)].map((m) => m[1]);
+  expect(notes).toEqual(["first &lt;why&gt;", "third"]);
+  expect(svg).toContain(`height="${l.height + 40}"`);
+  expect(svg).toContain("(first &lt;why&gt;)");
+  const plain = renderSvg(l, tl, { notes: false });
+  expect(plain).not.toContain('class="note"');
+  expect(plain).toContain(`height="${l.height}"`);
+  expect(renderSvg(l, buildTimeline(parse("a -> b").doc))).not.toContain('class="note"');
+});
+test("long notes wrap to the diagram width and grow the caption", async () => {
+  const { wrapNote } = await import("../src/index");
+  const long = "This explanation is much longer than a small two node diagram is wide, so it has to wrap onto more lines";
+  const lines = wrapNote(long, 200);
+  expect(lines.length).toBeGreaterThan(2);
+  expect(lines.join(" ")).toBe(long);
+  expect(wrapNote("x".repeat(100), 100).join("")).toBe("x".repeat(100));
+  const { doc } = parse(`a -> b\nnote ${long}`); const tl = buildTimeline(doc); const l = await layout(doc, tl);
+  const svg = renderSvg(l, tl);
+  const n = wrapNote(long, l.width - 80).length;
+  expect(n).toBeGreaterThan(1);
+  expect(svg.match(/<tspan/g)).toHaveLength(n);
+  expect(svg).toContain(`height="${l.height + 22 + 18 * n}"`);
+});
+test("async edges get their own style", async () => {
+  const svg = await make("a ~> q : publish\na -> b");
+  expect(svg).toContain('class="hl async"');
+  expect(svg).toContain('class="dot async"');
+  expect(svg).toContain(".hl.async{");
+  expect(svg).toContain("a → q: publish (async)");
+});

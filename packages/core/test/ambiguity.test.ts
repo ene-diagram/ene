@@ -140,6 +140,6 @@ test("new diagnostics render with caret and hint in both languages", () => {
   |
 1 | a -> b : hit # note
   |              ^
-  = hint: a comment cannot follow a label or title; move it to its own line, or ignore this if the \`#\` should be shown`);
+  = hint: a comment cannot follow a label, title or note; move it to its own line, or ignore this if the \`#\` should be shown`);
   expect(formatDiagnostic("end -> a", parse("end -> a").diagnostics[0], "ko")).toContain("줄 맨 앞의 `end` 는 노드가 아니라 키워드예요");
 });
