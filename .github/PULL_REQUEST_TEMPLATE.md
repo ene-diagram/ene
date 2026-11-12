@@ -29,10 +29,6 @@ Fixes #
 
 <!-- Alternatives you considered, trade-offs, and parts that need a closer look. Write "None" if nothing. -->
 
-## AI assistance
-
-<!-- If you used AI: which parts, and how you reviewed the result. Write "None" if not used. -->
-
 ## Checklist
 
 - [ ] Linked issue(s) with `Fixes #…`
