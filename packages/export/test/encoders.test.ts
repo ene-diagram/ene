@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeGif, lzw, muxMp4 } from "../src/index.js";
+import { GifEncoder, encodeGif, lzw, muxMp4 } from "../src/index.js";
 
 /** Minimal GIF LZW decoder (for checking the encoder) */
 function unlzw(data: Uint8Array, at: number): { out: number[]; end: number } {
@@ -55,6 +55,19 @@ describe("encodeGif", () => {
     const desc: number[][] = [];
     for (let i = 0; i < gif.length - 9; i++) if (gif[i] === 0x2c && gif[i - 8] === 0x21 && gif[i - 7] === 0xf9) desc.push([0, 2, 4, 6].map((o) => gif[i + 1 + o] | (gif[i + 2 + o] << 8)));
     expect(desc).toEqual([[0, 0, 4, 2], [2, 1, 1, 1]]);
+  });
+});
+
+describe("GifEncoder", () => {
+  it("keeps the loop length at the maximum frame rate and refuses more", () => {
+    const pal = new Uint8Array([0, 0, 0, 255, 0, 0]);
+    const enc = new GifEncoder(1, 1, pal, 50);
+    for (let i = 0; i < 50; i++) enc.add({ width: 1, height: 1, data: new Uint8Array([i % 2 ? 255 : 0, 0, 0, 255]) });
+    const gif = enc.finish();
+    let total = 0;
+    for (let i = 0; i < gif.length - 5; i++) if (gif[i] === 0x21 && gif[i + 1] === 0xf9 && gif[i + 2] === 4) total += gif[i + 4] | (gif[i + 5] << 8);
+    expect(total).toBe(100);
+    expect(() => new GifEncoder(1, 1, pal, 60)).toThrow(/50 fps/);
   });
 });
 

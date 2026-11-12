@@ -102,39 +102,52 @@ export function lzw(indices: Uint8Array, minCode = 8, out = new Bytes()): Bytes 
   return out;
 }
 
-const sameData = (a: GifFrame["data"], b: GifFrame["data"]) => {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
-};
+/** GIF delays are whole centiseconds and browsers treat delays under 2 cs as slow, so 50 fps is the most a GIF can show */
+export const GIF_MAX_FPS = 50;
 
-/** Encode RGBA frames (all the same size) as a looping GIF */
-export function encodeGif(frames: GifFrame[], fps: number): Uint8Array {
-  if (!frames.length) throw new Error("no frames");
-  const { width, height } = frames[0];
-  const pal = buildPalette(frames);
-  const palBits = Math.max(1, Math.ceil(Math.log2(pal.length / 3)));
-  const index = indexer(pal);
-  const bytes = new Bytes();
-  const u16 = (v: number) => bytes.push(v & 255, (v >> 8) & 255);
-  bytes.push(...[..."GIF89a"].map((c) => c.charCodeAt(0)));
-  u16(width); u16(height);
-  bytes.push(0x80 | ((palBits - 1) << 4) | (palBits - 1), 0, 0);
-  const table = new Uint8Array((1 << palBits) * 3); table.set(pal);
-  bytes.bytes(table);
-  // NETSCAPE2.0: loop forever
-  bytes.push(0x21, 0xff, 11, ...[..."NETSCAPE2.0"].map((c) => c.charCodeAt(0)), 3, 1, 0, 0, 0);
-  // Frame i ends at round((i + 1) * 100 / fps) centiseconds, so rounding never drifts
-  const cs = (i: number) => Math.round((i * 100) / fps);
-  // Each frame after the first stores only the rectangle that changed (disposal: keep the previous frame)
-  let prev: Uint8Array | undefined;
-  for (let i = 0; i < frames.length; ) {
-    let j = i + 1;
-    while (j < frames.length && sameData(frames[j].data, frames[i].data)) j++;
-    const delay = Math.max(2, cs(j) - cs(i));
-    const d = frames[i].data, idx = new Uint8Array(width * height);
-    for (let p = 0, q = 0; p < idx.length; p++, q += 4) idx[p] = index(d[q], d[q + 1], d[q + 2]);
+/**
+ * Streaming GIF encoder: frames are quantised and compressed as they arrive, so only the previous
+ * frame's colour indices are kept. Each frame after the first stores only the rectangle that
+ * changed (disposal: keep the previous frame); a frame equal to the previous one extends its delay.
+ */
+export class GifEncoder {
+  private bytes = new Bytes();
+  private index: (r: number, g: number, b: number) => number;
+  private prev: Uint8Array | undefined;
+  private pending: { idx: Uint8Array; start: number } | undefined;
+  private count = 0;
+  constructor(private width: number, private height: number, palette: Uint8Array, private fps: number) {
+    if (!(fps > 0 && fps <= GIF_MAX_FPS)) throw new Error(`a GIF can show at most ${GIF_MAX_FPS} fps`);
+    this.index = indexer(palette);
+    const palBits = Math.max(1, Math.ceil(Math.log2(palette.length / 3)));
+    const b = this.bytes, u16 = (v: number) => b.push(v & 255, (v >> 8) & 255);
+    b.push(...[..."GIF89a"].map((c) => c.charCodeAt(0)));
+    u16(width); u16(height);
+    b.push(0x80 | ((palBits - 1) << 4) | (palBits - 1), 0, 0);
+    const table = new Uint8Array((1 << palBits) * 3); table.set(palette);
+    b.bytes(table);
+    // NETSCAPE2.0: loop forever
+    b.push(0x21, 0xff, 11, ...[..."NETSCAPE2.0"].map((c) => c.charCodeAt(0)), 3, 1, 0, 0, 0);
+  }
+  add(frame: GifFrame): void {
+    if (frame.width !== this.width || frame.height !== this.height) throw new Error("all frames must have the same size");
+    const d = frame.data, idx = new Uint8Array(this.width * this.height);
+    for (let p = 0, q = 0; p < idx.length; p++, q += 4) idx[p] = this.index(d[q], d[q + 1], d[q + 2]);
+    const n = this.count++;
+    if (this.pending && sameIndices(this.pending.idx, idx)) return;
+    this.flush(n);
+    this.pending = { idx, start: n };
+  }
+  /** Write the pending frame, which lasts until frame `end` starts */
+  private flush(end: number) {
+    const f = this.pending;
+    if (!f) return;
+    const { width, height } = this, b = this.bytes;
+    // Frame i starts at round(i * 100 / fps) centiseconds, so rounding never drifts
+    const cs = (i: number) => Math.round((i * 100) / this.fps);
+    const delay = Math.max(2, cs(end) - cs(f.start));
     let x0 = 0, y0 = 0, x1 = width - 1, y1 = height - 1;
+    const prev = this.prev, idx = f.idx;
     if (prev) {
       x0 = width; y0 = height; x1 = -1; y1 = -1;
       for (let y = 0; y < height; y++)
@@ -145,12 +158,30 @@ export function encodeGif(frames: GifFrame[], fps: number): Uint8Array {
     const w = x1 - x0 + 1, h = y1 - y0 + 1;
     const rect = new Uint8Array(w * h);
     for (let y = 0; y < h; y++) rect.set(idx.subarray((y0 + y) * width + x0, (y0 + y) * width + x0 + w), y * w);
-    bytes.push(0x21, 0xf9, 4, 0x04, delay & 255, (delay >> 8) & 255, 0, 0);
-    bytes.push(0x2c, x0 & 255, x0 >> 8, y0 & 255, y0 >> 8, w & 255, w >> 8, h & 255, h >> 8, 0);
-    lzw(rect, 8, bytes);
-    prev = idx;
-    i = j;
+    b.push(0x21, 0xf9, 4, 0x04, delay & 255, (delay >> 8) & 255, 0, 0);
+    b.push(0x2c, x0 & 255, x0 >> 8, y0 & 255, y0 >> 8, w & 255, w >> 8, h & 255, h >> 8, 0);
+    lzw(rect, 8, b);
+    this.prev = idx;
+    this.pending = undefined;
   }
-  bytes.byte(0x3b);
-  return bytes.result();
+  finish(): Uint8Array {
+    if (!this.count) throw new Error("no frames");
+    this.flush(this.count);
+    this.bytes.byte(0x3b);
+    return this.bytes.result();
+  }
+}
+
+const sameIndices = (a: Uint8Array, b: Uint8Array) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+};
+
+/** Encode RGBA frames (all the same size) as a looping GIF */
+export function encodeGif(frames: GifFrame[], fps: number): Uint8Array {
+  if (!frames.length) throw new Error("no frames");
+  const enc = new GifEncoder(frames[0].width, frames[0].height, buildPalette(frames), fps);
+  for (const f of frames) enc.add(f);
+  return enc.finish();
 }

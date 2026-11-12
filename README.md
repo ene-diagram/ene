@@ -265,7 +265,7 @@ player.destroy();         // stop playback and clear the element
 
 - `format`: `gif` (built-in encoder), `mp4` (H.264 through WebCodecs, where the browser has it) or `webm` (MediaRecorder; records in real time, so it takes as long as the animation). `eneExport.videoSupport()` tells which video formats work.
 - `theme`: `light` (default), `dark`, or `auto` (follows the viewer). `eneExport.themedSvg(svg, theme)` applies the same to a downloadable SVG.
-- Frames are computed from the SVG's animation values, not recorded from a running clock, so the GIF and MP4 match the SVG exactly. Limits: 1800 frames, 60 fps, scale 4.
+- Frames are computed from the SVG's animation values, not recorded from a running clock, so the GIF and MP4 match the SVG exactly. Limits: 1800 frames, 60 fps (50 for GIF), scale 4.
 
 ### Icon packs
 

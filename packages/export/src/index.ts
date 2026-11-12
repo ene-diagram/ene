@@ -1,9 +1,9 @@
 import { applyTheme, freeze, frameTimes, loopLength, stripReducedMotion, svgSize, type Theme } from "./frames.js";
-import { encodeGif } from "./gif.js";
+import { GIF_MAX_FPS, GifEncoder, buildPalette } from "./gif.js";
 import { muxMp4, type Mp4Sample } from "./mp4.js";
 
 export { applyTheme, freeze, frameTimes, loopLength, sample, stripReducedMotion, svgSize, type PointAt, type Theme } from "./frames.js";
-export { buildPalette, encodeGif, lzw, type GifFrame } from "./gif.js";
+export { GIF_MAX_FPS, GifEncoder, buildPalette, encodeGif, lzw, type GifFrame } from "./gif.js";
 export { muxMp4, type Mp4Options, type Mp4Sample } from "./mp4.js";
 
 export type ExportFormat = "gif" | "mp4" | "webm";
@@ -98,7 +98,8 @@ export async function exportVideo(svg: string, opts: ExportOptions): Promise<Exp
   const d = DEFAULTS[opts.format];
   if (!d) throw new Error(`unknown format ${opts.format}`);
   const fps = opts.fps ?? d.fps, scale = opts.scale ?? d.scale;
-  if (!(fps >= 1 && fps <= LIMITS.fps)) throw new Error(`fps must be between 1 and ${LIMITS.fps}`);
+  const maxFps = opts.format === "gif" ? GIF_MAX_FPS : LIMITS.fps;
+  if (!(fps >= 1 && fps <= maxFps)) throw new Error(`fps must be between 1 and ${maxFps}${opts.format === "gif" ? " for a GIF" : ""}`);
   if (!(scale >= 0.5 && scale <= LIMITS.scale)) throw new Error(`scale must be between 0.5 and ${LIMITS.scale}`);
   const seconds = loopLength(svg);
   if (!(seconds > 0)) throw new Error("the SVG has no animation");
@@ -110,15 +111,20 @@ export async function exportVideo(svg: string, opts: ExportOptions): Promise<Exp
   const { width, height } = framer;
   try {
     if (opts.format === "gif") {
-      const frames = [];
+      // Pass 1: a palette from a few sampled frames. Pass 2: encode each frame as it is drawn,
+      // so memory stays at a couple of frames whatever the length
+      const picks = [...new Set(Array.from({ length: Math.min(12, times.length) }, (_, k) => Math.floor((k * times.length) / Math.min(12, times.length))))];
+      const samples = [];
+      for (const k of picks) { aborted(opts.signal); await framer.draw(times[k]); samples.push(framer.pixels()); }
+      const enc = new GifEncoder(width, height, buildPalette(samples), fps);
+      samples.length = 0;
       for (const [i, t] of times.entries()) {
         aborted(opts.signal);
         await framer.draw(t);
-        frames.push(framer.pixels());
+        enc.add(framer.pixels());
         opts.onProgress?.(i + 1, times.length);
       }
-      const gif = encodeGif(frames, fps);
-      return { blob: new Blob([gif as BlobPart], { type: "image/gif" }), format: "gif", frames: times.length, width, height };
+      return { blob: new Blob([enc.finish() as BlobPart], { type: "image/gif" }), format: "gif", frames: times.length, width, height };
     }
     if (opts.format === "mp4") {
       const blob = await encodeMp4(framer, times, fps, opts);
