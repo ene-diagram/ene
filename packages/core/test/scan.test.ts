@@ -18,3 +18,4 @@ test("# inside an edge label is text, not a comment", () =>
 test("# inside a node label bracket is text", () =>
   expect(scan("a[issue #5] -> b # note")[0].text).toBe("a[issue #5] -> b"));
 test("# in title text is kept", () => expect(scan("title 이슈 #5")[0].text).toBe("title 이슈 #5"));
+test("UTF-8 BOM does not shift columns", () => expect(scan("﻿a -> b")[0].cols[0]).toBe(1));

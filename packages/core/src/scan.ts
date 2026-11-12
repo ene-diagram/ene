@@ -13,7 +13,7 @@ const isSpace = (c: string) => c === " " || c === "\t";
 
 export function scan(source: string): Line[] {
   const out: Line[] = [];
-  source.split(/\r\n|\r|\n/).forEach((raw, i) => {
+  source.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/).forEach((raw, i) => {
     const chars = [...raw];
     let start = 0;
     while (start < chars.length && isSpace(chars[start])) start++;

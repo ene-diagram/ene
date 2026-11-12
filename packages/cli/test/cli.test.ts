@@ -23,3 +23,17 @@ test("errors print korean diagnostics and exit 1", () => {
   expect(r.status).toBe(1); expect(r.stderr).toContain("화살표 뒤에 대상 노드가 없어요");
   expect(existsSync(join(d, "bad.svg"))).toBe(false);
 });
+const runCli = (args: string[]) => spawnSync("node", [bin, ...args], { encoding: "utf8" });
+test("missing file gives a clear error, exit 1", () => {
+  const r = runCli(["/nope/x.ene"]); expect(r.status).toBe(1);
+  expect(r.stderr).toContain("cannot read /nope/x.ene"); expect(r.stderr).not.toContain("at ");
+});
+test.each([[["x.ene", "-o"]], [["x.ene", "--lang"]], [["x.ene", "--lang", "fr"]], [["x.ene", "--choice", "abc"]], [["x.ene", "--choice"]]])(
+  "bad flags print usage and exit 2: %j", (args) => {
+    const r = runCli(args as string[]); expect(r.status).toBe(2); expect(r.stderr).toContain("usage:");
+  });
+test("out-of-range choice warns", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "b.ene");
+  writeFileSync(f, "branch a\n x -> y\nbranch b\n x -> z\nend\ny -> z");
+  const r = runCli([f, "--choice", "9"]); expect(r.status).toBe(0); expect(r.stderr).toContain("choice 9");
+});

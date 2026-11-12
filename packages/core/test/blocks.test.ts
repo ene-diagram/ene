@@ -12,7 +12,7 @@ test("loop and wait and per-edge duration", () => {
 });
 test("nested unclosed blocks report each opener", () => {
   const d = parse("branch x\n loop 2\n  a -> b").diagnostics.filter(d => d.code === "E203");
-  expect(d.map(x => x.span.line)).toEqual([2, 1]);
+  expect(d.map(x => x.span.line)).toEqual([1, 2]);
 });
 test("stray end", () => expect(parse("a -> b\nend").diagnostics[0].code).toBe("E204"));
 test("bad numbers", () =>
@@ -20,3 +20,5 @@ test("bad numbers", () =>
     .toEqual(["E301", "E302", "E303", "E304"]));
 test("empty branch arm", () =>
   expect(parse("a -> b\nbranch x\nbranch y\n a -> b\nend").diagnostics.map(d => d.code)).toEqual(["E201"]));
+test("unclosed blocks are reported in line order", () =>
+  expect(parse("loop 2\nbranch x\n a -> b\n loop 3\n  a -> c").diagnostics.filter(d => d.code === "E203").map(d => d.span.line)).toEqual([1, 2, 4]));

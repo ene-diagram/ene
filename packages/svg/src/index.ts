@@ -53,8 +53,8 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
         labels += `<text x="${le.mid.x}" y="${le.mid.y - 6}" class="lbl" opacity="0">${esc(`${s.index + 1}. ${e.label}`)}` +
           anim("opacity", "0;0;1;1;0;0", `0;${kt(t0)};${kt(t0)};${kt(nextUse)};${kt(nextUse)};1`) + `</text>`;
       if (e.kind === "fail") {
-        const n = nodeById.get(e.to)!;
-        dots += `<text x="${n.x + n.w / 2}" y="${n.y - 8}" class="x" opacity="0">✕${anim("opacity", "0;0;1;1;0", `0;${kt(t1)};${kt(t1)};${kt(end)};1`)}</text>`;
+        const n = nodeById.get(e.to);
+        if (n) dots += `<text x="${n.x + n.w / 2}" y="${n.y - 8}" class="x" opacity="0">✕${anim("opacity", "0;0;1;1;0", `0;${kt(t1)};${kt(t1)};${kt(end)};1`)}</text>`;
       }
     }
 

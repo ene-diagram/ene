@@ -31,8 +31,8 @@ class Parser {
 
   run(): ParseResult {
     for (const line of scan(this.source)) this.line(line);
-    while (this.stack.length) {
-      const f = this.stack.pop()!;
+    // 닫히지 않은 블록은 바깥(위쪽 줄)부터 보고한다
+    for (const f of this.stack.splice(0)) {
       if (f.kind === "branch") this.checkArm(f);
       this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind });
     }
