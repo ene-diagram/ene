@@ -151,7 +151,7 @@ class Parser {
     if (word === "theme") {
       if (!isTheme(rest)) {
         const suggestion = suggest(rest, [...THEMES]);
-        return this.report("E116", l, 6, t.length, { value: rest, themes: THEMES.join(", "), ...(suggestion ? { suggestion } : {}) });
+        return this.report("E118", l, 6, t.length, { value: rest, themes: THEMES.join(", "), ...(suggestion ? { suggestion } : {}) });
       }
       return void (this.doc.theme = rest);
     }
