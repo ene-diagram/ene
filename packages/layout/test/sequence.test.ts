@@ -1,4 +1,4 @@
-import { parse, buildTimeline } from "@ene/core";
+import { parse, buildTimeline } from "@ene-diagram/core";
 import { layoutSequence, edgeFor } from "../src/index";
 const seq = (src: string, choices?: number[]) => { const { doc } = parse("diagram sequence\n" + src); const tl = buildTimeline(doc, { choices }); return { tl, l: layoutSequence(doc, tl) }; };
 test("participants in declaration order, rows go down, arrows are horizontal", () => {

@@ -26,17 +26,17 @@ importers:
 
   packages/cli:
     dependencies:
-      '@ene/core':
+      '@ene-diagram/core':
         specifier: workspace:*
         version: link:../core
-      '@ene/layout':
+      '@ene-diagram/layout':
         specifier: workspace:*
         version: link:../layout
-      '@ene/svg':
+      '@ene-diagram/svg':
         specifier: workspace:*
         version: link:../svg
     optionalDependencies:
-      '@ene/video':
+      '@ene-diagram/video':
         specifier: workspace:*
         version: link:../video
 
@@ -44,7 +44,7 @@ importers:
 
   packages/layout:
     dependencies:
-      '@ene/core':
+      '@ene-diagram/core':
         specifier: workspace:*
         version: link:../core
       elkjs:
@@ -53,13 +53,13 @@ importers:
 
   packages/player:
     dependencies:
-      '@ene/core':
+      '@ene-diagram/core':
         specifier: workspace:*
         version: link:../core
-      '@ene/layout':
+      '@ene-diagram/layout':
         specifier: workspace:*
         version: link:../layout
-      '@ene/svg':
+      '@ene-diagram/svg':
         specifier: workspace:*
         version: link:../svg
     devDependencies:
@@ -69,10 +69,10 @@ importers:
 
   packages/svg:
     dependencies:
-      '@ene/core':
+      '@ene-diagram/core':
         specifier: workspace:*
         version: link:../core
-      '@ene/layout':
+      '@ene-diagram/layout':
         specifier: workspace:*
         version: link:../layout
 

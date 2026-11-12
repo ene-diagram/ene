@@ -1,6 +1,6 @@
 import type { ELK as ElkApi } from "elkjs/lib/elk-api.js";
 export type { ElkApi };
-import type { Document, Timeline } from "@ene/core";
+import type { Document, Timeline } from "@ene-diagram/core";
 
 export interface LNode { id: string; label: string; icon?: string; shape?: string; color?: string; x: number; y: number; w: number; h: number }
 export interface LEdge { index: number; d: string; mid: { x: number; y: number }; step?: number; k?: number }

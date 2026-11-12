@@ -1,5 +1,5 @@
-import { parse, buildTimeline } from "@ene/core";
-import { layout } from "@ene/layout";
+import { parse, buildTimeline } from "@ene-diagram/core";
+import { layout } from "@ene-diagram/layout";
 import { renderSvg } from "../src/index";
 const make = async (src: string) => {
   const { doc } = parse(src); const tl = buildTimeline(doc);

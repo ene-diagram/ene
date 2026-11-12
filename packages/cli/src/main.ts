@@ -1,8 +1,8 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { buildTimeline, checkIcons, diagnosticToJson, formatAll, formatSource, fromMermaid, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
-import { layout, layoutSequence } from "@ene/layout";
-import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, loopSeconds, renderSvg, type IconLoadResult } from "@ene/svg";
+import { buildTimeline, checkIcons, diagnosticToJson, formatAll, formatSource, fromMermaid, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene-diagram/core";
+import { layout, layoutSequence } from "@ene-diagram/layout";
+import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, loopSeconds, renderSvg, type IconLoadResult } from "@ene-diagram/svg";
 
 const USAGE = `usage: ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1]
                  [--icons pack.json ...] [--no-network] [--allow-host host ...] [--fps n] [--scale n]
@@ -115,11 +115,11 @@ function fmtCommand(argv: string[]): number {
   return mode === "check" && changed ? 1 : 0;
 }
 
-/** GIF/MP4 go through the optional @ene/video package (headless Chrome + ffmpeg) */
+/** GIF/MP4 go through the optional @ene-diagram/video package (headless Chrome + ffmpeg) */
 async function exportVideo(svg: string, opts: { out: string; format: "gif" | "mp4"; seconds: number; fps?: number; scale?: number }, summary: string): Promise<number> {
-  let mod: typeof import("@ene/video");
-  try { mod = await import("@ene/video"); }
-  catch { console.error("error: GIF/MP4 export needs the @ene/video package (npm install @ene/video)"); return 1; }
+  let mod: typeof import("@ene-diagram/video");
+  try { mod = await import("@ene-diagram/video"); }
+  catch { console.error("error: GIF/MP4 export needs the @ene-diagram/video package (npm install @ene-diagram/video)"); return 1; }
   const tty = process.stderr.isTTY;
   try {
     const r = await mod.renderVideo(svg, { ...opts, onFrame: tty ? (done, total) => process.stderr.write(`\rframe ${done}/${total}`) : undefined });

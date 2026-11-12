@@ -177,7 +177,7 @@ ene flow.ene -o flow.mp4 --choice 1            # 30 fps, 2배 해상도
 ene flow.ene -o flow.gif --fps 12 --scale 2    # 더 작은 파일 / 더 선명한 프레임
 ```
 
-헤드리스 Chrome 에서 SVG 를 한 바퀴 재생하며 프레임을 찍고 ffmpeg 로 인코딩해요. 그래서 둘 다 설치돼 있어야 해요(Chrome·Chromium·Edge 중 하나, `brew install ffmpeg`). `ENE_CHROME`, `ENE_FFMPEG` 로 실행 파일을 직접 지정할 수 있어요. Node.js 22 이상과 `@ene/video` 패키지가 필요하고, 이 패키지는 SVG 만 쓰는 설치를 가볍게 유지하려고 선택 사항으로 뒀어요.
+헤드리스 Chrome 에서 SVG 를 한 바퀴 재생하며 프레임을 찍고 ffmpeg 로 인코딩해요. 그래서 둘 다 설치돼 있어야 해요(Chrome·Chromium·Edge 중 하나, `brew install ffmpeg`). `ENE_CHROME`, `ENE_FFMPEG` 로 실행 파일을 직접 지정할 수 있어요. Node.js 22 이상과 `@ene-diagram/video` 패키지가 필요하고, 이 패키지는 SVG 만 쓰는 설치를 가볍게 유지하려고 선택 사항으로 뒀어요.
 
 렌더링 없이 검사만 하려면 `check` 를 써요(오류가 있으면 종료 코드 1). `--json` 은 도구·AI 에이전트용으로 진단을 JSON 으로 출력해요:
 

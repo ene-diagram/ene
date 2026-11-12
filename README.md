@@ -177,7 +177,7 @@ ene flow.ene -o flow.mp4 --choice 1            # 30 fps, 2× pixel density
 ene flow.ene -o flow.gif --fps 12 --scale 2    # smaller file / sharper frames
 ```
 
-This plays one loop of the SVG in headless Chrome and encodes the frames with ffmpeg, so both must be installed (Chrome, Chromium or Edge; `brew install ffmpeg`). `ENE_CHROME` and `ENE_FFMPEG` point at specific executables. It needs Node.js 22 or newer and the `@ene/video` package, which is optional so that SVG-only installs stay small.
+This plays one loop of the SVG in headless Chrome and encodes the frames with ffmpeg, so both must be installed (Chrome, Chromium or Edge; `brew install ffmpeg`). `ENE_CHROME` and `ENE_FFMPEG` point at specific executables. It needs Node.js 22 or newer and the `@ene-diagram/video` package, which is optional so that SVG-only installs stay small.
 
 Check a file without rendering (exit 1 on errors). `--json` prints diagnostics for tools and AI agents:
 
