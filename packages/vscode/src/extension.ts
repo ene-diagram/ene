@@ -11,7 +11,8 @@ const toRange = (r: Rng) => new vscode.Range(r.start.line, r.start.character, r.
 
 export function activate(ctx: vscode.ExtensionContext): void {
   const collection = vscode.languages.createDiagnosticCollection(LANG_ID);
-  const cache = new Map<string, EneDiag[]>();
+  // Diagnostics with the document version they were computed for; quick fixes are only offered for that version
+  const cache = new Map<string, { version: number; diags: EneDiag[] }>();
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   ctx.subscriptions.push(collection);
 
@@ -21,7 +22,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const { doc: ast, diagnostics } = parse(text);
     diagnostics.push(...checkIcons(ast, []).filter((d) => d.severity === "error"));
     const ds = toEditorDiagnostics(text, diagnostics, lang());
-    cache.set(doc.uri.toString(), ds);
+    cache.set(doc.uri.toString(), { version: doc.version, diags: ds });
     collection.set(doc.uri, ds.map((d) => {
       const v = new vscode.Diagnostic(toRange(d.range), d.message, d.severity === "error" ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning);
       v.code = d.code;
@@ -51,9 +52,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
 
     vscode.languages.registerCodeActionsProvider(LANG_ID, {
       provideCodeActions(doc, range) {
-        const lines = splitLines(doc.getText());
         const out: vscode.CodeAction[] = [];
-        for (const d of cache.get(doc.uri.toString()) ?? []) {
+        const cached = cache.get(doc.uri.toString());
+        if (!cached || cached.version !== doc.version) return out; // stale while the debounced lint is pending
+        const lines = splitLines(doc.getText());
+        for (const d of cached.diags) {
           const r = toRange(d.range);
           if (!r.intersection(range)) continue;
           const fix = quickFixEdit(lines, d);

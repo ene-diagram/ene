@@ -51,6 +51,12 @@ describe("quick fixes", () => {
     expect(d.suggestion).toBe("api");
     expect(apply(text, quickFixEdit(splitLines(text), d)!)).toBe("api[API] -> db\ndb --> api : rows");
   });
+  it("offers nothing when the text under the diagnostic changed since it was computed", () => {
+    const text = "api[API] -> db\ndb --> apii : rows";
+    const d = toEditorDiagnostics(text, parse(text).diagnostics).find((x) => x.code === "W101")!;
+    expect(d.target).toBeTruthy();
+    expect(quickFixEdit(splitLines("api[API] -> db\nxx db --> apii : rows"), d)).toBeUndefined();
+  });
   it("returns nothing without a suggestion", () => {
     const text = "a ->";
     const [d] = toEditorDiagnostics(text, parse(text).diagnostics);

@@ -51,7 +51,9 @@ export function quickFixEdit(lines: string[], d: EneDiag): { range: Rng; newText
   if (!d.suggestion) return undefined;
   const { start } = d.range;
   const text = lines[start.line] ?? "";
-  if (d.target && text.startsWith(d.target, start.character)) {
+  if (d.target) {
+    // The text no longer holds the word the diagnostic was about: don't guess, offer nothing
+    if (!text.startsWith(d.target, start.character)) return undefined;
     return { range: { start, end: { line: start.line, character: start.character + d.target.length } }, newText: d.suggestion };
   }
   return { range: d.range, newText: d.suggestion };
