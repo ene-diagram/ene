@@ -245,7 +245,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   // One control per branch, indexed like tl.branches (an `opt` checkbox or an arm menu)
   const branchCtls: (HTMLSelectElement | HTMLInputElement)[] = [];
   const syncSels = () => branchCtls.forEach((c, bi) => {
-    if (c instanceof HTMLInputElement) { c.checked = choices[bi] !== 1; return; // only arm 1 skips; out-of-range falls back to arm 0 in buildTimeline }
+    // Only arm 1 skips an opt; an out-of-range choice plays arm 0 (buildTimeline's fallback), so it shows checked
+    if (c instanceof HTMLInputElement) { c.checked = choices[bi] !== 1; return; }
     c.value = String(choices[bi] ?? 0); if (c.selectedIndex < 0) c.value = "0";
   });
   const pick = (bi: number, arm: number) => {
