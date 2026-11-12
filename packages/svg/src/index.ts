@@ -42,7 +42,7 @@ export function nodeMarkup(n: LNode, icons: Map<string, ResolvedIcon> = new Map(
   const icon = n.icon ? icons.get(n.icon) : undefined;
   const cy = n.y + n.h / 2;
   const iconSvg = icon
-    ? `<svg x="${n.x + ICON_PAD}" y="${cy - ICON / 2}" width="${ICON}" height="${ICON}" viewBox="0 0 ${icon.width} ${icon.height}">${icon.body}</svg>`
+    ? `<svg x="${n.x + ICON_PAD}" y="${cy - ICON / 2}" width="${ICON}" height="${ICON}" viewBox="0 0 ${dim(icon.width)} ${dim(icon.height)}">${safeIconBody(icon)}</svg>`
     : "";
   const lx = icon ? (n.x + ICON_PAD + ICON + n.x + n.w) / 2 : n.x + n.w / 2;
   const c = n.color ? esc(n.color) : undefined;
@@ -58,16 +58,32 @@ export function groupMarkup(g: LGroup): string {
     `<text x="${g.x + 14}" y="${g.y + 21}" class="gl" fill="${c}">${esc(g.label)}</text></g>`;
 }
 
-declare const btoa: (s: string) => string;
-declare const TextEncoder: { new (): { encode(s: string): Uint8Array } };
+/** Icon sizes come from third-party JSON: force a finite positive number */
+const dim = (v: unknown) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 16; };
+const DATA_IMAGE = '<image href="data:image/svg+xml;base64,';
+const toBase64 = (text: string) => {
+  let bin = "";
+  for (const b of new TextEncoder().encode(text)) bin += String.fromCharCode(b);
+  return btoa(bin);
+};
+/**
+ * Icon markup that is safe to inline. Bodies from icon packs are third-party markup, so they are
+ * wrapped as a data-URI `<image>` (an isolated document: no scripts, no event handlers, no DOM access).
+ * Bodies already produced by iconFromSvgText are passed through.
+ */
+export function safeIconBody(icon: ResolvedIcon): string {
+  if (icon.body.startsWith(DATA_IMAGE) && /^<image href="data:image\/svg\+xml;base64,[A-Za-z0-9+/=]*" width="[\d.]+" height="[\d.]+"\/>$/.test(icon.body))
+    return icon.body;
+  const w = dim(icon.width), h = dim(icon.height);
+  const doc = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" color="#3a4048">${String(icon.body)}</svg>`;
+  return `${DATA_IMAGE}${toBase64(doc)}" width="${w}" height="${h}"/>`;
+}
+
 /** External SVG document as an icon: read the viewBox size and wrap it as a data URI image (blocks script execution) */
 export function iconFromSvgText(text: string): ResolvedIcon {
   const vb = text.match(/viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/);
   const width = vb ? Number(vb[1]) : 24, height = vb ? Number(vb[2]) : 24;
-  const bytes = new TextEncoder().encode(text);
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return { body: `<image href="data:image/svg+xml;base64,${btoa(bin)}" width="${width}" height="${height}"/>`, width, height };
+  return { body: `${DATA_IMAGE}${toBase64(text)}" width="${width}" height="${height}"/>`, width, height };
 }
 
 const TITLE_H = 44, HOLD = 1.5, FADE = 0.3;
@@ -145,3 +161,4 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
     (opts.title ? `<text x="40" y="34" class="t">${esc(opts.title)}</text>` : "") +
     `<g transform="translate(0 ${offY})">${(l.groups ?? []).map(groupMarkup).join("")}${sequenceMarkup(l)}${base}${nodes}${hl}${labels}${dots}</g></svg>`;
 }
+export { fetchIcon, iconFromUntrustedSvg, ICON_DEFAULTS, type IconFetchOptions, type IconLoadResult } from "./icon-loader.js";

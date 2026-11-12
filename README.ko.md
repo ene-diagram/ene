@@ -14,6 +14,7 @@
 
 - [소개](#소개)
 - [예제](#예제)
+- [시작하기](#시작하기)
 - [사용법](#사용법)
 - [문법](#문법)
 - [릴리스](#릴리스)
@@ -125,6 +126,26 @@ end
 
 더 많은 예제는 [`packages/core/examples`](packages/core/examples) 에 있습니다.
 
+## 시작하기
+
+ene 는 아직 npm 에 배포되지 않았어요. 소스에서 빌드해 써요.
+
+**필요한 것:** Node.js 20 이상, pnpm 10(`corepack enable` 을 켜면 `package.json` 에 고정된 버전을 써요).
+
+```bash
+git clone https://github.com/slop-makers/ene.git
+cd ene
+pnpm install
+pnpm build          # 모든 패키지와 브라우저 번들을 빌드해요
+
+printf 'user -> api : GET /\napi --> user : 200\n' > flow.ene
+node packages/cli/bin/ene.mjs flow.ene -o flow.svg
+```
+
+`ene` 명령으로 쓰려면 별칭을 만들어 두세요: `alias ene="node $PWD/packages/cli/bin/ene.mjs"`.
+
+`pnpm test`·`pnpm typecheck` 로 검사하고, `pnpm demo` 는 `demo/`·`site/` 를 다시 만들어요.
+
 ## 사용법
 
 ### 웹 페이지에서
@@ -144,6 +165,15 @@ api --> user : 200
 
 ```bash
 ene flow.ene -o flow.svg
+cat flow.ene | ene - > flow.svg   # "-" 는 stdin 에서 읽고, 결과는 stdout 으로
+ene flow.ene -o -                # SVG 를 stdout 으로
+```
+
+렌더링 없이 검사만 하려면 `check` 를 써요(오류가 있으면 종료 코드 1). `--json` 은 도구·AI 에이전트용으로 진단을 JSON 으로 출력해요:
+
+```bash
+ene check flow.ene --json
+# [{"code":"E401","severity":"error","line":3,"col":5,"length":5,"message":"unknown node \"cahce\"","hint":"did you mean \"cache\"?","suggestion":"cache"}]
 ```
 
 소스를 표준 형식으로 정리해요(주석은 그대로 두고, 의미가 바뀔 수 있는 줄은 건드리지 않아요):
@@ -155,6 +185,64 @@ ene fmt --check *.ene       # 정리 안 된 파일이 있으면 종료 코드 1
 ```
 
 만들어진 SVG 는 스크립트 없이 스스로 반복 재생되고, 다크 모드와 모션 줄이기 설정을 따릅니다.
+
+### 브라우저용 파일
+
+`pnpm build` 는 `packages/player/dist/` 에 파일 두 개를 만들어요. 둘 다 같은 폴더에 배포하세요:
+
+| 파일 | 내용 |
+|---|---|
+| `ene.js` | 플레이어(약 50 KB) |
+| `ene-elk.js` | ELK 레이아웃 엔진. 흐름 다이어그램을 처음 그릴 때 불러와요 |
+
+`ene.js` 는 자기와 같은 폴더에서 `ene-elk.js` 를 찾아요. 다른 곳에 두려면 스크립트보다 먼저 주소를 지정하세요:
+
+```html
+<script>window.eneConfig = { elkUrl: "/assets/ene-elk.js", lang: "ko" }</script>
+<script src="/assets/ene.js"></script>
+```
+
+`eneConfig` 에 `startOnLoad: false` 를 주면 `pre.ene` 자동 변환을 끄고 직접 그릴 수 있어요:
+
+```js
+const player = await ene.render(element, source, { autoplay: false, loop: true });
+player.setChoices([1]);   // 첫 번째 branch 의 1번 갈래 선택
+player.destroy();          // 재생을 멈추고 요소를 비워요
+```
+
+소스에 오류가 있으면 `render()` 는 `undefined` 를 돌려주고 오류 상자를 보여줘요.
+
+### 아이콘 팩
+
+렌더링 전에 [Iconify](https://iconify.design) JSON 팩을 등록하세요. `loader` 는 팩의 아이콘이 처음 필요할 때 한 번만 실행돼요:
+
+```js
+ene.registerIconPacks([
+  { name: "logos", loader: () => fetch("/icons/logos.json").then((r) => r.json()) },
+]);
+```
+
+CLI 에서는 `--icons pack.json`(여러 번 가능)을 써요. `ene icons <svg-폴더> --prefix aws -o aws.json` 은 SVG 폴더로 팩을 만들어요.
+
+### 플레이어와 SVG 의 갈림길
+
+플레이어는 `branch` 마다 메뉴를 보여줘서 다른 경로를 다시 재생할 수 있어요. 내보낸 SVG 에는 컨트롤이 없어서 한 경로만 재생해요. 경로는 `--choice` 로 골라요(branch 순서대로 0부터 센 갈래 번호, 기본값은 모두 `0`):
+
+```bash
+ene flow.ene -o miss.svg --choice 1
+```
+
+내보낸 SVG 는 CSS 애니메이션만 써요. 반복 재생하고, 다크 모드를 따르고, `prefers-reduced-motion` 에서는 움직이는 점 없이 모든 단계를 한 번에 보여줘요. SVG 를 정화(sanitize)하는 일부 호스트에서는 애니메이션이 빠질 수 있어요.
+
+### 아이콘 로딩과 네트워크 접근
+
+아이콘은 팩 이름(등록한 팩의 `logos:redis`) 또는 SVG 주소(`http(s)://…`, `./`, `../`, `/`, `data:image/svg+xml,…`)예요.
+
+- 원격 아이콘은 5초 타임아웃과 512 KiB 크기 제한(스트리밍 중 확인)으로 받아요. 응답은 SVG 문서여야 해요.
+- CLI는 상대 경로를 `.ene` 파일 폴더 기준으로 읽어요(같은 크기 제한). `--no-network`는 원격 요청을 모두 막고, `--allow-host <host>`(여러 번 가능)는 목록에 있는 호스트에서만 받고 리다이렉트를 거부해요. 서버에서 신뢰할 수 없는 입력을 렌더링할 때는 둘 다 쓰세요.
+- 브라우저에서는 `ene.setIconLoading({ timeoutMs, maxBytes, allowHosts })`로 같은 제한을 걸어요.
+- 아이콘 팩은 쓰기 전에 구조(`prefix`, `icons.*.body`, 숫자 크기)를 검사하고, 팩 본문은 격리된 이미지로 그려요.
+- 아이콘을 못 불러와도 렌더링은 실패하지 않아요. 아이콘 없이 노드를 그리고 이유를 담은 경고를 남겨요(CLI stderr / 브라우저 콘솔).
 
 ## 문법
 
@@ -172,7 +260,7 @@ ene fmt --check *.ene       # 정리 안 된 파일이 있으면 종료 코드 1
 | `id[라벨]{icon: …, shape: db, color: #f59e0b}` | 노드 라벨과 모양 |
 | `diagram sequence` | 시퀀스 다이어그램으로 그리기 |
 
-한 줄이 한 단계이고, 위에서 아래로 재생됩니다.
+한 줄이 한 단계이고, 위에서 아래로 재생됩니다. 흔한 실수까지 담은 전체 문법은 [SYNTAX.md](SYNTAX.md) 에 있어요(AI 도구용 `llms.txt` 와 같은 내용이에요).
 
 ## 릴리스
 

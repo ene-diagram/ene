@@ -40,3 +40,30 @@ export function checkIcons(doc: Document, packs: IconPack[]): Diagnostic[] {
   }
   return out;
 }
+
+const isDim = (v: unknown) => v === undefined || (typeof v === "number" && Number.isFinite(v) && v > 0 && v <= 4096);
+/**
+ * Structural check for an icon pack loaded from untrusted JSON.
+ * Returns a list of human-readable problems (empty = valid).
+ */
+export function validateIconPack(x: unknown): string[] {
+  const errs: string[] = [];
+  if (!x || typeof x !== "object" || Array.isArray(x)) return ["pack must be a JSON object"];
+  const p = x as Record<string, unknown>;
+  if (typeof p.prefix !== "string" || !/^[a-z0-9][a-z0-9-]*$/i.test(p.prefix)) errs.push('"prefix" must be a non-empty string of letters, digits and "-"');
+  if (!isDim(p.width)) errs.push('"width" must be a positive number ≤ 4096');
+  if (!isDim(p.height)) errs.push('"height" must be a positive number ≤ 4096');
+  if (!p.icons || typeof p.icons !== "object" || Array.isArray(p.icons)) errs.push('"icons" must be an object');
+  else for (const [name, ic] of Object.entries(p.icons as Record<string, unknown>)) {
+    if (errs.length >= 10) { errs.push("…"); break; }
+    const i = ic as Record<string, unknown> | null;
+    if (!i || typeof i !== "object" || typeof i.body !== "string") errs.push(`icons.${name}: "body" must be a string`);
+    else if (!isDim(i.width) || !isDim(i.height)) errs.push(`icons.${name}: width/height must be positive numbers ≤ 4096`);
+  }
+  if (p.aliases !== undefined) {
+    if (!p.aliases || typeof p.aliases !== "object" || Array.isArray(p.aliases)) errs.push('"aliases" must be an object');
+    else for (const [name, a] of Object.entries(p.aliases as Record<string, unknown>))
+      if (!a || typeof (a as { parent?: unknown }).parent !== "string") { errs.push(`aliases.${name}: "parent" must be a string`); break; }
+  }
+  return errs;
+}

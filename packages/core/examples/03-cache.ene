@@ -1,3 +1,5 @@
+# Read-through cache: the API asks Redis for a product. Branch: on a hit Redis returns it; on a miss
+# the API reads MySQL and writes the value back to Redis. Either way the client gets 200.
 title Cache hit / miss
 client[Client] -> api[API] : GET /product/42
 api -> redis[Redis] : GET product:42
