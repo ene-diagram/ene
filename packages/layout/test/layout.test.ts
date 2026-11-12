@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { parse, buildTimeline } from "@ene/core";
+import { parse, buildTimeline } from "@ene-diagram/core";
 import { layout, type Layout } from "../src/index";
 const ex = new URL("../../core/examples/", import.meta.url);
 const run = async (src: string, choices?: number[]) => {

@@ -1,5 +1,5 @@
 {
-  "name": "@ene/player",
+  "name": "@ene-diagram/player",
   "version": "0.1.0",
   "description": "Browser player for ene diagrams",
   "license": "MIT",
@@ -31,9 +31,9 @@
     "bundle": "esbuild src/browser.ts --bundle --format=iife --global-name=ene --outfile=dist/ene.js --minify --external:elkjs/lib/elk.bundled.js && cp \"$(node -p \"require.resolve('elkjs/lib/elk.bundled.js',{paths:['../layout']})\")\" dist/ene-elk.js"
   },
   "dependencies": {
-    "@ene/core": "workspace:*",
-    "@ene/layout": "workspace:*",
-    "@ene/svg": "workspace:*"
+    "@ene-diagram/core": "workspace:*",
+    "@ene-diagram/layout": "workspace:*",
+    "@ene-diagram/svg": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.28.2"

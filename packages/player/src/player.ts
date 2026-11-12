@@ -1,6 +1,6 @@
-import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
-import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene/layout";
-import { ARROW_DEFS, STYLE, esc, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene/svg";
+import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene-diagram/core";
+import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene-diagram/layout";
+import { ARROW_DEFS, STYLE, esc, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene-diagram/svg";
 import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }

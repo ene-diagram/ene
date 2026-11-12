@@ -1,4 +1,4 @@
-import type { ResolvedIcon } from "@ene/core";
+import type { ResolvedIcon } from "@ene-diagram/core";
 import { iconFromSvgText } from "./index.js";
 
 export interface IconFetchOptions {

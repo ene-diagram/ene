@@ -1,5 +1,5 @@
-import { parse, buildTimeline, resolveIcon, type IconPack } from "@ene/core";
-import { layout } from "@ene/layout";
+import { parse, buildTimeline, resolveIcon, type IconPack } from "@ene-diagram/core";
+import { layout } from "@ene-diagram/layout";
 import { renderSvg, iconFromSvgText, nodeMarkup } from "../src/index";
 const pack: IconPack = { prefix: "aws", width: 24, height: 24, icons: { lambda: { body: '<path d="M1 1"/>' } } };
 test("icon nodes are wider and render nested icon svg", async () => {

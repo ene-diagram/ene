@@ -1,5 +1,5 @@
 {
-  "name": "@ene/core",
+  "name": "@ene-diagram/core",
   "version": "0.1.0",
   "description": "Parser, timeline and diagnostics for the ene animated diagram language",
   "license": "MIT",

@@ -1,4 +1,4 @@
-import { parse, buildTimeline } from "@ene/core";
+import { parse, buildTimeline } from "@ene-diagram/core";
 import { createController } from "../src/controller";
 const tl = buildTimeline(parse("speed 1\na -> b\nb -> c\nc -> d").doc); // 0,1,2 시작, total 3
 test("starts paused at 0 before first step completes", () => {

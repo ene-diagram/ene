@@ -1,5 +1,5 @@
 {
-  "name": "@ene/layout",
+  "name": "@ene-diagram/layout",
   "version": "0.1.0",
   "description": "Layout engine (ELK + sequence) for ene diagrams",
   "license": "MIT",
@@ -27,7 +27,7 @@
     }
   },
   "dependencies": {
-    "@ene/core": "workspace:*",
+    "@ene-diagram/core": "workspace:*",
     "elkjs": "^0.12.1"
   },
   "publishConfig": {

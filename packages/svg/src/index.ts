@@ -1,6 +1,6 @@
-import type { Timeline } from "@ene/core";
-import type { ResolvedIcon } from "@ene/core";
-import { edgeFor, type LEdge, type LFrame, type LGroup, type LNode, type Layout } from "@ene/layout";
+import type { Timeline } from "@ene-diagram/core";
+import type { ResolvedIcon } from "@ene-diagram/core";
+import { edgeFor, type LEdge, type LFrame, type LGroup, type LNode, type Layout } from "@ene-diagram/layout";
 
 /** Path id: per unique edge for flow, per step and index for sequence */
 export const pathId = (e: LEdge) => (e.step === undefined ? `e${e.index}` : `s${e.step}_${e.k}`);

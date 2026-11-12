@@ -1,4 +1,4 @@
-import type { Timeline } from "@ene/core";
+import type { Timeline } from "@ene-diagram/core";
 
 export interface ControllerOptions { loop?: boolean; hold?: number }
 

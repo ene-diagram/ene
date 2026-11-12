@@ -1,5 +1,5 @@
-import { parse, buildTimeline } from "@ene/core";
-import { layoutSequence } from "@ene/layout";
+import { parse, buildTimeline } from "@ene-diagram/core";
+import { layoutSequence } from "@ene-diagram/layout";
 import { renderSvg } from "../src/index";
 test("sequence svg: lifelines, frames, one dot per step edge on its own row", () => {
   const { doc } = parse("diagram sequence\nu -> a : req\nbranch hit\n a --> u : cached\nelse miss\n a -> d : q\n d --> a : rows\n a --> u : res\nend\nloop 2\n a -> a : tick\nend");

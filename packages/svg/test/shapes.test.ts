@@ -1,5 +1,5 @@
-import { parse, buildTimeline } from "@ene/core";
-import { layout } from "@ene/layout";
+import { parse, buildTimeline } from "@ene-diagram/core";
+import { layout } from "@ene-diagram/layout";
 import { renderSvg, nodeMarkup, groupMarkup } from "../src/index";
 const base = { id: "a", label: "A", x: 10, y: 20, w: 120, h: 52 };
 test("db is a cylinder, queue has stripes, circle is an ellipse, round is a pill", () => {

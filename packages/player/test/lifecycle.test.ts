@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { createRequire } from "node:module";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IconPack } from "@ene/core";
+import type { IconPack } from "@ene-diagram/core";
 import { autoRun, registerIconPacks, render } from "../src/player.js";
 
 const require = createRequire(`${process.cwd()}/packages/layout/package.json`);
