@@ -1,6 +1,6 @@
 import type { Timeline } from "@ene-diagram/core";
 import type { ResolvedIcon } from "@ene-diagram/core";
-import { edgeFor, type LEdge, type LFrame, type LGroup, type LNode, type Layout } from "@ene-diagram/layout";
+import { edgeFor, textWidth, type LEdge, type LFrame, type LGroup, type LNode, type Layout } from "@ene-diagram/layout";
 
 /** Path id: per unique edge for flow, per step and index for sequence */
 export const pathId = (e: LEdge) => (e.step === undefined ? `e${e.index}` : `s${e.step}_${e.k}`);
@@ -92,8 +92,28 @@ export function iconFromSvgText(text: string): ResolvedIcon {
 }
 
 const TITLE_H = 44, HOLD = 1.5, FADE = 0.3;
-/** Height of the caption line under the diagram that shows step notes */
-export const NOTE_H = 40;
+/** Caption under the diagram that shows step notes: padding and line height */
+const NOTE_PAD = 22, NOTE_LINE = 18, NOTE_X = 40;
+
+/** Greedy word wrap by the estimated text width (13px caption ≈ 0.8 of the 15px node label estimate) */
+export function wrapNote(s: string, width: number): string[] {
+  const max = Math.max(80, width), w = (t: string) => textWidth(t) * 0.8;
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of s.split(/\s+/).filter(Boolean)) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (cur && w(next) > max) { lines.push(cur); cur = word; } else cur = next;
+    // A single word longer than the line is split by characters
+    while (w(cur) > max && [...cur].length > 1) {
+      const cs = [...cur];
+      let k = cs.length - 1;
+      while (k > 1 && w(cs.slice(0, k).join("")) > max) k--;
+      lines.push(cs.slice(0, k).join("")); cur = cs.slice(k).join("");
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
 
 export const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -163,10 +183,13 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
 
   // Step notes: one caption line under the diagram, showing the note of the step that is playing
   const noted = opts.notes === false ? [] : tl.steps.filter((s) => s.note);
+  const wrapped = noted.map((s) => wrapNote(s.note!, l.width - NOTE_X * 2));
+  const noteH = noted.length ? NOTE_PAD + NOTE_LINE * Math.max(...wrapped.map((w) => w.length)) : 0;
   let notes = "";
-  noted.forEach((s) => {
+  noted.forEach((s, i) => {
     const next = tl.steps[s.index + 1]?.start ?? total - FADE;
-    notes += `<text x="40" y="${l.height + NOTE_H / 2}" class="note" dominant-baseline="central" opacity="0">${esc(s.note!)}` +
+    const spans = wrapped[i].map((line, k) => `<tspan x="${NOTE_X}" dy="${k ? NOTE_LINE : 0}">${esc(line)}</tspan>`).join("");
+    notes += `<text x="${NOTE_X}" y="${l.height + NOTE_PAD / 2 + NOTE_LINE * 0.7}" class="note" opacity="0">${spans}` +
       anim("opacity", "0;0;1;1;0;0", `0;${kt(s.start)};${kt(s.start)};${kt(next)};${kt(next)};1`) + `</text>`;
   });
 
@@ -174,7 +197,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
     `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : ""}`)
     .concat(s.note && opts.notes !== false ? [`(${s.note})`] : []).join(" ")).join("; ");
 
-  const W = l.width, H = l.height + offY + (noted.length ? NOTE_H : 0);
+  const W = l.width, H = l.height + offY + noteH;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" font-family="Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif">` +
     `<title>${esc(opts.title ?? "ene diagram")}</title><desc>${esc(desc)}</desc><style>${STYLE}</style>${ARROW_DEFS}` +
     `<rect width="100%" height="100%" class="bg"/>` +

@@ -34,7 +34,7 @@ const PLAYER_CSS = `
 .ene-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:#3a4048}
 .ene-bar button,.ene-bar select{font:inherit;padding:4px 10px;border:1px solid #c1c8d2;border-radius:6px;background:#fff;color:#1c2024;cursor:pointer}
 .ene-bar button:hover{background:#f1f3f5}
-.ene-note{font-size:14px;line-height:1.5;color:#3a4048;min-height:1.5em;max-width:100%}
+.ene-note{font-size:14px;line-height:1.5;color:#3a4048;min-height:1.5em;width:0;min-width:100%}
 .ene-step{margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
 .ene-error{color:#e5484d;background:#fff5f5;border:1px solid #ffd1d1;border-radius:8px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre;overflow:auto}
 @media (prefers-color-scheme: dark){.ene-note{color:#b0b4ba}.ene-bar{color:#b0b4ba}.ene-bar button,.ene-bar select{background:#1c1d21;color:#edeef0;border-color:#3b3e45}.ene-error{background:#2a1215;border-color:#5c1a1f;color:#ff9592}}`;

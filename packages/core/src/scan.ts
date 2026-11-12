@@ -20,7 +20,7 @@ export function scan(source: string): Line[] {
     // Comment: a '#' at line start (after indentation) or right after whitespace.
     // But a '#' inside a label (inside `[...]`, after the first `:`, after `title`) is a literal character.
     let end = chars.length;
-    const isTitle = chars.slice(start, start + 6).join("") === "title " || chars.slice(start, start + 5).join("") === "note ";
+    const isTitle = /^(title|note)[ \t]/.test(chars.slice(start, start + 6).join(""));
     let depth = 0, inLabel = false;
     for (let j = start; j < chars.length && !(isTitle && j > start); j++) {
       const c = chars[j];

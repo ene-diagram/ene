@@ -42,3 +42,9 @@ test("E307: note needs text; E115: a node called note at line start", () => {
 test("fmt keeps note text verbatim and indents it with its block", () => {
   expect(formatSource("loop 2\na->b\nnote   keep   #this   as is\nend\n")).toBe("loop 2\n  a -> b\n  note keep   #this   as is\nend\n");
 });
+
+test("a tab after note (or title) still keeps # literal", () => {
+  expect((parse("a -> b\nnote\twhy # draft").doc.body[0] as { note?: string }).note).toBe("why # draft");
+  expect(parse("title\tA # B\na -> b").doc.title).toBe("A # B");
+  expect(formatSource("a -> b\nnote\twhy # draft\n")).toBe("a -> b\nnote why # draft\n");
+});

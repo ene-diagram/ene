@@ -54,7 +54,7 @@ function splitComment(raw: string): { body: string; comment: string } {
   const chars = [...raw];
   let start = 0;
   while (start < chars.length && (chars[start] === " " || chars[start] === "\t")) start++;
-  const isTitle = chars.slice(start, start + 6).join("") === "title " || chars.slice(start, start + 5).join("") === "note ";
+  const isTitle = /^(title|note)[ \t]/.test(chars.slice(start, start + 6).join(""));
   let depth = 0, inLabel = false, end = chars.length;
   for (let j = start; j < chars.length && !(isTitle && j > start); j++) {
     const c = chars[j];
