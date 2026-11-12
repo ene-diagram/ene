@@ -55,4 +55,6 @@ ${sources.map(([f, src]) => `<section><h2>${f}</h2>\n<pre class="ene">${esc(src)
 const site = `${root}site/`;
 mkdirSync(site, { recursive: true });
 for (const f of ["ene.js", "ene-elk.js", "logos-subset.js", "01-order.svg"]) copyFileSync(out + f, site + f);
+// The one-page syntax reference doubles as llms.txt (kept in sync by syntax-doc.test.ts)
+for (const f of [`${root}llms.txt`, `${site}llms.txt`]) copyFileSync(`${root}SYNTAX.md`, f);
 console.log(`demo ready: ${out}index.html · site assets: ${site}`);

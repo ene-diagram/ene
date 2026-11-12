@@ -1,6 +1,6 @@
-import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
+import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
 import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene/layout";
-import { ARROW_DEFS, STYLE, esc, groupMarkup, iconFromSvgText, nodeMarkup, sequenceMarkup } from "@ene/svg";
+import { ARROW_DEFS, STYLE, esc, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene/svg";
 import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
@@ -41,7 +41,10 @@ const PLAYER_CSS = `
 export interface IconPackSource { name?: string; pack?: IconPack; loader?: () => Promise<IconPack> }
 const packSources: IconPackSource[] = [];
 let packsPromise: Promise<IconPack[]> | undefined;
-const urlIcons = new Map<string, Promise<ResolvedIcon | undefined>>();
+const urlIcons = new Map<string, Promise<IconLoadResult>>();
+let iconFetchOpts: Omit<IconFetchOptions, "fetch"> = {};
+/** Configure external icon loading: timeout, size limit and an optional host allowlist */
+export function setIconLoading(opts: Omit<IconFetchOptions, "fetch">): void { iconFetchOpts = { ...opts }; urlIcons.clear(); }
 
 /** Register icon packs (Iconify JSON). The loader is called once, when an icon is first needed */
 export function registerIconPacks(sources: IconPackSource[]): void {
@@ -50,13 +53,29 @@ export function registerIconPacks(sources: IconPackSource[]): void {
 }
 async function loadPacks(): Promise<IconPack[]> {
   packsPromise ??= Promise.all(packSources.map(async (s) => {
-    try { return s.pack ?? (await s.loader?.()); } catch { return undefined; }
+    let p: unknown;
+    try { p = s.pack ?? (await s.loader?.()); }
+    catch (e) { console.warn(`ene: icon pack ${s.name ?? ""} failed to load: ${(e as Error).message}`); return undefined; }
+    const errs = p === undefined ? [] : validateIconPack(p);
+    if (errs.length) { console.warn(`ene: invalid icon pack ${s.name ?? ""}:\n  - ${errs.join("\n  - ")}`); return undefined; }
+    return p as IconPack | undefined;
   })).then((ps) => ps.filter((p): p is IconPack => !!p));
   return packsPromise;
 }
-function loadUrlIcon(url: string): Promise<ResolvedIcon | undefined> {
-  if (!urlIcons.has(url))
-    urlIcons.set(url, fetch(url).then((r) => (r.ok ? r.text() : Promise.reject())).then(iconFromSvgText).catch(() => undefined));
+function loadUrlIcon(url: string): Promise<IconLoadResult> {
+  if (!urlIcons.has(url)) {
+    let p: Promise<IconLoadResult>;
+    if (url.startsWith("data:")) {
+      const m = url.match(/^data:image\/svg\+xml(;base64)?,(.*)$/s);
+      try { p = Promise.resolve(m ? iconFromUntrustedSvg(m[1] ? atob(m[2]) : decodeURIComponent(m[2])) : { ok: false, reason: "only data:image/svg+xml URLs are supported" }); }
+      catch { p = Promise.resolve({ ok: false, reason: "malformed data URL" }); }
+    } else {
+      try { p = fetchIcon(new URL(url, document.baseURI).href, iconFetchOpts); }
+      catch { p = Promise.resolve({ ok: false, reason: "invalid URL" }); }
+    }
+    // Failed loads are not cached, so a later render can retry
+    urlIcons.set(url, p.then((r) => { if (!r.ok) urlIcons.delete(url); return r; }));
+  }
   return urlIcons.get(url)!;
 }
 
@@ -75,9 +94,22 @@ const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<strin
   return e;
 };
 
-/** Create a player inside the target element. Shows error messages if there are diagnostic errors */
+// One live player per host element. `token` guards against overlapping async renders:
+// only the most recent render() call for an element may touch it.
+const hosts = new WeakMap<HTMLElement, { token: symbol; player?: Player }>();
+
+/**
+ * Create a player inside the target element. Shows error messages if there are diagnostic errors.
+ * Rendering again into the same element destroys the previous player; if renders overlap,
+ * only the latest one wins and superseded calls resolve to undefined without touching the element.
+ */
 export async function render(el: HTMLElement, source: string, opts: PlayerOptions = {}): Promise<Player | undefined> {
   injectCss();
+  const prev = hosts.get(el);
+  prev?.player?.destroy();
+  const token = Symbol();
+  hosts.set(el, { token });
+  const stale = () => hosts.get(el)?.token !== token;
   const lang = opts.lang ?? (navigator.language.startsWith("ko") ? "ko" : "en");
   const { doc, diagnostics } = parse(source);
   el.replaceChildren();
@@ -90,12 +122,17 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   }
   const needIcons = [...doc.nodes.values()].some((n) => n.icon);
   const packs = needIcons ? await loadPacks() : [];
+  if (stale()) return undefined;
   const icons = new Map<string, ResolvedIcon>();
-  for (const n of doc.nodes.values()) {
-    if (!n.icon || icons.has(n.icon)) continue;
-    const ic = isIconUrl(n.icon) ? await loadUrlIcon(n.icon) : resolveIcon(n.icon, packs);
-    if (ic) icons.set(n.icon, ic);
-  }
+  const refs = [...new Set([...doc.nodes.values()].map((n) => n.icon).filter((i): i is string => !!i))];
+  for (const ref of refs.filter((r) => !isIconUrl(r))) { const ic = resolveIcon(ref, packs); if (ic) icons.set(ref, ic); }
+  const urlRefs = refs.filter(isIconUrl);
+  const results = await Promise.all(urlRefs.map(loadUrlIcon));
+  if (stale()) return undefined;
+  results.forEach((r, i) => {
+    if (r.ok) icons.set(urlRefs[i], r.icon);
+    else console.warn(`ene: cannot load icon ${urlRefs[i]}: ${r.reason}`);
+  });
   const iconWarnings = checkIcons(doc, packs);
   if (iconWarnings.length) console.warn(formatAll(source, iconWarnings, lang));
   let choices: number[] = [];
@@ -103,6 +140,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   let lay: Layout;
   try { lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await computeLayout(doc, tl, { elk: await loadElk() }); }
   catch (e) {
+    if (stale()) return undefined;
     el.replaceChildren();
     const pre = document.createElement("pre");
     pre.className = "ene-error";
@@ -110,6 +148,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     el.appendChild(pre);
     return undefined;
   }
+  if (stale()) return undefined;
+  el.replaceChildren();
   const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const root = document.createElement("div");
@@ -144,7 +184,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   const btn = (label: string, title: string, fn: () => void) => {
     const b = document.createElement("button");
     b.type = "button"; b.textContent = label; b.title = title; b.setAttribute("aria-label", title);
-    b.addEventListener("click", () => { fn(); draw(); });
+    b.addEventListener("click", () => { fn(); draw(); syncLoop(); });
     bar.appendChild(b);
     return b;
   };
@@ -178,6 +218,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     else if (ev.key === "ArrowLeft") { ctl.pause(); ctl.prev(); ev.preventDefault(); }
     else return;
     draw();
+    syncLoop();
   });
 
   // ---- dynamic elements ----
@@ -240,37 +281,63 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     if (doc.kind === "sequence" && ctl) { lay = layoutSequence(doc, tl); drawStatic(); }
     const wasPlaying = ctl ? ctl.playing : (opts.autoplay ?? true) && !reduce;
     ctl = createController(tl, { loop: opts.loop ?? true });
+    // Resume the frame loop even when playback is started through the exposed controller
+    const play = ctl.play.bind(ctl), toggle = ctl.toggle.bind(ctl);
+    ctl.play = () => { play(); syncLoop(); };
+    ctl.toggle = () => { toggle(); syncLoop(); };
     if (reduce) ctl.time = tl.total;
     if (wasPlaying) ctl.play();
     items = buildItems(tl, lay);
     draw();
   }
-  rebuild();
-
-  let last = performance.now(), raf = 0, alive = true;
+  // Frame loop runs only while playing; it stops itself when playback pauses or ends
+  let last = 0, raf = 0, alive = true;
   const frame = (now: number) => {
-    if (!alive) return;
+    raf = 0;
+    if (!alive || !ctl.playing) return;
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    if (ctl.playing) { ctl.tick(dt); draw(); }
+    ctl.tick(dt);
+    draw();
+    if (ctl.playing) raf = requestAnimationFrame(frame);
+  };
+  function syncLoop() {
+    if (!alive || raf || !ctl?.playing) return;
+    last = performance.now();
     raf = requestAnimationFrame(frame);
-  };
-  raf = requestAnimationFrame(frame);
+  }
+  rebuild();
+  syncLoop();
 
-  return {
+  const player: Player = {
     get controller() { return ctl; },
-    setChoices(c) { choices = [...c]; rebuild(); },
-    destroy() { alive = false; cancelAnimationFrame(raf); el.replaceChildren(); },
+    setChoices(c) { if (!alive) return; choices = [...c]; rebuild(); syncLoop(); },
+    destroy() {
+      if (!alive) return;
+      alive = false;
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      if (hosts.get(el)?.player === player) hosts.delete(el);
+      if (root.parentNode === el) el.replaceChildren();
+    },
   };
+  hosts.get(el)!.player = player;
+  return player;
 }
 
-/** Replace every `<pre class="ene">` on the page with a player */
-export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): Promise<void> {
+/**
+ * Replace every `<pre class="ene">` on the page with a player.
+ * Resolves to the created players (diagrams with errors are skipped) so callers can destroy them.
+ */
+export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): Promise<Player[]> {
   const els = Array.from(document.querySelectorAll<HTMLElement>(selector));
+  const players: Player[] = [];
   for (const pre of els) {
     const src = pre.textContent ?? "";
     const host = document.createElement("div");
     pre.replaceWith(host);
-    await render(host, src, opts);
+    const p = await render(host, src, opts);
+    if (p) players.push(p);
   }
+  return players;
 }

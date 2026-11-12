@@ -101,3 +101,39 @@ test("check accepts a valid icon pack", () => {
   const r = runCli(["check", f, "--json", "--icons", p]);
   expect(r.status).toBe(0); expect(JSON.parse(r.stdout)).toEqual([]);
 });
+test("--no-network skips remote icons with a clear warning", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "n.ene");
+  writeFileSync(f, "a{icon: https://example.invalid/x.svg} -> b");
+  const r = runCli([f, "--no-network"]);
+  expect(r.status).toBe(0); expect(r.stderr).toContain("network access disabled");
+});
+test("local icon problems are reported with a reason", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "l.ene");
+  writeFileSync(join(d, "big.svg"), "<svg>" + "x".repeat(600 * 1024) + "</svg>");
+  writeFileSync(join(d, "bad.svg"), "not svg");
+  writeFileSync(f, "a{icon: ./big.svg} -> b{icon: ./bad.svg}\nb -> c{icon: ./missing.svg}");
+  const r = runCli([f]);
+  expect(r.status).toBe(0);
+  expect(r.stderr).toContain("file too large"); expect(r.stderr).toContain("not an SVG document"); expect(r.stderr).toContain("ENOENT");
+});
+test("invalid icon pack is rejected with details", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "p.ene"); const p = join(d, "pack.json");
+  writeFileSync(f, "a -> b"); writeFileSync(p, JSON.stringify({ prefix: "x", icons: { a: { body: 3 } } }));
+  const r = runCli([f, "--icons", p]);
+  expect(r.status).toBe(1); expect(r.stderr).toContain("invalid icon pack"); expect(r.stderr).toContain("icons.a");
+});
+test("reads stdin with '-' and writes stdout by default", () => {
+  const r = spawnSync("node", [bin, "-"], { input: "a -> b\nb --> a", encoding: "utf8" });
+  expect(r.status).toBe(0); expect(r.stdout.startsWith("<svg")).toBe(true); expect(r.stderr).toContain("✅ stdout");
+});
+test("-o - writes the svg to stdout", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "s.ene");
+  writeFileSync(f, "a -> b");
+  const r = runCli([f, "-o", "-"]);
+  expect(r.status).toBe(0); expect(r.stdout.startsWith("<svg")).toBe(true); expect(existsSync(join(d, "s.svg"))).toBe(false);
+});
+test("keyword without a value gets E307", () => {
+  const r = spawnSync("node", [bin, "-"], { input: "a -> b\nloop\na -> b\nend\nwait", encoding: "utf8" });
+  expect(r.status).toBe(1); expect(r.stderr).toContain("`loop` needs a value"); expect(r.stderr).toContain("`wait` needs a value");
+  expect(r.stderr).not.toContain('""');
+});

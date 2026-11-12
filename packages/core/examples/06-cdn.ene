@@ -1,3 +1,5 @@
+# A browser requests a static file from a CDN edge. Branch: on an edge hit the cached copy is
+# returned; on a miss the edge fetches it from the origin first. Each request is logged.
 title CDN cache
 browser[Browser] -> edge[CDN Edge] : GET /app.js
 branch edge hit

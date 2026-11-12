@@ -1,3 +1,5 @@
+# Serverless order processing with icons: CloudFront, API Gateway, a Lambda writing to DynamoDB and
+# SQS in parallel, and a slow analytics load into BigQuery.
 title Serverless order processing (icons)
 user[User]{icon: logos:chrome} -> cdn[CloudFront]{icon: logos:aws-cloudfront} : GET /
 cdn -> gw[API Gateway]{icon: logos:aws-api-gateway} : POST /orders

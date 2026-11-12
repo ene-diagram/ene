@@ -1,3 +1,5 @@
+# A user places an order. The API checks stock in Redis (miss), then queries MySQL and charges the
+# payment service at the same time. Stock is found, but the payment times out, so the API returns 502.
 title Order request
 speed 1.2
 

@@ -1,3 +1,31 @@
-{ "name": "@ene/svg", "version": "0.0.0", "type": "module", "main": "./dist/index.js", "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "dependencies": { "@ene/core": "workspace:*", "@ene/layout": "workspace:*" } }
+{
+  "name": "@ene/svg",
+  "version": "0.0.0",
+  "description": "Animated SVG renderer for ene diagrams",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slop-makers/ene.git",
+    "directory": "packages/svg"
+  },
+  "homepage": "https://github.com/slop-makers/ene#readme",
+  "bugs": "https://github.com/slop-makers/ene/issues",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@ene/core": "workspace:*",
+    "@ene/layout": "workspace:*"
+  }
+}

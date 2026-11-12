@@ -1,7 +1,7 @@
 export const CODES = [
   "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109", "E110", "E111", "E112",
   "E201", "E203", "E204", "E205", "E206",
-  "E301", "E302", "E303", "E304", "E305", "E306",
+  "E301", "E302", "E303", "E304", "E305", "E306", "E307",
   "E401", "E402", "E403", "E404", "E405", "E406", "E407",
   "W101", "W102", "W103", "W104",
 ] as const;
@@ -68,6 +68,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E304: { message: 'speed "{value}" must be a number above 0', hint: "speed is seconds per step, e.g. `speed 1.2`" },
     E305: { message: "the diagram expands to more than {limit} steps", hint: "reduce `loop` counts or nesting" },
     E306: { message: "the diagram plays for more than {limit} seconds", hint: "shorten `wait`, `speed`, `@…s` or `loop` counts" },
+    E307: { message: "`{keyword}` needs a value", hint: "e.g. `{example}`" },
     E401: { message: 'unknown node "{name}"', hint: "use a node that appears in an edge" },
     E402: { message: 'pin position "{value}" is not valid', hint: "write column,row from 0, e.g. `pin db 3,1`" },
     E403: { message: '"{name}" is pinned to cell {cell}, already taken by "{other}"', hint: "pick a different column,row" },
@@ -104,6 +105,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E304: { message: 'speed "{value}" 는 0 보다 큰 숫자여야 해요', hint: "단계당 초예요. 예: `speed 1.2`" },
     E305: { message: "펼치면 단계가 {limit}개를 넘어요", hint: "`loop` 횟수나 중첩을 줄여 주세요" },
     E306: { message: "재생 시간이 {limit}초를 넘어요", hint: "`wait`·`speed`·`@…s`·`loop` 횟수를 줄여 주세요" },
+    E307: { message: "`{keyword}` 뒤에 값이 없어요", hint: "예: `{example}`" },
     E401: { message: '"{name}" 라는 노드가 없어요', hint: "엣지에 나오는 노드를 써 주세요" },
     E402: { message: 'pin 위치 "{value}" 형식이 맞지 않아요', hint: "0부터 시작하는 열,행으로 써 주세요. 예: `pin db 3,1`" },
     E403: { message: '"{name}" 를 {cell} 칸에 고정하려 했지만 이미 "{other}" 가 있어요', hint: "다른 열,행을 골라 주세요" },

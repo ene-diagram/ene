@@ -1,3 +1,6 @@
+# An order API inside a VPC with icons, shapes and colors: ALB in a public subnet; API, Redis, the
+# orders DB and a worker in a private subnet (nested groups). Orders go to SQS and a worker sends
+# email.
 title Order service in a VPC
 user[User]{icon: logos:chrome, shape: circle} -> alb[ALB]{icon: logos:aws-elb} : HTTPS
 alb -> api[Order API]{icon: logos:aws-ec2} : /orders

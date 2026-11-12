@@ -14,6 +14,7 @@ Write data flows as text. Watch the data move.
 
 - [About](#about)
 - [Examples](#examples)
+- [Getting started](#getting-started)
 - [Usage](#usage)
 - [Syntax](#syntax)
 - [Release](#release)
@@ -125,6 +126,26 @@ end
 
 More examples in [`packages/core/examples`](packages/core/examples).
 
+## Getting started
+
+ene is not published to npm yet; use it from source.
+
+**Requirements:** Node.js 20 or newer, pnpm 10 (`corepack enable` picks the pinned version from `package.json`).
+
+```bash
+git clone https://github.com/slop-makers/ene.git
+cd ene
+pnpm install
+pnpm build          # compiles all packages and the browser bundle
+
+printf 'user -> api : GET /\napi --> user : 200\n' > flow.ene
+node packages/cli/bin/ene.mjs flow.ene -o flow.svg
+```
+
+To call it as `ene`, add an alias: `alias ene="node $PWD/packages/cli/bin/ene.mjs"`.
+
+`pnpm test` and `pnpm typecheck` run the checks; `pnpm demo` rebuilds `demo/` and `site/`.
+
 ## Usage
 
 ### In a web page
@@ -144,6 +165,8 @@ Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Sp
 
 ```bash
 ene flow.ene -o flow.svg
+cat flow.ene | ene - > flow.svg   # "-" reads stdin; output goes to stdout
+ene flow.ene -o -                # write the SVG to stdout
 ```
 
 Check a file without rendering (exit 1 on errors). `--json` prints diagnostics for tools and AI agents:
@@ -154,6 +177,64 @@ ene check flow.ene --json
 ```
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
+
+### Browser assets
+
+`pnpm build` writes two files to `packages/player/dist/`. Deploy both to the same folder:
+
+| File | What it is |
+|---|---|
+| `ene.js` | the player (~50 KB) |
+| `ene-elk.js` | the ELK layout engine, loaded on first use for flow diagrams |
+
+`ene.js` looks for `ene-elk.js` next to itself. To host it elsewhere, set the URL before the script loads:
+
+```html
+<script>window.eneConfig = { elkUrl: "/assets/ene-elk.js", lang: "en" }</script>
+<script src="/assets/ene.js"></script>
+```
+
+Set `startOnLoad: false` in `eneConfig` to skip the automatic `pre.ene` scan and render yourself:
+
+```js
+const player = await ene.render(element, source, { autoplay: false, loop: true });
+player.setChoices([1]);   // pick arm 1 of the first branch
+player.destroy();          // stop playback and clear the element
+```
+
+`render()` resolves to `undefined` when the source has errors (an error box is shown instead).
+
+### Icon packs
+
+Register [Iconify](https://iconify.design) JSON packs before rendering. `loader` runs once, the first time an icon from the packs is needed:
+
+```js
+ene.registerIconPacks([
+  { name: "logos", loader: () => fetch("/icons/logos.json").then((r) => r.json()) },
+]);
+```
+
+For the CLI, pass `--icons pack.json` (repeatable). `ene icons <svg-dir> --prefix aws -o aws.json` builds a pack from a folder of SVGs.
+
+### Branches in the player and in SVG
+
+The player shows one menu per `branch`, so the reader can replay another path. An exported SVG has no controls: it plays one path, chosen with `--choice` (one zero-based arm per branch, in order; default all `0`):
+
+```bash
+ene flow.ene -o miss.svg --choice 1
+```
+
+Exported SVGs use CSS animation only. They loop, follow dark mode, and under `prefers-reduced-motion` show every step at once without moving dots. Some hosts that sanitize SVGs may strip the animation.
+
+### Icon loading and network access
+
+An icon is either a pack name (`logos:redis`, from packs you register) or an SVG address: `http(s)://…`, `./`, `../`, `/` or `data:image/svg+xml,…`.
+
+- Remote icons are fetched with a 5 s timeout and a 512 KiB size limit (checked while streaming); the response must be an SVG document.
+- The CLI reads relative paths from the `.ene` file's folder (same size limit). `--no-network` disables all remote fetches; `--allow-host <host>` (repeatable) fetches only from listed hosts and refuses redirects. Use both when rendering untrusted input on a server.
+- In the browser, `ene.setIconLoading({ timeoutMs, maxBytes, allowHosts })` sets the same limits.
+- Icon packs are validated (`prefix`, `icons.*.body`, numeric sizes) before use, and pack bodies are rendered as isolated images.
+- A failed icon never fails the render: the node is drawn without an icon and a warning with the reason is printed (CLI stderr / browser console).
 
 ## Syntax
 
@@ -171,7 +252,7 @@ The SVG loops on its own — no script needed — and respects dark mode and red
 | `id[Label]{icon: …, shape: db, color: #f59e0b}` | node label and style |
 | `diagram sequence` | draw as a sequence diagram |
 
-One line is one step, played top to bottom.
+One line is one step, played top to bottom. The complete reference, with common mistakes, is in [SYNTAX.md](SYNTAX.md) (also served as `llms.txt` for AI tools).
 
 ## Release
 

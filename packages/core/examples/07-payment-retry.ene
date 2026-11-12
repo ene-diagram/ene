@@ -1,3 +1,6 @@
+# An order service calls a payment gateway. The first call times out and the second returns 503; it
+# waits longer before each retry, the third attempt is approved and the payment is recorded in the
+# ledger.
 title Payment retry
 order[Order Service] -> pg[Payment Gateway] : authorize
 pg -x order : timeout

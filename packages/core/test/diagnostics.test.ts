@@ -34,3 +34,9 @@ test("diagnosticToJson flattens span and fills message/hint", async () => {
   expect(j).toMatchObject({ code: d.code, severity: d.severity, line: d.span.line, col: d.span.col, length: d.span.length });
   expect(j.message).not.toMatch(/\{\w+\}/);
 });
+test("E307 for keywords with no value", () => {
+  for (const [src, kw] of [["speed", "speed"], ["a -> b\nwait", "wait"], ["loop\na -> b\nend", "loop"]] as const) {
+    const d = parse(src).diagnostics.find((x) => x.code === "E307");
+    expect(d?.args).toMatchObject({ keyword: kw });
+  }
+});
