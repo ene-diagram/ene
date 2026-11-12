@@ -208,6 +208,18 @@ ene diagram.mmd -o diagram.svg               # convert and render in one go
 
 Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. Notes become comments, and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
 
+### In docs sites (Astro, Next.js, Docusaurus, VitePress)
+
+`@ene-diagram/remark` turns ```` ```ene ```` blocks in Markdown/MDX into inline animated SVGs at build time (no client JS), or into players with `mode: "live"`. A markdown-it plugin is included for VitePress.
+
+```js
+import remarkEne from "@ene-diagram/remark";
+// astro.config.mjs
+export default defineConfig({ markdown: { remarkPlugins: [remarkEne] } });
+```
+
+Setup for each framework, options and error handling: [packages/remark](packages/remark/README.md).
+
 ### With Claude
 
 The repo ships a Claude skill (`skills/ene`) that writes a `.ene` file from a description or from your code, runs `ene check --json` until it is clean, formats it and renders the SVG.

@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 const src = (p: string) => new URL(`./packages/${p}/src/index.ts`, import.meta.url).pathname;
 export default defineConfig({
-  resolve: { alias: { "@ene-diagram/core": src("core"), "@ene-diagram/layout": src("layout"), "@ene-diagram/svg": src("svg"), "@ene-diagram/player": src("player"), "@ene-diagram/video": src("video") } },
+  resolve: { alias: { "@ene-diagram/core": src("core"), "@ene-diagram/layout": src("layout"), "@ene-diagram/svg": src("svg"), "@ene-diagram/player": src("player"), "@ene-diagram/video": src("video"), "@ene-diagram/remark": src("remark") } },
   test: { include: ["packages/*/test/**/*.test.ts"], globals: true },
 });
