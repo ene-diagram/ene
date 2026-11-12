@@ -1,7 +1,34 @@
 import type { Timeline } from "@ene/core";
-import type { Layout } from "@ene/layout";
+import type { ResolvedIcon } from "@ene/core";
+import type { LNode, Layout } from "@ene/layout";
 
-export interface SvgOptions { title?: string }
+export interface SvgOptions { title?: string; icons?: Map<string, ResolvedIcon> }
+
+const ICON = 24, ICON_PAD = 14;
+
+/** 노드 하나(박스 + 아이콘 + 라벨) 마크업. 플레이어도 같은 것을 쓴다 */
+export function nodeMarkup(n: LNode, icons: Map<string, ResolvedIcon> = new Map()): string {
+  const icon = n.icon ? icons.get(n.icon) : undefined;
+  const cy = n.y + n.h / 2;
+  const iconSvg = icon
+    ? `<svg x="${n.x + ICON_PAD}" y="${cy - ICON / 2}" width="${ICON}" height="${ICON}" viewBox="0 0 ${icon.width} ${icon.height}">${icon.body}</svg>`
+    : "";
+  const lx = icon ? (n.x + ICON_PAD + ICON + n.x + n.w) / 2 : n.x + n.w / 2;
+  return `<g><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="10" class="node"/>${iconSvg}` +
+    `<text x="${lx}" y="${cy}" class="nl">${esc(n.label)}</text></g>`;
+}
+
+declare const btoa: (s: string) => string;
+declare const TextEncoder: { new (): { encode(s: string): Uint8Array } };
+/** 외부 SVG 문서를 아이콘으로: viewBox 크기를 읽고 data URI 이미지로 감싼다 (스크립트 실행 차단) */
+export function iconFromSvgText(text: string): ResolvedIcon {
+  const vb = text.match(/viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/);
+  const width = vb ? Number(vb[1]) : 24, height = vb ? Number(vb[2]) : 24;
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return { body: `<image href="data:image/svg+xml;base64,${btoa(bin)}" width="${width}" height="${height}"/>`, width, height };
+}
 
 const TITLE_H = 44, HOLD = 1.5, FADE = 0.3;
 
@@ -58,9 +85,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
       }
     }
 
-  const nodes = l.nodes.map((n) =>
-    `<g><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="10" class="node"/>` +
-    `<text x="${n.x + n.w / 2}" y="${n.y + n.h / 2}" class="nl">${esc(n.label)}</text></g>`).join("");
+  const nodes = l.nodes.map((n) => nodeMarkup(n, opts.icons)).join("");
 
   const desc = tl.steps.flatMap((s) => s.edges.map((e) =>
     `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : ""}`)).join("; ");

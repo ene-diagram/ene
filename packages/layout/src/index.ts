@@ -2,7 +2,7 @@ import ElkModule from "elkjs/lib/elk.bundled.js";
 import type { ELK as ElkApi } from "elkjs/lib/elk-api.js";
 import type { Document, Timeline } from "@ene/core";
 
-export interface LNode { id: string; label: string; x: number; y: number; w: number; h: number }
+export interface LNode { id: string; label: string; icon?: string; x: number; y: number; w: number; h: number }
 export interface LEdge { index: number; d: string; mid: { x: number; y: number } }
 export interface Layout { nodes: LNode[]; edges: LEdge[]; width: number; height: number }
 
@@ -10,6 +10,8 @@ export interface Layout { nodes: LNode[]; edges: LEdge[]; width: number; height:
 const ELK = ((ElkModule as unknown as { default?: unknown }).default ?? ElkModule) as unknown as new () => ElkApi;
 
 export const NODE_H = 52;
+/** 아이콘(24px) + 여백이 차지하는 가로 공간 */
+export const ICON_SPACE = 34;
 const GAP_NODE = 50, GAP_LAYER = 110, PAD = 40, SPREAD = 30;
 
 /** 라벨 표시폭 추정: 한글·전각 15px, 그 외 8.5px */
@@ -21,7 +23,8 @@ export function textWidth(s: string): number {
 
 export async function layout(doc: Document, tl: Timeline): Promise<Layout> {
   const nodes: LNode[] = [...doc.nodes.values()].map((n) => ({
-    id: n.id, label: n.label, x: 0, y: 0, w: Math.max(110, Math.ceil(textWidth(n.label) + 36)), h: NODE_H,
+    id: n.id, label: n.label, ...(n.icon ? { icon: n.icon } : {}), x: 0, y: 0,
+    w: Math.max(110, Math.ceil(textWidth(n.label) + 36 + (n.icon ? ICON_SPACE : 0))), h: NODE_H,
   }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
