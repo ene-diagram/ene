@@ -84,3 +84,18 @@ test("invalid icon pack is rejected with details", () => {
   const r = runCli([f, "--icons", p]);
   expect(r.status).toBe(1); expect(r.stderr).toContain("invalid icon pack"); expect(r.stderr).toContain("icons.a");
 });
+test("reads stdin with '-' and writes stdout by default", () => {
+  const r = spawnSync("node", [bin, "-"], { input: "a -> b\nb --> a", encoding: "utf8" });
+  expect(r.status).toBe(0); expect(r.stdout.startsWith("<svg")).toBe(true); expect(r.stderr).toContain("✅ stdout");
+});
+test("-o - writes the svg to stdout", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "s.ene");
+  writeFileSync(f, "a -> b");
+  const r = runCli([f, "-o", "-"]);
+  expect(r.status).toBe(0); expect(r.stdout.startsWith("<svg")).toBe(true); expect(existsSync(join(d, "s.svg"))).toBe(false);
+});
+test("keyword without a value gets E307", () => {
+  const r = spawnSync("node", [bin, "-"], { input: "a -> b\nloop\na -> b\nend\nwait", encoding: "utf8" });
+  expect(r.status).toBe(1); expect(r.stderr).toContain("`loop` needs a value"); expect(r.stderr).toContain("`wait` needs a value");
+  expect(r.stderr).not.toContain('""');
+});

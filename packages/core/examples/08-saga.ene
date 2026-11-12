@@ -1,3 +1,5 @@
+# Orchestrated saga: an order is created and stock reserved, but the charge fails (limit exceeded), so
+# the orchestrator compensates by releasing stock and cancelling the order in parallel.
 title Order saga with compensation
 orch[Orchestrator] -> order[Orders] : create order
 order --> orch : created

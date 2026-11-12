@@ -1,3 +1,6 @@
+# Change data capture: a product update in MySQL flows through a CDC connector and Kafka to an indexer
+# that updates Elasticsearch. Separately a user searches through the search API. Layout pins the user
+# and search API on the bottom row and aligns db and cdc.
 title Search indexing pipeline
 app[App] -> db[MySQL] : update product
 db -> cdc[CDC Connector] : binlog

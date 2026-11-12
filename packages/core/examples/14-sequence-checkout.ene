@@ -1,3 +1,5 @@
+# Checkout drawn as a sequence diagram with nested branches: if in stock, the payment is authorized
+# (approved → 201, declined → 402); if sold out → 409.
 diagram sequence
 title Checkout sequence
 user[User]{icon: logos:chrome} -> api[Order API] : POST /checkout
