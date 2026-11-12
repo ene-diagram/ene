@@ -7,6 +7,24 @@ const ID_CHAR = /[\p{L}\p{N}_-]/u;
 const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x)(\s|$)/u;
 const DURATION = /^(\d+(?:\.\d+)?)s$/;
 
+/** Limits that keep untrusted input from exhausting CPU/memory */
+export const LIMITS = { depth: 32, steps: 10_000, seconds: 86_400 };
+
+/** CSS named colors (CSS Color Module Level 4) plus transparent / currentColor */
+const CSS_COLORS = new Set(("aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood " +
+  "cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey " +
+  "darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey " +
+  "darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite " +
+  "gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon " +
+  "lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue " +
+  "lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid " +
+  "mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin " +
+  "navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff " +
+  "peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver " +
+  "skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow " +
+  "yellowgreen transparent currentcolor").split(" "));
+const isColor = (v: string) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v) || CSS_COLORS.has(v.toLowerCase());
+
 interface Ref { id: string; label?: string; icon?: string; shape?: Shape; color?: string; start: number; end: number }
 
 export function parse(source: string): ParseResult {
@@ -41,6 +59,7 @@ class Parser {
     this.resolveHints();
     this.resolveGroups();
     this.typos();
+    if (!this.diags.some((d) => d.severity === "error")) this.budget();
     if (this.doc.body.length === 0 && !this.diags.some((d) => d.severity === "error"))
       this.diags.push({ code: "E101", severity: "error", span: { line: 1, col: 1, length: 0 }, args: {} });
     return { doc: this.doc, diagnostics: this.diags };
@@ -57,6 +76,31 @@ class Parser {
       if (sug) args = { ...args, suggestion: sug };
     }
     this.diags.push({ code, severity: code.startsWith("W") ? "warning" : "error", span: this.span(l, from, to), args });
+  }
+
+  depthCheck(l: Line) {
+    if (this.stack.length === LIMITS.depth) this.report("E206", l, 0, [...l.text].length, { limit: String(LIMITS.depth) });
+  }
+
+  /** E305/E306: worst-case expanded steps and duration over any branch path, without expanding */
+  budget() {
+    const cost = (body: Stmt[]): { steps: number; secs: number } => {
+      let steps = 0, secs = 0;
+      for (const s of body) {
+        if (s.type === "wait") secs += s.seconds;
+        else if (s.type === "step") { steps++; secs += Math.max(...s.edges.map((e) => e.duration ?? this.doc.speed)); }
+        else if (s.type === "loop") { const c = cost(s.body); steps += c.steps * s.count; secs += c.secs * s.count; }
+        else {
+          const cs = s.arms.map((a) => cost(a.body));
+          steps += Math.max(...cs.map((c) => c.steps)); secs += Math.max(...cs.map((c) => c.secs));
+        }
+      }
+      return { steps, secs };
+    };
+    const c = cost(this.doc.body);
+    const at: Span = { line: 1, col: 1, length: 1 };
+    if (c.steps > LIMITS.steps) this.diags.push({ code: "E305", severity: "error", span: at, args: { limit: String(LIMITS.steps) } });
+    else if (!(c.secs <= LIMITS.seconds)) this.diags.push({ code: "E306", severity: "error", span: at, args: { limit: String(LIMITS.seconds) } });
   }
 
   // ---- statements ----
@@ -83,7 +127,7 @@ class Parser {
     }
     if (word === "speed") {
       const n = Number(rest);
-      if (!rest || !(n > 0)) return this.report("E304", l, 0, t.length, { value: rest });
+      if (!rest || !(n > 0) || !Number.isFinite(n)) return this.report("E304", l, 0, t.length, { value: rest });
       return void (this.doc.speed = n);
     }
     const whole = this.span(l, 0, t.length);
@@ -97,14 +141,16 @@ class Parser {
     }
     if (word === "wait") {
       const n = Number(rest);
-      if (!rest || !(n >= 0)) return this.report("E301", l, 0, t.length, { value: rest });
+      if (!rest || !(n >= 0) || !Number.isFinite(n)) return this.report("E301", l, 0, t.length, { value: rest });
       return void into.push({ type: "wait", seconds: n, span: whole });
     }
     if (word === "loop") {
       const n = Number(rest);
-      if (!Number.isInteger(n) || n < 1) this.report("E302", l, 0, t.length, { value: rest });
-      const stmt: Stmt = { type: "loop", count: Number.isInteger(n) && n >= 1 ? n : 1, body: [], span: whole };
+      const okCount = Number.isSafeInteger(n) && n >= 1;
+      if (!okCount) this.report("E302", l, 0, t.length, { value: rest });
+      const stmt: Stmt = { type: "loop", count: okCount ? n : 1, body: [], span: whole };
       into.push(stmt);
+      this.depthCheck(l);
       return void this.stack.push({ kind: "loop", stmt, line: l });
     }
     if (word === "else") {
@@ -119,6 +165,7 @@ class Parser {
       const arm = { label: rest, body: [] as Stmt[], span: whole };
       const stmt: Stmt = { type: "branch", arms: [arm], span: whole };
       into.push(stmt);
+      this.depthCheck(l);
       return void this.stack.push({ kind: "branch", stmt, line: l, armLine: l });
     }
     if (t[0] === "&" && /\s/.test(t[1] ?? "")) {
@@ -191,7 +238,7 @@ class Parser {
     if (dm) {
       const at = pos + [...tail.slice(0, dm.index! + dm[1].length)].length;
       const v = dm[2].match(DURATION);
-      if (!v) return void this.report("E303", l, at, at + 1 + [...dm[2]].length, { value: dm[2] });
+      if (!v || !Number.isFinite(Number(v[1]))) return void this.report("E303", l, at, at + 1 + [...dm[2]].length, { value: dm[2] });
       duration = Number(v[1]);
       tail = tail.slice(0, dm.index);
     }
@@ -247,7 +294,11 @@ class Parser {
         if (!SHAPES.includes(value as Shape)) { this.report("E110", l, vAt, vAt + Math.max(1, [...value].length), { value }); return null; }
         r.shape = value as Shape;
       } else if (key === "color") {
-        if (!/^(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[a-zA-Z]+)$/.test(value)) { this.report("E111", l, vAt, vAt + Math.max(1, [...value].length), { value }); return null; }
+        if (!isColor(value)) {
+          const sug = /^[a-zA-Z]+$/.test(value) ? suggest(value.toLowerCase(), CSS_COLORS) : undefined;
+          this.report("E111", l, vAt, vAt + Math.max(1, [...value].length), sug ? { value, suggestion: sug } : { value });
+          return null;
+        }
         r.color = value;
       } else if (key) { const k0 = at + [...part].findIndex((ch) => ch.trim()); this.report("E108", l, k0, k0 + [...key].length, { name: key }); return null; }
       at += len + 1;
@@ -345,11 +396,20 @@ class Parser {
     };
     byId.forEach(visit);
 
+    const inCycle = (id: string) => {
+      const seen = new Set<string>();
+      for (let cur = byId.get(id)?.g.parent; cur !== undefined && !seen.has(cur); cur = byId.get(cur)?.g.parent) {
+        if (cur === id) return true;
+        seen.add(cur);
+      }
+      return false;
+    };
     const memberOf = new Map<string, string>();
     const ok = new Set<string>();
     for (const { g, line, memberAt, parentAt } of ordered) {
       if (g.parent && !ok.has(g.parent)) {
-        if (!byId.has(g.parent)) {
+        if (inCycle(g.id)) this.report("E407", line, parentAt![0], parentAt![1], { name: g.id });
+        else if (!byId.has(g.parent)) {
           const sug = suggest(g.parent, byId.keys());
           this.report("E406", line, parentAt![0], parentAt![1], sug ? { name: g.parent, suggestion: sug } : { name: g.parent });
         }
