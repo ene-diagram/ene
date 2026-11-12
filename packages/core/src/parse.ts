@@ -1,12 +1,13 @@
 import { scan, type Line } from "./scan.js";
 import { KEYWORDS, suggest, type Code } from "./diagnostics.js";
-import type { Diagnostic, Document, Edge, EdgeKind, NodeDecl, ParseResult, Span, Stmt } from "./types.js";
+import { SHAPES, type Shape } from "./types.js";
+import type { Diagnostic, Document, Edge, EdgeKind, Group, NodeDecl, ParseResult, Span, Stmt } from "./types.js";
 
 const ID_CHAR = /[\p{L}\p{N}_-]/u;
 const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x)(\s|$)/u;
 const DURATION = /^(\d+(?:\.\d+)?)s$/;
 
-interface Ref { id: string; label?: string; icon?: string; start: number; end: number }
+interface Ref { id: string; label?: string; icon?: string; shape?: Shape; color?: string; start: number; end: number }
 
 export function parse(source: string): ParseResult {
   return new Parser(source).run();
@@ -19,6 +20,7 @@ type Frame =
 class Parser {
   private stack: Frame[] = [];
   private uses = new Map<string, { line: Line; from: number; to: number }[]>();
+  private pendingGroups: { g: Group; line: Line; memberAt: { id: string; from: number; to: number }[]; parentAt?: [number, number] }[] = [];
   private hints: { kind: "pin" | "rank"; ids: { id: string; from: number; to: number }[]; line: Line; col?: number; row?: number }[] = [];
   private nodes = new Map<string, NodeDecl>();
   private labeled = new Set<string>();
@@ -26,7 +28,7 @@ class Parser {
   private doc: Document;
 
   constructor(private source: string) {
-    this.doc = { speed: 1.2, nodes: this.nodes, body: [], pins: [], ranks: [] };
+    this.doc = { speed: 1.2, nodes: this.nodes, body: [], pins: [], ranks: [], groups: [] };
   }
 
   run(): ParseResult {
@@ -37,6 +39,7 @@ class Parser {
       this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind });
     }
     this.resolveHints();
+    this.resolveGroups();
     this.typos();
     if (this.doc.body.length === 0 && !this.diags.some((d) => d.severity === "error"))
       this.diags.push({ code: "E101", severity: "error", span: { line: 1, col: 1, length: 0 }, args: {} });
@@ -81,6 +84,7 @@ class Parser {
     }
     const whole = this.span(l, 0, t.length);
     if (word === "pin" || word === "rank") return this.hint(l, t, word);
+    if (word === "group") return this.group(l, t);
     if (word === "end") {
       const f = this.stack.pop();
       if (!f) return this.report("E204", l, 0, 3);
@@ -233,8 +237,15 @@ class Parser {
       const c = part.indexOf(":");
       const key = (c < 0 ? part : part.slice(0, c)).trim();
       const value = c < 0 ? "" : part.slice(c + 1).trim();
+      const vAt = at + (c < 0 ? 0 : [...part.slice(0, c + 1)].length + ([...part.slice(c + 1)].length - [...part.slice(c + 1).trimStart()].length));
       if (key === "icon" && value) r.icon = value;
-      else if (key) { const k0 = at + [...part].findIndex((ch) => ch.trim()); this.report("E108", l, k0, k0 + [...key].length, { name: key }); return null; }
+      else if (key === "shape") {
+        if (!SHAPES.includes(value as Shape)) { this.report("E110", l, vAt, vAt + Math.max(1, [...value].length), { value }); return null; }
+        r.shape = value as Shape;
+      } else if (key === "color") {
+        if (!/^(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|[a-zA-Z]+)$/.test(value)) { this.report("E111", l, vAt, vAt + Math.max(1, [...value].length), { value }); return null; }
+        r.color = value;
+      } else if (key) { const k0 = at + [...part].findIndex((ch) => ch.trim()); this.report("E108", l, k0, k0 + [...key].length, { name: key }); return null; }
       at += len + 1;
     }
     r.end = close + 1;
@@ -273,6 +284,68 @@ class Parser {
     });
   }
 
+  /** group <id>[라벨]{color: ..} [in <부모>] : <멤버> ... */
+  group(l: Line, t: string[]) {
+    // 괄호 밖의 첫 ':' 가 멤버 목록의 시작
+    let colon = -1;
+    for (let i = 0, depth = 0; i < t.length; i++) {
+      if (t[i] === "[" || t[i] === "{") depth++;
+      else if (t[i] === "]" || t[i] === "}") depth--;
+      else if (t[i] === ":" && depth === 0) { colon = i; break; }
+    }
+    let pos = skip(t, 5);
+    const r = this.ref(l, t.slice(0, colon < 0 ? t.length : colon), pos);
+    if (r === null) return;
+    if (!r || colon < 0) return this.report("E102", l, 0, t.length, { word: "group" });
+    const g: Group = { id: r.id, label: r.label ?? r.id, members: [], span: this.span(l, 0, t.length), ...(r.color ? { color: r.color } : {}) };
+    pos = skip(t, r.end);
+    let parentAt: [number, number] | undefined;
+    const head = t.slice(pos, colon).join("").trim();
+    if (head) {
+      const m = head.match(/^in\s+(\S+)$/);
+      if (!m) return this.report("E102", l, pos, colon, { word: head });
+      g.parent = m[1];
+      const from = pos + [...head].length - [...m[1]].length;
+      parentAt = [from, from + [...m[1]].length];
+    }
+    const memberAt: { id: string; from: number; to: number }[] = [];
+    let p = skip(t, colon + 1);
+    while (p < t.length) {
+      const st = p;
+      while (p < t.length && !/\s/.test(t[p])) p++;
+      memberAt.push({ id: t.slice(st, p).join(""), from: st, to: p });
+      p = skip(t, p);
+    }
+    if (!memberAt.length) return this.report("E102", l, 0, t.length, { word: "group" });
+    this.pendingGroups.push({ g, line: l, memberAt, parentAt });
+  }
+
+  resolveGroups() {
+    const memberOf = new Map<string, string>();
+    const ids = new Set<string>();
+    for (const { g, line, memberAt, parentAt } of this.pendingGroups) {
+      if (g.parent && !ids.has(g.parent)) {
+        const sug = suggest(g.parent, ids);
+        this.report("E401", line, parentAt![0], parentAt![1], sug ? { name: g.parent, suggestion: sug } : { name: g.parent });
+        continue;
+      }
+      let ok = true;
+      for (const m of memberAt) {
+        if (!this.nodes.has(m.id)) {
+          const sug = suggest(m.id, this.nodes.keys());
+          this.report("E401", line, m.from, m.to, sug ? { name: m.id, suggestion: sug } : { name: m.id });
+          ok = false; continue;
+        }
+        const cur = memberOf.get(m.id);
+        if ((g.parent ? cur !== g.parent : cur !== undefined)) { this.report("E404", line, m.from, m.to, { name: m.id, group: g.id }); ok = false; continue; }
+      }
+      if (!ok) continue;
+      for (const m of memberAt) { memberOf.set(m.id, g.id); g.members.push(m.id); }
+      ids.add(g.id);
+      this.doc.groups.push(g);
+    }
+  }
+
   resolveHints() {
     const cells = new Map<string, string>();
     for (const h of this.hints) {
@@ -297,9 +370,10 @@ class Parser {
   declare(l: Line, r: Ref) {
     const span = this.span(l, r.start, r.end);
     const prev = this.nodes.get(r.id);
-    if (prev && r.icon && !prev.icon) prev.icon = r.icon;
+    if (prev) for (const k of ["icon", "shape", "color"] as const) if (r[k] && !prev[k]) (prev as unknown as Record<string, unknown>)[k] = r[k];
     if (!prev) {
-      this.nodes.set(r.id, { id: r.id, label: r.label ?? r.id, span, ...(r.icon ? { icon: r.icon } : {}) });
+      this.nodes.set(r.id, { id: r.id, label: r.label ?? r.id, span,
+        ...(r.icon ? { icon: r.icon } : {}), ...(r.shape ? { shape: r.shape } : {}), ...(r.color ? { color: r.color } : {}) });
       if (r.label !== undefined) this.labeled.add(r.id);
       return;
     }

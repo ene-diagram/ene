@@ -1,5 +1,8 @@
 export interface Span { line: number; col: number; length: number } // 1부터, 코드 포인트 기준
-export interface NodeDecl { id: string; label: string; icon?: string; span: Span }
+export type Shape = "box" | "round" | "db" | "queue" | "circle";
+export const SHAPES: Shape[] = ["box", "round", "db", "queue", "circle"];
+export interface NodeDecl { id: string; label: string; icon?: string; shape?: Shape; color?: string; span: Span }
+export interface Group { id: string; label: string; members: string[]; parent?: string; color?: string; span: Span }
 export type EdgeKind = "ok" | "fail" | "reply"; // -> | -x | -->
 export interface Edge { from: string; to: string; kind: EdgeKind; label: string; duration?: number; span: Span }
 export type Stmt =
@@ -16,6 +19,7 @@ export interface Document {
   body: Stmt[];
   pins: Pin[];
   ranks: Rank[];
+  groups: Group[];
 }
 export type Severity = "error" | "warning";
 export interface Diagnostic { code: string; severity: Severity; span: Span; args: Record<string, string> }

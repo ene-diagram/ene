@@ -17,7 +17,7 @@ test("icon attr in parallel and continuation lines", () => {
   const s = doc.body[0]; expect(s.type === "step" && s.edges).toHaveLength(3);
 });
 test("unknown attribute E108, unclosed brace E109", () => {
-  expect(parse("a{color: red} -> b").diagnostics[0]).toMatchObject({ code: "E108", args: { name: "color" } });
+  expect(parse("a{size: 3} -> b").diagnostics[0]).toMatchObject({ code: "E108", args: { name: "size" } });
   expect(parse("a{icon: aws:s3 -> b").diagnostics[0].code).toBe("E109");
 });
 test("resolveIcon uses pack defaults and aliases", () => {
