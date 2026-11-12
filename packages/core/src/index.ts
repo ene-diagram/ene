@@ -3,6 +3,7 @@ export * from "./types.js";
 export { parse, LIMITS } from "./parse.js";
 export { buildTimeline, type TimelineOptions } from "./timeline.js";
 export { formatDiagnostic, formatAll, diagnosticToJson, type DiagnosticJson } from "./format.js";
+export { THEMES, isTheme, type ThemeName } from "./themes.js";
 export { CODES, MESSAGES, KEYWORDS, type Code, type Lang } from "./diagnostics.js";
 export { resolveIcon, checkIcons, isIconUrl, validateIconPack, type IconPack, type ResolvedIcon } from "./icons.js";
 export { formatSource } from "./fmt.js";

@@ -28,7 +28,7 @@ A -> B : hello
 B --> A : hi
 A -x B : lost
 A -x B : lost reply
-A -> B : async
+A ~> B : async
 B --> A : async reply
 A -> B : plain
 B --> A : plain reply
@@ -67,14 +67,16 @@ else else 2
 end`);
 });
 
-test("opt becomes a branch with a skip arm; empty arms get `wait 0`", () => {
-  const r = conv("opt notify\n A->>B: email\nend\nalt a\n A->>B: x\nelse b\n Note over A: nothing\nend");
+test("opt and break become ene opt; empty alt arms get `wait 0`", () => {
+  const r = conv("opt notify\n A->>B: email\nend\nalt a\n A->>B: x\nelse b\n Note over A: nothing\nend\nbreak\n A-)B: fire\nend\nopt empty\nend");
   clean(r.source);
-  expect(r.source).toContain("branch notify\n  A -> B : email\nelse skip\n  wait 0\nend");
-  expect(r.source).toContain("else b\n  # note over A: nothing\n  wait 0\nend");
-  const tl = buildTimeline(parse(r.source).doc, { choices: [1, 1] });
+  expect(r.source).toContain("opt notify\n  A -> B : email\nend");
+  expect(r.source).toContain("else b\n  # note: nothing\n  wait 0\nend");
+  expect(r.source).toContain("opt\n  A ~> B : fire\nend\n");
+  expect(r.source).not.toContain("opt empty");
+  const tl = buildTimeline(parse(r.source).doc, { choices: [1, 1, 1] });
   expect(tl.steps).toHaveLength(0);
-  expect(tl.branches.map((b) => b.arms)).toEqual([["notify", "skip"], ["a", "b"]]);
+  expect(tl.branches.map((b) => [b.arms, b.optional])).toEqual([[["notify", "skip"], true], [["a", "b"], undefined], [["", "skip"], true]]);
 });
 
 test("loop takes a count from its label, or 2 with a warning", () => {
@@ -103,11 +105,10 @@ test("unsupported constructs warn with the source line, grouped by kind", () => 
   const r = conv("A->>+B: x\nactivate B\nNote right of B: think\nNote over A,B: both\ndeactivate B\nB-->>-A: y\nlink A: Dashboard @ https://x\nwhatever this is");
   expect(r.warnings).toEqual([
     { line: 2, message: "activation bars are not drawn (and on 3 more lines)" },
-    { line: 4, message: "notes are not drawn; they are kept as comments (and on 1 more line)" },
     { line: 8, message: "participant links and properties are dropped" },
     { line: 9, message: "not converted: `whatever this is`" },
   ]);
-  expect(r.source).toContain("# note right of B: think\n# note over A,B: both\n");
+  expect(r.source).toContain("A -> B : x\nnote think\nnote both\nB --> A : y");
 });
 
 test("message text that would change meaning in ene is adjusted and reported", () => {
@@ -135,14 +136,14 @@ test("unclosed and stray blocks", () => {
 });
 
 test("a ```mermaid fence in Markdown is unwrapped, with line numbers from the file", () => {
-  const md = "# Doc\n\n```mermaid\nflowchart LR\n a-->b\n```\n\n```mermaid\nsequenceDiagram\n  A->>B: x\n  activate B\n```\n";
+  const md = "# Doc\n\n```mermaid\npie\n \"a\": 1\n```\n\n```mermaid\nsequenceDiagram\n  A->>B: x\n  activate B\n```\n";
   const r = fromMermaid(md);
   expect(r.source).toContain("A -> B : x");
   expect(r.warnings).toEqual([{ line: 11, message: "activation bars are not drawn" }]);
 });
 
 test("errors: other diagram kinds, empty input, no messages, nesting beyond the ene limit", () => {
-  expect(fromMermaid("flowchart LR\n a-->b")).toMatchObject({ source: "", error: "only `sequenceDiagram` can be converted (found `flowchart`)" });
+  expect(fromMermaid("pie\n \"a\": 1")).toMatchObject({ source: "", error: "only `sequenceDiagram`, `flowchart` and `graph` can be converted (found `pie`)" });
   expect(fromMermaid("\n")).toMatchObject({ source: "", error: "no Mermaid diagram found" });
   expect(conv("participant A\nNote over A: x")).toMatchObject({ source: "", error: "the diagram has no messages to play" });
   const deep = conv(`${"opt x\n".repeat(40)}A->>B: y\n${"end\n".repeat(40)}`);
@@ -154,4 +155,28 @@ test("participant configuration: type becomes a shape, alias becomes the label",
   const r = conv(`participant D@{ "type": "database", "alias": "My DB" }\nparticipant Q@{ "type": "queue" } as Jobs\nparticipant C@{ "type": "control" }\nD->>Q: x\nQ->>C: y`);
   expect(r.source).toContain("D[My DB]{shape: db}\nQ[Jobs]{shape: queue}\nC[C]\n");
   expect(r.warnings).toEqual([{ line: 4, message: "participant type `control` has no ene shape; drawn as a box" }]);
+});
+
+test("notes become step notes on the message above; orphan notes stay comments", () => {
+  const r = conv("Note over A: intro\nA->>B: get\nNote right of B: cache first, TTL 60s\npar a\n A->>B: x\n Note over B: in par\nand b\n A->>C: y\nend\nNote over A:\nloop 2\n A->>B: z\nend\nNote over A: after loop");
+  clean(r.source);
+  expect(r.source).toContain("# note: intro\nA -> B : get\nnote cache first, TTL 60s\n");
+  expect(r.source).toContain("A -> B : x & A -> C : y\nnote in par\n");
+  expect(r.source).toContain("end\n# note: after loop");
+  const steps = buildTimeline(parse(r.source).doc).steps;
+  expect(steps[0].note).toBe("cache first, TTL 60s");
+  expect(steps[1].note).toBe("in par");
+  expect(r.warnings.map((w) => w.message)).toEqual([
+    "a note with no message right above it is kept as a comment (and on 1 more line)",
+    "empty note is dropped",
+  ]);
+});
+
+test("note text that would read as an edge is adjusted", () => {
+  const r = conv("A->>B: x\nNote over A: -> next\npar a\n A->>B: y\n Note over B: -x z\nand b\n A->>C: w\nend");
+  clean(r.source);
+  expect(r.error).toBeUndefined();
+  expect(r.source).toContain("note ‐> next");
+  expect(r.source).toContain("note ‐x z");
+  expect(r.warnings.map((w) => w.line)).toEqual([3, 6]);
 });

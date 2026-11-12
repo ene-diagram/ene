@@ -64,7 +64,8 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
       while (j + 1 < tl.steps.length && tl.steps[j + 1].branchPath.slice(0, (depth + 1) * 2).join(",") === key) j++;
       const [bi, ai] = p.slice(depth * 2, depth * 2 + 2);
       const inset = depth * 8;
-      frames.push({ label: tl.branches[bi].arms[ai] || `#${ai + 1}`, x: minX + inset, y: rowY(i) - 34 + inset, w: maxX - minX - inset * 2, h: rowY(j) - rowY(i) + 46 - inset * 2 });
+      const br = tl.branches[bi];
+      frames.push({ label: br.optional ? `opt ${br.arms[0]}`.trim() : br.arms[ai] || `#${ai + 1}`, x: minX + inset, y: rowY(i) - 34 + inset, w: maxX - minX - inset * 2, h: rowY(j) - rowY(i) + 46 - inset * 2 });
       i = j + 1;
     }
     if (!any) break;

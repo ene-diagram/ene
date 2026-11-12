@@ -8,7 +8,7 @@ without errors, and every "mistake" block produces the code shown — both are c
 
 | Construct | Meaning |
 |---|---|
-| `# comment` | comment at line start or after a space. `#` inside `[...]`, `{...}`, after the first `:`, or in `title` is literal |
+| `# comment` | comment at line start or after a space. `#` inside `[...]`, `{...}`, after the first `:`, or in `title` / `note` is literal |
 | indentation | ignored (use it for readability inside blocks) |
 | empty line | ignored |
 
@@ -47,6 +47,7 @@ api -> db : INSERT
 | `a -> b` | request |
 | `a --> b` | response (dashed) |
 | `a -x b` | failure (ends with ✕) |
+| `a ~> b` | async message (dotted): fire-and-forget, the next step starts without waiting for it |
 | `a -> b : label` | label after the first `:` (may contain `#`, `:`, spaces) |
 | `a -> b : label @2s` | this edge takes 2 seconds (`@0.5s` …), written last |
 | `a -> b & a -> c` | edges on one line play at the same time; `&` needs spaces around it |
@@ -58,6 +59,25 @@ api -> cache : lookup & api -> db : SELECT @2s
 & api -> log : audit
 cache --> api : hit
 db -x api : timeout
+api ~> queue : publish order.created
+```
+
+## Notes
+
+| Construct | Meaning |
+|---|---|
+| `note <text>` | explains the step right above it (a `wait` in between is fine); shown as a caption while that step plays |
+| two `note` lines | joined into one caption |
+
+Everything after `note` is the text (`#`, `:`, `&` included). The player shows the caption under the diagram; an
+exported SVG shows it in a line under the diagram (`--no-notes` leaves it out). Sequence diagrams use the same caption.
+
+```ene
+api -> cache : GET product:42
+note Cache is checked first; TTL is 60s.
+cache --> api : miss
+api -> db : SELECT
+note Only on a miss.
 ```
 
 ## Document settings
@@ -67,11 +87,13 @@ db -x api : timeout
 | `title Order flow` | title shown above the diagram |
 | `speed 1.2` | default seconds per step (default `1.2`, must be > 0) |
 | `diagram flow` | layout: `flow` (default) or `sequence` |
+| `theme mono` | colours: `default`, `mono` (greys, for print) or `high-contrast`; each has a light and a dark variant |
 
 ```ene
 title Checkout
 diagram sequence
 speed 0.8
+theme high-contrast
 user -> api : POST /checkout
 api --> user : 201
 ```
@@ -83,8 +105,10 @@ api --> user : 201
 | `wait 0.5` | pause (seconds, ≥ 0) before the next step |
 | `loop 3` … `end` | repeat the enclosed steps (whole number ≥ 1) |
 | `branch label` … `else label` … `end` | alternative paths; the player shows a menu, SVG export uses `--choice` |
+| `opt label` … `end` | optional steps; the player shows a toggle, SVG export uses `--choice` (`0` = taken, `1` = skipped) |
 
-Blocks nest (up to 32 levels). Every arm needs at least one step.
+Blocks nest (up to 32 levels). Every arm needs at least one step; `opt` has one arm and no `else`.
+`--choice` counts `branch` and `opt` blocks together, in source order.
 
 ```ene
 api -> cache : get
@@ -99,6 +123,16 @@ else miss
   db --> api : rows
 end
 api --> user : 200
+```
+
+```ene
+user -> api : POST /order
+opt coupon given
+  api -> coupons : validate
+  coupons --> api : ok
+end
+api ~> queue : order.created
+api --> user : 201
 ```
 
 ## Layout hints and groups
@@ -127,10 +161,13 @@ A few characters mean different things depending on where they are. ene warns wh
 |---|---|---|
 | `a -x b` | failure arrow — only with a space on both sides of `-x` | |
 | `a-x b`, `a -xb` | `-x` glued to an id is part of the id | `E113` |
+| `a ~> b` | async arrow — needs a space on both sides too | |
+| `a~> b`, `a ~>b` | glued `~>` is an error | `E117` |
 | `a -> b # note` | `# note` is a comment (no label on the line yet) | |
 | `a -> b : hit # note` | after the `:` the `#` is label text | `W105` |
 | `a -> b : GET /items #1` | `#` not surrounded by spaces is plain label text | |
 | `title Flow # draft` | everything after `title` is the title | `W105` |
+| `note why # draft` | everything after `note` is the note | `W105` |
 | `a -> b : slow @2s` | `@2s` at the very end is the duration | |
 | `a -> b : @2s slow` | anywhere else `@2s` is label text | `W110` |
 | `a -> b : x & c -> d` | ` & ` followed by an edge starts a parallel edge; otherwise `&` is label text | |
@@ -192,6 +229,22 @@ a ->
 
 ```ene E113
 a-x b
+```
+
+`~>` glued to an id:
+
+```ene E117
+a~>b
+```
+
+`else` inside `opt` (use `branch` for two paths):
+
+```ene E205
+opt cached
+  a -> b
+else
+  a -> c
+end
 ```
 
 A node named like a keyword at the start of a line:
@@ -284,6 +337,13 @@ Node used in `pin`/`group` but never in an edge (typo):
 ```ene E401
 api -> cache
 pin cahce 1,0
+```
+
+`note` with no step above it in the same block:
+
+```ene E116
+note Starts here
+a -> b
 ```
 
 A file with no edges:

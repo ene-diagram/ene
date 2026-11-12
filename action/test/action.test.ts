@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, existsSync, cpSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, existsSync, cpSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -56,6 +56,11 @@ describe("main", () => {
     git("init", "-q", "-b", "main");
     git("remote", "add", "origin", join(root, "remote.git"));
     cpSync(FIXTURES, join(dir, "diagrams"), { recursive: true });
+    // The committed fixture SVGs match the published CLI the CI workflow uses; render them with this
+    // checkout's CLI so the test compares like with like after renderer changes.
+    for (const f of readdirSync(join(dir, "diagrams")).filter((n) => n.endsWith(".ene"))) {
+      execFileSync("node", [CLI, join(dir, "diagrams", f), "--no-network"]);
+    }
     git("add", ".");
     git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
     git("push", "-q", "-u", "origin", "main");
