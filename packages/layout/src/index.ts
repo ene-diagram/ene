@@ -1,9 +1,13 @@
-import ELK from "elkjs/lib/elk.bundled.js";
+import ElkModule from "elkjs/lib/elk.bundled.js";
+import type { ELK as ElkApi } from "elkjs/lib/elk-api.js";
 import type { Document, Timeline } from "@ene/core";
 
 export interface LNode { id: string; label: string; x: number; y: number; w: number; h: number }
 export interface LEdge { index: number; d: string; mid: { x: number; y: number } }
 export interface Layout { nodes: LNode[]; edges: LEdge[]; width: number; height: number }
+
+// elkjs 는 CJS — 번들러/Node 에 따라 default 가 한 겹 더 감싸질 수 있다
+const ELK = ((ElkModule as unknown as { default?: unknown }).default ?? ElkModule) as unknown as new () => ElkApi;
 
 export const NODE_H = 52;
 const GAP_NODE = 50, GAP_LAYER = 110, PAD = 40, SPREAD = 30;
