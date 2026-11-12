@@ -13,3 +13,8 @@ test("columns count code points", () => {
   expect(l.cols[2]).toBe(3);
 });
 test("skips blank and comment-only lines", () => expect(scan("# x\n\n   # y")).toEqual([]));
+test("# inside an edge label is text, not a comment", () =>
+  expect(scan("a -> b : issue #5")[0].text).toBe("a -> b : issue #5"));
+test("# inside a node label bracket is text", () =>
+  expect(scan("a[issue #5] -> b # note")[0].text).toBe("a[issue #5] -> b"));
+test("# in title text is kept", () => expect(scan("title 이슈 #5")[0].text).toBe("title 이슈 #5"));

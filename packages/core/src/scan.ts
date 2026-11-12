@@ -17,10 +17,17 @@ export function scan(source: string): Line[] {
     const chars = [...raw];
     let start = 0;
     while (start < chars.length && isSpace(chars[start])) start++;
-    // 주석: 줄 맨 앞(들여쓰기 뒤) 또는 공백 바로 뒤의 '#'
+    // 주석: 줄 맨 앞(들여쓰기 뒤) 또는 공백 바로 뒤의 '#'.
+    // 단, 라벨 안(`[...]` 안, 첫 `:` 뒤, `title` 뒤)의 '#' 은 글자다.
     let end = chars.length;
-    for (let j = start; j < chars.length; j++) {
-      if (chars[j] === "#" && (j === start || isSpace(chars[j - 1]))) { end = j; break; }
+    const isTitle = chars.slice(start, start + 6).join("") === "title ";
+    let depth = 0, inLabel = false;
+    for (let j = start; j < chars.length && !(isTitle && j > start); j++) {
+      const c = chars[j];
+      if (c === "[") depth++;
+      else if (c === "]" && depth > 0) depth--;
+      else if (c === ":" && depth === 0) inLabel = true;
+      else if (c === "#" && depth === 0 && !inLabel && (j === start || isSpace(chars[j - 1]))) { end = j; break; }
     }
     while (end > start && isSpace(chars[end - 1])) end--;
     if (end <= start) return;
