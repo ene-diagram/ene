@@ -36,12 +36,17 @@ describe("themes", () => {
     for (const t of THEMES) {
       const svg = out(t);
       expect(svg).toContain(`class="ene ene-theme-${t}"`);
-      expect(svg).toContain(`svg{--bg:${THEME_VARS[t].light.bg}`);
-      expect(svg).toContain(`@media (prefers-color-scheme: dark){svg{--bg:${THEME_VARS[t].dark.bg}`);
+      expect(svg).toContain(`svg.ene-theme-${t}{--bg:${THEME_VARS[t].light.bg}`);
+      expect(svg).toContain(`@media (prefers-color-scheme: dark){svg.ene-theme-${t}{--bg:${THEME_VARS[t].dark.bg}`);
     }
   });
   it("scopes inline rules to the theme class with zero specificity", () => {
     expect(themeCss("mono")).toMatch(/^:where\(svg\.ene-theme-mono\)\{--bg:/);
+  });
+  it("scopes exported rules to the theme class so inline exports don't restyle each other", () => {
+    const a = out("mono"), b = out("high-contrast");
+    expect(a).not.toMatch(/(^|[;}\s])svg\{--/);
+    expect(b).toContain("svg.ene-theme-high-contrast{--bg:");
   });
   it("falls back to default for no or unknown theme", () => {
     expect(out()).toContain("ene-theme-default");
