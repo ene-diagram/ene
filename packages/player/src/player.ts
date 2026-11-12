@@ -103,6 +103,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   let lay: Layout;
   try { lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await computeLayout(doc, tl, { elk: await loadElk() }); }
   catch (e) {
+    el.replaceChildren();
     const pre = document.createElement("pre");
     pre.className = "ene-error";
     pre.textContent = `ene: ${(e as Error).message}`;

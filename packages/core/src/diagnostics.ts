@@ -2,7 +2,7 @@ export const CODES = [
   "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109", "E110", "E111", "E112",
   "E201", "E203", "E204", "E205",
   "E301", "E302", "E303", "E304",
-  "E401", "E402", "E403", "E404",
+  "E401", "E402", "E403", "E404", "E405", "E406",
   "W101", "W102", "W103", "W104",
 ] as const;
 export type Code = (typeof CODES)[number];
@@ -69,6 +69,8 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E402: { message: 'pin position "{value}" is not valid', hint: "write column,row from 0, e.g. `pin db 3,1`" },
     E403: { message: '"{name}" is pinned to cell {cell}, already taken by "{other}"', hint: "pick a different column,row" },
     E404: { message: '"{name}" cannot join group "{group}"', hint: "a node belongs to one group; a nested group (`in`) can only take members of its parent" },
+    E405: { message: 'group "{name}" is declared twice', hint: "give each group a different id" },
+    E406: { message: 'unknown group "{name}"', hint: "declare the parent with `group {name} : …` (any order is fine)" },
     W101: { message: 'node "{name}" is used only once and looks like "{suggestion}"', hint: "if it is a typo, rename it; otherwise ignore this warning" },
     W102: { message: 'node "{name}" was labeled "{first}" before, now "{second}"', hint: "the first label is kept; remove one of them" },
     W103: { message: 'edge goes from "{name}" to itself', hint: "self-loops are drawn but usually mean a typo" },
@@ -99,6 +101,8 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E402: { message: 'pin 위치 "{value}" 형식이 맞지 않아요', hint: "0부터 시작하는 열,행으로 써 주세요. 예: `pin db 3,1`" },
     E403: { message: '"{name}" 를 {cell} 칸에 고정하려 했지만 이미 "{other}" 가 있어요', hint: "다른 열,행을 골라 주세요" },
     E404: { message: '"{name}" 는 그룹 "{group}" 에 들어갈 수 없어요', hint: "노드는 그룹 하나에만 속해요. 안쪽 그룹(`in`)은 바깥 그룹의 멤버만 담을 수 있어요" },
+    E405: { message: '그룹 "{name}" 이 두 번 선언됐어요', hint: "그룹마다 다른 id 를 써 주세요" },
+    E406: { message: '"{name}" 라는 그룹이 없어요', hint: "`group {name} : …` 로 부모 그룹을 선언해 주세요 (순서는 상관없어요)" },
     W101: { message: '"{name}" 노드가 한 번만 쓰였고 "{suggestion}" 와 비슷해요', hint: "오타라면 고치고, 아니라면 무시해도 돼요" },
     W102: { message: '"{name}" 노드 라벨이 처음엔 "{first}", 지금은 "{second}" 예요', hint: "처음 라벨을 써요. 하나를 지워 주세요" },
     W103: { message: '"{name}" 에서 자기 자신으로 가는 엣지예요', hint: "그려지긴 하지만 대개 오타예요" },

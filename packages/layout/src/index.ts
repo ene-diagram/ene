@@ -35,9 +35,13 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
   const rowY = (i: number) => PAD + NODE_H + S_TOP + 20 + i * S_ROW;
   const edges: LEdge[] = [];
   tl.steps.forEach((s, i) => {
-    const y = rowY(i);
+    const pairCount = new Map<string, number>();
     s.edges.forEach((e, k) => {
       const a = cx.get(e.from)!, b = cx.get(e.to)!;
+      // 같은 행에서 같은 두 참여자 사이의 화살표는 위아래로 나눈다
+      const pk = [e.from, e.to].sort().join("\u0000"), nth = pairCount.get(pk) ?? 0;
+      pairCount.set(pk, nth + 1);
+      const y = rowY(i) + nth * 14;
       if (e.from === e.to) {
         edges.push({ index: e.edgeIndex, step: s.index, k, d: `M${a},${y - 8} C${a + 50},${y - 8} ${a + 50},${y + 16} ${a},${y + 16}`, mid: { x: a + 44, y: y - 4 } });
         return;
@@ -179,8 +183,13 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
     for (const gb of groups) {
       const members = membersDeep(doc, gb.id);
       for (const n of nodes) {
-        if (members.has(n.id) || fixed.has(n.id)) continue;
-        if (n.x < gb.x + gb.w && gb.x < n.x + n.w && n.y < gb.y + gb.h && gb.y < n.y + n.h) { n.y = gb.y + gb.h + GAP_NODE / 2; moved = true; }
+        if (members.has(n.id)) continue;
+        if (!(n.x < gb.x + gb.w && gb.x < n.x + n.w && n.y < gb.y + gb.h && gb.y < n.y + n.h)) continue;
+        if (!fixed.has(n.id)) { n.y = gb.y + gb.h + GAP_NODE / 2; moved = true; continue; }
+        // 고정된 노드는 움직일 수 없으니 그룹 전체를 그 아래로 내린다
+        const dy = n.y + n.h + GAP_NODE / 2 - gb.y;
+        for (const id of members) { const m = byId.get(id)!; if (!fixed.has(id)) m.y += dy; }
+        moved = true;
       }
     }
     if (!moved) break;
@@ -323,12 +332,19 @@ function polyCrosses(pts: Pt[], nodes: LNode[]): boolean {
  */
 function gridRoute(e: { from: string; to: string }, byId: Map<string, LNode>, others: LNode[], k: number): { d: string; mid: Pt } | undefined {
   const a = byId.get(e.from)!, b = byId.get(e.to)!, all = [a, b, ...others];
-  const C = 10, pad = 80;
+  const pad = 80;
   const x0 = Math.min(...all.map((n) => n.x)) - pad, y0 = Math.min(...all.map((n) => n.y)) - pad;
-  const W = Math.ceil((Math.max(...all.map((n) => n.x + n.w)) + pad - x0) / C), H = Math.ceil((Math.max(...all.map((n) => n.y + n.h)) + pad - y0) / C);
+  const spanX = Math.max(...all.map((n) => n.x + n.w)) + pad - x0, spanY = Math.max(...all.map((n) => n.y + n.h)) + pad - y0;
+  // 격자 칸 수를 25만 개 안으로 (큰 그림은 칸을 키운다)
+  const C = Math.max(10, Math.ceil(Math.sqrt((spanX * spanY) / 250_000)));
+  const W = Math.ceil(spanX / C), H = Math.ceil(spanY / C);
   const blocked = new Uint8Array(W * H);
-  for (let gy = 0; gy < H; gy++) for (let gx = 0; gx < W; gx++)
-    if (inside(x0 + gx * C, y0 + gy * C, others)) blocked[gy * W + gx] = 1;
+  // 장애물 사각형을 칸에 직접 찍는다: O(노드 + 칸)
+  for (const n of others) {
+    const gx0 = Math.max(0, Math.floor((n.x - MARGIN - x0) / C)), gx1 = Math.min(W - 1, Math.ceil((n.x + n.w + MARGIN - x0) / C));
+    const gy0 = Math.max(0, Math.floor((n.y - MARGIN - y0) / C)), gy1 = Math.min(H - 1, Math.ceil((n.y + n.h + MARGIN - y0) / C));
+    for (let gy = gy0; gy <= gy1; gy++) blocked.fill(1, gy * W + gx0, gy * W + gx1 + 1);
+  }
   const cell = (n: LNode) => [Math.round((n.x + n.w / 2 - x0) / C), Math.round((n.y + n.h / 2 - y0) / C)];
   const [sx, sy] = cell(a), [tx, ty] = cell(b);
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -358,10 +374,22 @@ function gridRoute(e: { from: string; to: string }, byId: Map<string, LNode>, ot
   const out = (p: Pt, n: LNode) => !(p.x >= n.x && p.x <= n.x + n.w && p.y >= n.y && p.y <= n.y + n.h);
   let i0 = cells.findIndex((p) => out(p, a)), i1 = cells.length - 1 - [...cells].reverse().findIndex((p) => out(p, b));
   if (i0 < 0 || i1 < i0) return undefined;
-  i0 = Math.max(0, i0 - 1); i1 = Math.min(cells.length - 1, i1 + 1);
+  // 끝점은 노드 테두리 위로: 직각 경로이므로 나가는 방향의 테두리 좌표로 맞춘다
+  const border = (inner: Pt, outer: Pt, n: LNode): Pt =>
+    inner.x === outer.x
+      ? { x: outer.x, y: outer.y < inner.y ? n.y : n.y + n.h }
+      : { x: outer.x < inner.x ? n.x : n.x + n.w, y: outer.y };
+  const start = border(cells[Math.max(0, i0 - 1)], cells[i0], a);
+  const end = border(cells[Math.min(cells.length - 1, i1 + 1)], cells[i1], b);
   const off = k * 8;
-  let pts = cells.slice(i0, i1 + 1).map((p) => ({ x: p.x + off, y: p.y + off }));
-  if (off && polyCrosses(pts, others)) pts = cells.slice(i0, i1 + 1);
+  const inner = cells.slice(i0, i1 + 1);
+  let pts = [start, ...inner.map((p) => ({ x: p.x + off, y: p.y + off })), end];
+  if (off && polyCrosses(pts, others)) pts = [start, ...inner, end];
+  if (off) { // 첫·끝 구간도 직각이 되도록 테두리 점을 옆으로 민다
+    pts[0] = inner[0].x === start.x ? { x: start.x + off, y: start.y } : { x: start.x, y: start.y + off };
+    const L = pts.length - 1, li = inner[inner.length - 1];
+    pts[L] = li.x === end.x ? { x: end.x + off, y: end.y } : { x: end.x, y: end.y + off };
+  }
   // 일직선 위 점 제거
   pts = pts.filter((p, j) => j === 0 || j === pts.length - 1 ||
     !((pts[j - 1].x === p.x && p.x === pts[j + 1].x) || (pts[j - 1].y === p.y && p.y === pts[j + 1].y)));

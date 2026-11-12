@@ -112,3 +112,27 @@ test.each(readdirSync(ex).filter(f => f.endsWith(".ene")))("%s: group boxes cont
 const isDesc = (gs: { id: string; parent?: string }[], id: string, anc: string): boolean => {
   const g = gs.find(x => x.id === id); return !!g?.parent && (g.parent === anc || isDesc(gs, g.parent, anc));
 };
+test("pinned non-member is never inside a group box", async () => {
+  const l = await run("a -> b\nb -> c\ngroup g : a b\npin c 1,0");
+  const g = l.groups[0], c = l.nodes.find(n => n.id === "c")!;
+  expect(c.x < g.x + g.w && g.x < c.x + c.w && c.y < g.y + g.h && g.y < c.y + c.h).toBe(false);
+});
+test("grid-routed paths start and end on node borders", async () => {
+  const src = readFileSync(new URL("12-large-commerce.ene", ex), "utf8");
+  const { doc } = parse(src); const tl = buildTimeline(doc); const l = await layout(doc, tl);
+  for (const e of l.edges.filter(e => e.d.includes("L"))) {
+    const ed = tl.allEdges[e.index]; const pts = sample(e.d); const first = (e.d.match(/[-\d.]+/g) ?? []).map(Number);
+    const a = l.nodes.find(n => n.id === ed.from)!, b = l.nodes.find(n => n.id === ed.to)!, end = pts[pts.length - 1];
+    const onBorder = (p: { x: number; y: number }, n: typeof a) =>
+      p.x >= n.x - 0.5 && p.x <= n.x + n.w + 0.5 && p.y >= n.y - 0.5 && p.y <= n.y + n.h + 0.5 &&
+      (Math.abs(p.x - n.x) < 0.6 || Math.abs(p.x - n.x - n.w) < 0.6 || Math.abs(p.y - n.y) < 0.6 || Math.abs(p.y - n.y - n.h) < 0.6);
+    expect(onBorder({ x: first[0], y: first[1] }, a), `${ed.from} start`).toBe(true);
+    expect(onBorder(end, b), `${ed.to} end`).toBe(true);
+  }
+});
+test("opposite parallel edges in a sequence row do not overlap", async () => {
+  const { layoutSequence, edgeFor } = await import("../src/index");
+  const { doc } = parse("diagram sequence\na -> b : x & b -> a : y"); const tl = buildTimeline(doc); const l = layoutSequence(doc, tl);
+  const m0 = edgeFor(l, 0, 0, 0)!.mid, m1 = edgeFor(l, 0, 1, 1)!.mid;
+  expect(Math.abs(m0.y - m1.y)).toBeGreaterThanOrEqual(12);
+});

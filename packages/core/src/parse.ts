@@ -325,29 +325,55 @@ class Parser {
   }
 
   resolveGroups() {
+    // 중복 id 는 먼저 걸러 낸다
+    const byId = new Map<string, (typeof this.pendingGroups)[number]>();
+    for (const pg of this.pendingGroups) {
+      if (byId.has(pg.g.id)) { this.report("E405", pg.line, 0, [...pg.line.text].length, { name: pg.g.id }); continue; }
+      byId.set(pg.g.id, pg);
+    }
+    // 부모가 먼저 오도록 순서를 맞춘다 (선언 순서와 무관)
+    const ordered: (typeof this.pendingGroups)[number][] = [];
+    const state = new Map<string, number>(); // 1 방문 중, 2 완료
+    const visit = (pg: (typeof this.pendingGroups)[number]) => {
+      if (state.get(pg.g.id) === 2) return;
+      if (state.get(pg.g.id) === 1) return; // 순환 — 아래에서 E406/E404 로 걸림
+      state.set(pg.g.id, 1);
+      const parent = pg.g.parent ? byId.get(pg.g.parent) : undefined;
+      if (parent) visit(parent);
+      state.set(pg.g.id, 2);
+      ordered.push(pg);
+    };
+    byId.forEach(visit);
+
     const memberOf = new Map<string, string>();
-    const ids = new Set<string>();
-    for (const { g, line, memberAt, parentAt } of this.pendingGroups) {
-      if (g.parent && !ids.has(g.parent)) {
-        const sug = suggest(g.parent, ids);
-        this.report("E401", line, parentAt![0], parentAt![1], sug ? { name: g.parent, suggestion: sug } : { name: g.parent });
+    const ok = new Set<string>();
+    for (const { g, line, memberAt, parentAt } of ordered) {
+      if (g.parent && !ok.has(g.parent)) {
+        if (!byId.has(g.parent)) {
+          const sug = suggest(g.parent, byId.keys());
+          this.report("E406", line, parentAt![0], parentAt![1], sug ? { name: g.parent, suggestion: sug } : { name: g.parent });
+        }
         continue;
       }
-      let ok = true;
+      let good = true;
+      const seen = new Set<string>();
       for (const m of memberAt) {
+        if (seen.has(m.id)) continue;
+        seen.add(m.id);
         if (!this.nodes.has(m.id)) {
           const sug = suggest(m.id, this.nodes.keys());
           this.report("E401", line, m.from, m.to, sug ? { name: m.id, suggestion: sug } : { name: m.id });
-          ok = false; continue;
+          good = false; continue;
         }
         const cur = memberOf.get(m.id);
-        if ((g.parent ? cur !== g.parent : cur !== undefined)) { this.report("E404", line, m.from, m.to, { name: m.id, group: g.id }); ok = false; continue; }
+        if (g.parent ? cur !== g.parent : cur !== undefined) { this.report("E404", line, m.from, m.to, { name: m.id, group: g.id }); good = false; }
       }
-      if (!ok) continue;
-      for (const m of memberAt) { memberOf.set(m.id, g.id); g.members.push(m.id); }
-      ids.add(g.id);
-      this.doc.groups.push(g);
+      if (!good) continue;
+      for (const id of seen) { memberOf.set(id, g.id); g.members.push(id); }
+      ok.add(g.id);
     }
+    // 결과는 원래 선언 순서로
+    this.doc.groups = this.pendingGroups.map((pg) => pg.g).filter((g, i, arr) => ok.has(g.id) && arr.findIndex((x) => x.id === g.id) === i);
   }
 
   resolveHints() {
