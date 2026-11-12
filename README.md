@@ -235,7 +235,7 @@ Exported SVGs use CSS animation only. They loop, follow dark mode, and under `pr
 | `id[Label]{icon: …, shape: db, color: #f59e0b}` | node label and style |
 | `diagram sequence` | draw as a sequence diagram |
 
-One line is one step, played top to bottom.
+One line is one step, played top to bottom. The complete reference, with common mistakes, is in [SYNTAX.md](SYNTAX.md) (also served as `llms.txt` for AI tools).
 
 ## Release
 
