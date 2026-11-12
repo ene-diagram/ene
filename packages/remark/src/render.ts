@@ -53,13 +53,32 @@ export async function renderEne(src: string, opts: RenderOptions = {}): Promise<
 }
 
 /**
- * Prefix every id (and its `#ref` / `url(#ref)` uses) so several inline SVGs on one page do not
- * point at each other's paths and markers.
+ * Make an SVG safe to inline next to others: prefix every id and its references, and scope the
+ * stylesheet to this SVG (its rules use `svg` and short class names that would otherwise leak into
+ * the page). Only attribute values and the `<style>` element are touched; diagram text is escaped
+ * by the renderer, so it cannot contain `="` and is never rewritten.
  */
-export function scopeIds(svg: string, prefix: string): string {
-  return svg.replace(/\bid="([^"]+)"/g, `id="${prefix}$1"`)
-    .replace(/\bhref="#([^"]+)"/g, `href="#${prefix}$1"`)
-    .replace(/url\(#([^)]+)\)/g, `url(#${prefix}$1)`);
+export function scopeSvg(svg: string, prefix: string): string {
+  const scope = `${prefix}root`;
+  return svg
+    .replace(/^<svg /, `<svg class="${scope}" `)
+    .replace(/<style>([\s\S]*?)<\/style>/, (_, css: string) => `<style>${scopeCss(css, scope)}</style>`)
+    .replace(/ id="([^"]+)"/g, ` id="${prefix}$1"`)
+    .replace(/ href="#([^"]+)"/g, ` href="#${prefix}$1"`)
+    .replace(/ (marker-end|marker-start|fill|stroke|clip-path|mask)="url\(#([^)"]+)\)"/g, ` $1="url(#${prefix}$2)"`);
+}
+
+/** Prefix each selector in a flat stylesheet (with optional @media blocks) by `.scope` */
+export function scopeCss(css: string, scope: string): string {
+  return css.replace(/([^{}]+)\{/g, (m, sel: string) => {
+    if (sel.trim().startsWith("@")) return m;
+    const lead = sel.match(/^\s*/)![0];
+    const scoped = sel.trim().split(",").map((x) => {
+      const t = x.trim();
+      return t === "svg" || t.startsWith("svg") && !/^svg[\w-]/.test(t) ? `svg.${scope}${t.slice(3)}` : `.${scope} ${t}`;
+    }).join(",");
+    return `${lead}${scoped}{`;
+  });
 }
 
 /** Short deterministic hash (FNV-1a) used for id prefixes */

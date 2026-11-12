@@ -1,6 +1,6 @@
-import { DEFAULT_PLAYER_URL, errorHtml, escapeHtml, hash, scopeIds, liveSource, parseMeta, renderEne, type RenderOptions } from "./render.js";
+import { DEFAULT_PLAYER_URL, errorHtml, escapeHtml, hash, scopeSvg, liveSource, parseMeta, renderEne, type RenderOptions } from "./render.js";
 
-export { renderEne, parseMeta, scopeIds, liveSource, errorHtml, DEFAULT_PLAYER_URL, type RenderOptions, type RenderResult } from "./render.js";
+export { renderEne, parseMeta, scopeSvg, liveSource, errorHtml, DEFAULT_PLAYER_URL, type RenderOptions, type RenderResult } from "./render.js";
 
 export interface RemarkEneOptions extends RenderOptions {
   /**
@@ -85,7 +85,7 @@ export default function remarkEne(this: unknown, options: RemarkEneOptions = {})
       } else {
         const r = await renderEne(src, { ...options, title: meta.title ?? options.title, choice: meta.choice ?? options.choice });
         for (const w of r.warnings) file.message(`ene: ${w}`, node.position);
-        if (r.ok) html = scopeIds(r.svg, `ene-${hash(src)}-${k}-`);
+        if (r.ok) html = scopeSvg(r.svg, `ene-${hash(src)}-${k}-`);
         else if (options.failOnError) return file.fail(`ene diagram has errors:\n${r.error}`, node.position);
         else { file.message(`ene diagram has errors:\n${r.error}`, node.position); html = errorHtml(r.error); }
       }

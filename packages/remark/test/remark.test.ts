@@ -46,6 +46,19 @@ describe("remark-ene static", () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const m of html.matchAll(/href="#([^"]+)"/g)) expect(ids).toContain(m[1]);
   });
+  it("scopes the stylesheet to its own SVG", async () => {
+    const { html } = await toHtml(md(fence(FLOW)));
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)![1];
+    for (const m of css.matchAll(/([^{}]+)\{/g)) {
+      if (m[1].trim().startsWith("@")) continue;
+      for (const sel of m[1].split(",")) expect(sel.trim()).toMatch(/^(svg)?\.ene-[\w-]+root\b/);
+    }
+    expect(html).toMatch(/<svg class="ene-[\w-]+root"/);
+  });
+  it("does not rewrite reference-like text in labels", async () => {
+    const { html } = await toHtml(md(fence('user -> api : url(#x) href="#y" id=z')));
+    expect(html).toContain("url(#x) href=&quot;#y&quot; id=z");
+  });
   it("applies choice from meta", async () => {
     const src = "a -> b : go\nbranch ok\n  b --> a : fine\nelse fail\n  b -x a : broken\nend";
     const a = await toHtml(md(fence(src, "choice=0")));

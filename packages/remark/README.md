@@ -47,7 +47,7 @@ Per block, the fence meta can set `title="..."`, `choice=1,0`, and `live` or `st
 
 **Security.** All text from diagram source is escaped. Icons from packs are embedded as isolated data-URI images. Remote icons are only fetched with `network: true`; local file icons (`./x.svg`) are not read — use an icon pack.
 
-**Multiple diagrams on a page.** Element ids in each inline SVG are prefixed, so diagrams do not interfere with each other.
+**Multiple diagrams on a page.** Element ids and the stylesheet of each inline SVG are scoped to that SVG, so diagrams do not affect each other or the page.
 
 **MDX.** In MDX the plugin emits `<div dangerouslySetInnerHTML>` instead of raw HTML, and never adds a `<script>` in live mode (React does not run it). Load the player once from your layout instead.
 
