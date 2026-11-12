@@ -13,7 +13,9 @@ mkdirSync(out, { recursive: true });
 
 run("pnpm", ["exec", "tsc", "-b", "packages/cli"]);
 run("pnpm", ["bundle"], `${root}packages/player`);
+run("pnpm", ["bundle"], `${root}packages/export`);
 for (const f of ["ene.js", "ene-elk.js"]) copyFileSync(`${root}packages/player/dist/${f}`, out + f);
+copyFileSync(`${root}packages/export/dist/ene-export.js`, out + "ene-export.js");
 
 const files = readdirSync(ex).filter((f) => f.endsWith(".ene")).sort();
 const sources = files.map((f) => [f, readFileSync(ex + f, "utf8")]);
@@ -54,7 +56,7 @@ ${sources.map(([f, src]) => `<section><h2>${f}</h2>\n<pre class="ene">${esc(src)
 // The landing page uses the same bundle, icon subset and one exported SVG.
 const site = `${root}site/`;
 mkdirSync(site, { recursive: true });
-for (const f of ["ene.js", "ene-elk.js", "logos-subset.js", "01-order.svg"]) copyFileSync(out + f, site + f);
+for (const f of ["ene.js", "ene-elk.js", "ene-export.js", "logos-subset.js", "01-order.svg"]) copyFileSync(out + f, site + f);
 // The one-page syntax reference doubles as llms.txt and ships with the Claude skill (kept in sync by syntax-doc.test.ts)
 for (const f of [`${root}llms.txt`, `${site}llms.txt`, `${root}skills/ene/SYNTAX.md`]) copyFileSync(`${root}SYNTAX.md`, f);
 console.log(`demo ready: ${out}index.html · site assets: ${site}`);

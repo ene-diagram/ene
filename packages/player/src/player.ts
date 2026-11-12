@@ -1,9 +1,15 @@
 import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene-diagram/core";
 import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene-diagram/layout";
-import { ARROW_DEFS, STYLE, esc, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene-diagram/svg";
+import { ARROW_DEFS, STYLE, esc, renderSvg, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene-diagram/svg";
 import { createController, type Controller } from "./controller.js";
 
-export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
+export interface PlayerOptions {
+  lang?: Lang; autoplay?: boolean; loop?: boolean;
+  /** Initial branch choices: one zero-based arm per branch, in order */
+  choices?: number[];
+  /** Called when the viewer picks another arm in a branch menu (not for `setChoices`) */
+  onChoicesChange?: (choices: number[]) => void;
+}
 
 // ---- ELK lazy loading: load ene-elk.js next to ene.js once, on first need ----
 let elkUrl: string | undefined;
@@ -22,7 +28,15 @@ function loadElk(): Promise<ElkApi> {
   });
   return elkPromise;
 }
-export interface Player { controller: Controller; setChoices(choices: number[]): void; destroy(): void }
+export interface Player {
+  controller: Controller;
+  /** Current branch choices (a copy) */
+  readonly choices: number[];
+  setChoices(choices: number[]): void;
+  /** The self-playing animated SVG (as `ene -o x.svg` writes it) for the current branch choices */
+  toSvg(): string;
+  destroy(): void;
+}
 
 const NS = "http://www.w3.org/2000/svg";
 const TITLE_H = 44;
@@ -137,7 +151,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   });
   const iconWarnings = checkIcons(doc, packs);
   if (iconWarnings.length) console.warn(formatAll(source, iconWarnings, lang));
-  let choices: number[] = [];
+  const clampChoices = (c: number[]) => c.map((v) => (Number.isInteger(v) && v >= 0 ? v : 0));
+  let choices: number[] = clampChoices(opts.choices ?? []);
   let tl = buildTimeline(doc, { choices });
   let lay: Layout;
   try { lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await computeLayout(doc, tl, { elk: await loadElk() }); }
@@ -206,6 +221,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   for (const r of [0.5, 1, 2]) rateSel.add(new Option(`${r}×`, String(r), r === 1, r === 1));
   rateSel.addEventListener("change", () => ctl.setRate(Number(rateSel.value)));
   bar.appendChild(rateSel);
+  const branchSels: HTMLSelectElement[] = [];
+  const syncSels = () => branchSels.forEach((sel, bi) => { sel.value = String(choices[bi] ?? 0); if (sel.selectedIndex < 0) sel.value = "0"; });
   tl.branches.forEach((b, bi) => {
     if (b.optional) {
       // `opt`: a toggle; checked = the steps play (arm 0), unchecked = skipped (arm 1)
@@ -219,9 +236,15 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       return;
     }
     const sel = document.createElement("select");
+    branchSels.push(sel);
     sel.setAttribute("aria-label", `${ko ? "분기" : "Branch"} ${bi + 1}`);
     b.arms.forEach((a, ai) => sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai))));
-    sel.addEventListener("change", () => { choices[bi] = Number(sel.value); rebuild(); });
+    sel.addEventListener("change", () => {
+      choices[bi] = Number(sel.value);
+      for (let i = 0; i < bi; i++) choices[i] ??= 0;
+      rebuild();
+      opts.onChoicesChange?.([...choices]);
+    });
     bar.appendChild(sel);
   });
   const stepText = document.createElement("span");
@@ -331,11 +354,14 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     raf = requestAnimationFrame(frame);
   }
   rebuild();
+  syncSels();
   syncLoop();
 
   const player: Player = {
     get controller() { return ctl; },
-    setChoices(c) { if (!alive) return; choices = [...c]; rebuild(); syncLoop(); },
+    get choices() { return [...choices]; },
+    setChoices(c) { if (!alive) return; choices = clampChoices(c); rebuild(); syncSels(); syncLoop(); },
+    toSvg() { return renderSvg(lay, tl, { title: doc.title, icons }); },
     destroy() {
       if (!alive) return;
       alive = false;

@@ -278,12 +278,33 @@ pnpm skill:install path/to/project/.claude/skills   # 또는 프로젝트 하나
 `eneConfig` 에 `startOnLoad: false` 를 주면 `pre.ene` 자동 변환을 끄고 직접 그릴 수 있어요:
 
 ```js
-const player = await ene.render(element, source, { autoplay: false, loop: true });
-player.setChoices([1]);   // 첫 번째 branch 의 1번 갈래 선택
-player.destroy();          // 재생을 멈추고 요소를 비워요
+const player = await ene.render(element, source, {
+  autoplay: false, loop: true,
+  choices: [1],                                  // 첫 번째 branch 의 1번 갈래로 시작
+  onChoicesChange: (c) => console.log(c),        // 보는 사람이 다른 갈래를 골랐을 때
+});
+player.setChoices([0]);   // 첫 번째 branch 의 0번 갈래 선택
+player.choices;           // [0]
+player.toSvg();           // 지금 고른 갈래로 혼자 재생되는 SVG (`ene -o x.svg` 결과와 같아요)
+player.destroy();         // 재생을 멈추고 요소를 비워요
 ```
 
 소스에 오류가 있으면 `render()` 는 `undefined` 를 돌려주고 오류 상자를 보여줘요.
+
+### 브라우저에서 GIF 와 MP4 만들기
+
+`pnpm build` 는 `packages/export/dist/ene-export.js`(약 12 KB, 의존성 없음)도 만들어요. 서버나 Chrome, ffmpeg 없이 SVG 를 GIF, MP4, WebM 으로 바꿔요:
+
+```html
+<script src="ene-export.js"></script>
+<script>
+  const { blob } = await eneExport.exportVideo(player.toSvg(), { format: "gif", fps: 15, scale: 1, theme: "light" });
+</script>
+```
+
+- `format`: `gif`(내장 인코더), `mp4`(브라우저에 WebCodecs H.264 가 있을 때), `webm`(MediaRecorder. 실시간으로 녹화하므로 애니메이션 길이만큼 걸려요). 어떤 영상 형식이 되는지는 `eneExport.videoSupport()` 로 확인해요.
+- `theme`: `light`(기본), `dark`, `auto`(보는 사람 설정을 따름). 내려받을 SVG 에는 `eneExport.themedSvg(svg, theme)` 로 같은 처리를 해요.
+- 프레임은 재생 중인 화면을 녹화하지 않고 SVG 의 애니메이션 값으로 계산해서, GIF 와 MP4 가 SVG 와 똑같이 움직여요. 한도: 1800 프레임, 60 fps(GIF 는 50), scale 4.
 
 ### 아이콘 팩
 
