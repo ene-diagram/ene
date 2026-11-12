@@ -36,6 +36,10 @@ describe("helpers", () => {
     for (const v of ["0.1", "0.1.0", "^0.1.0", "latest", ">=0.1 <0.2"]) expect(validVersion(v)).toBe(true);
     for (const v of ["0.1; rm -rf /", "$(id)", "--registry=x", "a`b`", "0.1\nx"]) expect(validVersion(v)).toBe(false);
     expect(list(" a, b\n\nc ")).toEqual(["a", "b", "c"]);
+    expect(list("docs/{flow,seq}/*.ene, x.ene")).toEqual(["docs/{flow,seq}/*.ene", "x.ene"]);
+  });
+  it("rejects two sources mapped to one SVG", () => {
+    expect(() => plan(["docs/a.ene", "ex/a.ene"], ["docs/*.ene", "ex/*.ene"], "out")).toThrow(/both be written to out\/a.svg/);
   });
 });
 

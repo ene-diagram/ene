@@ -7,8 +7,18 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/** Split an input on newlines and commas, trimming blanks */
-export const list = (v) => (v ?? "").split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+/** Split an input on newlines and on commas outside `{...}`, trimming blanks */
+export function list(v) {
+  const out = [];
+  let cur = "", depth = 0;
+  for (const c of v ?? "") {
+    if (c === "{") depth++;
+    else if (c === "}" && depth) depth--;
+    if (c === "\n" || (c === "," && !depth)) { out.push(cur); cur = ""; } else cur += c;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim()).filter(Boolean);
+}
 
 /** Glob → RegExp. Supports `**`, `*`, `?` and `{a,b}`; paths use `/` */
 export function globToRegExp(glob) {
@@ -55,6 +65,11 @@ export function plan(files, globs, outputDir) {
       seen.set(f, outputDir ? join(outputDir, rel).split(sep).join("/") : svg);
     }
   }
+  const bySvg = new Map();
+  for (const [src, out] of seen) {
+    if (bySvg.has(out)) throw new Error(`${bySvg.get(out)} and ${src} would both be written to ${out}; use separate output-dir runs or rename one`);
+    bySvg.set(out, src);
+  }
   return [...seen].map(([src, out]) => ({ src, out })).sort((a, b) => a.src.localeCompare(b.src));
 }
 
@@ -99,7 +114,9 @@ export function main(env = process.env) {
   const outputDir = (env.ENE_OUTPUT_DIR || "").trim();
   if (outputDir && (resolve(outputDir) + sep).indexOf(resolve(".") + sep) !== 0) { console.log(`::error::output-dir must be inside the workspace`); return 1; }
 
-  const jobs = plan(gitFiles(), list(env.ENE_FILES || "**/*.ene"), outputDir);
+  let jobs;
+  try { jobs = plan(gitFiles(), list(env.ENE_FILES || "**/*.ene"), outputDir); }
+  catch (e) { console.log(`::error::${escData(e.message)}`); return 1; }
   if (!jobs.length) { console.log("::warning::no .ene files matched"); setOutput("changed", ""); return 0; }
   console.log(`ene: ${jobs.length} file(s)`);
 
