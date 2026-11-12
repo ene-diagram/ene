@@ -6,10 +6,10 @@ export interface MarkdownItEneOptions {
 }
 
 // Minimal markdown-it shapes, so the package does not depend on markdown-it
+// (rules are typed loosely so markdown-it's own RenderRuleRecord is assignable)
 interface Token { info: string; content: string }
-interface MarkdownItLike {
-  renderer: { rules: Record<string, ((tokens: Token[], idx: number, options: unknown, env: Record<string, unknown>, self: unknown) => string) | undefined> };
-}
+type FenceRule = (tokens: Token[], idx: number, options: unknown, env: Record<string, unknown> | undefined, self: unknown) => string;
+interface MarkdownItLike { renderer: { rules: { fence?: unknown } } }
 
 /**
  * markdown-it plugin (VitePress, markdown-it based sites): ```ene fences become `<pre class="ene">` for
@@ -17,8 +17,8 @@ interface MarkdownItLike {
  * use `renderEne` from `@ene-diagram/remark` in a build step for that.
  */
 export default function markdownItEne(md: MarkdownItLike, options: MarkdownItEneOptions = {}) {
-  const fallback = md.renderer.rules.fence;
-  md.renderer.rules.fence = (tokens, idx, opts, env, self) => {
+  const fallback = md.renderer.rules.fence as FenceRule | undefined;
+  const rule: FenceRule = (tokens, idx, opts, env, self) => {
     const t = tokens[idx];
     const [lang, ...rest] = t.info.trim().split(/\s+/);
     if (lang !== "ene") return fallback ? fallback(tokens, idx, opts, env, self) : `<pre><code>${escapeHtml(t.content)}</code></pre>`;
@@ -31,6 +31,7 @@ export default function markdownItEne(md: MarkdownItLike, options: MarkdownItEne
     }
     return html;
   };
+  md.renderer.rules.fence = rule;
 }
 
 export { markdownItEne };
