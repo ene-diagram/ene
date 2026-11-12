@@ -12,7 +12,12 @@ export function parse(source: string): ParseResult {
   return new Parser(source).run();
 }
 
+type Frame =
+  | { kind: "loop"; stmt: Extract<Stmt, { type: "loop" }>; line: Line }
+  | { kind: "branch"; stmt: Extract<Stmt, { type: "branch" }>; line: Line; armLine: Line };
+
 class Parser {
+  private stack: Frame[] = [];
   private nodes = new Map<string, NodeDecl>();
   private labeled = new Set<string>();
   private diags: Diagnostic[] = [];
@@ -23,7 +28,12 @@ class Parser {
   }
 
   run(): ParseResult {
-    for (const line of scan(this.source)) this.line(line, this.doc.body);
+    for (const line of scan(this.source)) this.line(line);
+    while (this.stack.length) {
+      const f = this.stack.pop()!;
+      if (f.kind === "branch") this.checkArm(f);
+      this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind });
+    }
     if (this.doc.body.length === 0 && !this.diags.some((d) => d.severity === "error"))
       this.diags.push({ code: "E101", severity: "error", span: { line: 1, col: 1, length: 0 }, args: {} });
     return { doc: this.doc, diagnostics: this.diags };
@@ -39,7 +49,19 @@ class Parser {
   }
 
   // ---- 문장 ----
-  line(l: Line, into: Stmt[]) {
+  get body(): Stmt[] {
+    const f = this.stack[this.stack.length - 1];
+    if (!f) return this.doc.body;
+    return f.kind === "loop" ? f.stmt.body : f.stmt.arms[f.stmt.arms.length - 1].body;
+  }
+
+  checkArm(f: Extract<Frame, { kind: "branch" }>) {
+    const arm = f.stmt.arms[f.stmt.arms.length - 1];
+    if (arm.body.length === 0) this.report("E201", f.armLine, 0, [...f.armLine.text].length, { arm: arm.label });
+  }
+
+  line(l: Line) {
+    const into = this.body;
     const t = [...l.text];
     const word = l.text.split(/\s/, 1)[0];
     const rest = l.text.slice(word.length).trim();
@@ -48,6 +70,38 @@ class Parser {
       const n = Number(rest);
       if (!rest || !(n > 0)) return this.report("E304", l, 0, t.length, { value: rest });
       return void (this.doc.speed = n);
+    }
+    const whole = this.span(l, 0, t.length);
+    if (word === "end") {
+      const f = this.stack.pop();
+      if (!f) return this.report("E204", l, 0, 3);
+      if (f.kind === "branch") this.checkArm(f);
+      return;
+    }
+    if (word === "wait") {
+      const n = Number(rest);
+      if (!rest || !(n >= 0)) return this.report("E301", l, 0, t.length, { value: rest });
+      return void into.push({ type: "wait", seconds: n, span: whole });
+    }
+    if (word === "loop") {
+      const n = Number(rest);
+      if (!Number.isInteger(n) || n < 1) this.report("E302", l, 0, t.length, { value: rest });
+      const stmt: Stmt = { type: "loop", count: Number.isInteger(n) && n >= 1 ? n : 1, body: [], span: whole };
+      into.push(stmt);
+      return void this.stack.push({ kind: "loop", stmt, line: l });
+    }
+    if (word === "branch") {
+      const arm = { label: rest, body: [] as Stmt[], span: whole };
+      const top = this.stack[this.stack.length - 1];
+      if (top?.kind === "branch") {
+        this.checkArm(top);
+        top.stmt.arms.push(arm);
+        top.armLine = l;
+        return;
+      }
+      const stmt: Stmt = { type: "branch", arms: [arm], span: whole };
+      into.push(stmt);
+      return void this.stack.push({ kind: "branch", stmt, line: l, armLine: l });
     }
     const step = this.step(l, t);
     if (step) into.push(step);
