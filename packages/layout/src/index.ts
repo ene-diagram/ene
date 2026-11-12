@@ -138,10 +138,18 @@ function routeEdges(tl: Timeline, byId: Map<string, LNode>): LEdge[] {
       return { s: clip(a, cx, cy), c: { x: cx, y: cy }, t: clip(b, cx, cy) };
     };
     // 다른 노드를 뚫으면 묶음 전체를 한쪽으로 더 휘게 한다
-    const base = idx.map((_, k) => (k - (idx.length - 1) / 2) * SPREAD);
-    let shift = 0;
+    // 엣지가 많으면 간격을 좁혀 묶음이 과하게 부풀지 않게 한다
+    const spread = idx.length <= 4 ? SPREAD : Math.max(12, 72 / (idx.length - 1));
+    const base = idx.map((_, k) => (k - (idx.length - 1) / 2) * spread);
+    let shift: number | undefined;
     for (const cand of [0, 40, -40, 70, -70, 100, -100, 140, -140, 190, -190, 250, -250]) {
       if (idx.every((i, k) => !crosses(curve(i, base[k] + cand), others))) { shift = cand; break; }
+    }
+    if (shift === undefined) {
+      // 곡선으로 못 피하면 위/아래로 돌아가는 꺾은선
+      const bus = idx.map((i, k) => detour(tl.allEdges[i], byId, others, k) ?? gridRoute(tl.allEdges[i], byId, others, k));
+      if (bus.every(Boolean)) { idx.forEach((i, k) => out.push({ index: i, ...bus[k]! })); continue; }
+      shift = 0;
     }
     idx.forEach((i, k) => {
       const { s, c, t } = curve(i, base[k] + shift);
@@ -153,12 +161,98 @@ function routeEdges(tl: Timeline, byId: Map<string, LNode>): LEdge[] {
 }
 
 type Pt = { x: number; y: number };
+
+const inside = (x: number, y: number, nodes: LNode[]) =>
+  nodes.some((n) => x > n.x - MARGIN && x < n.x + n.w + MARGIN && y > n.y - MARGIN && y < n.y + n.h + MARGIN);
+
+function polyCrosses(pts: Pt[], nodes: LNode[]): boolean {
+  for (let i = 1; i < pts.length; i++)
+    for (let k = 0; k <= 20; k++) {
+      const x = pts[i - 1].x + ((pts[i].x - pts[i - 1].x) * k) / 20, y = pts[i - 1].y + ((pts[i].y - pts[i - 1].y) * k) / 20;
+      if (inside(x, y, nodes)) return true;
+    }
+  return false;
+}
+
+/**
+ * 마지막 대안: 격자(10px) 위 A* 로 장애물을 피하는 직각 경로. 꺾임에 비용을 줘서 단순한 길을 고른다.
+ * k 번째 엣지는 다른 엣지와 겹치지 않게 경로를 조금씩 비켜 놓는다.
+ */
+function gridRoute(e: { from: string; to: string }, byId: Map<string, LNode>, others: LNode[], k: number): { d: string; mid: Pt } | undefined {
+  const a = byId.get(e.from)!, b = byId.get(e.to)!, all = [a, b, ...others];
+  const C = 10, pad = 80;
+  const x0 = Math.min(...all.map((n) => n.x)) - pad, y0 = Math.min(...all.map((n) => n.y)) - pad;
+  const W = Math.ceil((Math.max(...all.map((n) => n.x + n.w)) + pad - x0) / C), H = Math.ceil((Math.max(...all.map((n) => n.y + n.h)) + pad - y0) / C);
+  const blocked = new Uint8Array(W * H);
+  for (let gy = 0; gy < H; gy++) for (let gx = 0; gx < W; gx++)
+    if (inside(x0 + gx * C, y0 + gy * C, others)) blocked[gy * W + gx] = 1;
+  const cell = (n: LNode) => [Math.round((n.x + n.w / 2 - x0) / C), Math.round((n.y + n.h / 2 - y0) / C)];
+  const [sx, sy] = cell(a), [tx, ty] = cell(b);
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  // 상태 = 칸 * 4 + 들어온 방향
+  const N = W * H * 4, g = new Float64Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1);
+  const open: [number, number][] = [];
+  const push = (st: number, f: number) => { open.push([f, st]); let i = open.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (open[p][0] <= open[i][0]) break; [open[p], open[i]] = [open[i], open[p]]; i = p; } };
+  const pop = () => { const top = open[0], last = open.pop()!; if (open.length) { open[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, rr = l + 1; let m = i; if (l < open.length && open[l][0] < open[m][0]) m = l; if (rr < open.length && open[rr][0] < open[m][0]) m = rr; if (m === i) break; [open[m], open[i]] = [open[i], open[m]]; i = m; } } return top; };
+  for (let d = 0; d < 4; d++) { const st = (sy * W + sx) * 4 + d; g[st] = 0; push(st, Math.abs(tx - sx) + Math.abs(ty - sy)); }
+  let goal = -1;
+  while (open.length) {
+    const [, st] = pop();
+    const c = st >> 2, d = st & 3, cx = c % W, cy = (c / W) | 0;
+    if (cx === tx && cy === ty) { goal = st; break; }
+    for (let nd = 0; nd < 4; nd++) {
+      const nx = cx + DIRS[nd][0], ny = cy + DIRS[nd][1];
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || blocked[ny * W + nx]) continue;
+      const ns = (ny * W + nx) * 4 + nd, cost = g[st] + 1 + (nd !== d ? 6 : 0);
+      if (cost < g[ns]) { g[ns] = cost; prev[ns] = st; push(ns, cost + Math.abs(tx - nx) + Math.abs(ty - ny)); }
+    }
+  }
+  if (goal < 0) return undefined;
+  const cells: Pt[] = [];
+  for (let st = goal; st >= 0; st = prev[st]) { const c = st >> 2; cells.push({ x: x0 + (c % W) * C, y: y0 + ((c / W) | 0) * C }); }
+  cells.reverse();
+  // 노드 밖으로 나온 첫 점 ~ 대상 노드에 들어가기 직전 점
+  const out = (p: Pt, n: LNode) => !(p.x >= n.x && p.x <= n.x + n.w && p.y >= n.y && p.y <= n.y + n.h);
+  let i0 = cells.findIndex((p) => out(p, a)), i1 = cells.length - 1 - [...cells].reverse().findIndex((p) => out(p, b));
+  if (i0 < 0 || i1 < i0) return undefined;
+  i0 = Math.max(0, i0 - 1); i1 = Math.min(cells.length - 1, i1 + 1);
+  const off = k * 8;
+  let pts = cells.slice(i0, i1 + 1).map((p) => ({ x: p.x + off, y: p.y + off }));
+  if (off && polyCrosses(pts, others)) pts = cells.slice(i0, i1 + 1);
+  // 일직선 위 점 제거
+  pts = pts.filter((p, j) => j === 0 || j === pts.length - 1 ||
+    !((pts[j - 1].x === p.x && p.x === pts[j + 1].x) || (pts[j - 1].y === p.y && p.y === pts[j + 1].y)));
+  const segs = pts.slice(1).map((p, j) => Math.hypot(p.x - pts[j].x, p.y - pts[j].y));
+  let half = segs.reduce((s, v) => s + v, 0) / 2, mid = pts[0];
+  for (let j = 0; j < segs.length; j++) {
+    if (half <= segs[j]) { const t = segs[j] ? half / segs[j] : 0; mid = { x: pts[j].x + (pts[j + 1].x - pts[j].x) * t, y: pts[j].y + (pts[j + 1].y - pts[j].y) * t }; break; }
+    half -= segs[j];
+  }
+  return { d: `M${pts.map((p) => `${r(p.x)},${r(p.y)}`).join(" L")}`, mid: { x: r(mid.x), y: r(mid.y) } };
+}
+
+/** 노드 위(또는 아래)로 나가 가로로 지나간 뒤 대상 노드로 들어가는 꺾은선 */
+function detour(e: { from: string; to: string }, byId: Map<string, LNode>, others: LNode[], k: number): { d: string; mid: Pt } | undefined {
+  const a = byId.get(e.from)!, b = byId.get(e.to)!;
+  const lo = Math.min(a.x, b.x), hi = Math.max(a.x + a.w, b.x + b.w);
+  const between = others.filter((n) => n.x < hi && n.x + n.w > lo);
+  const off = 10 + k * 8;
+  for (const side of ["top", "bottom"] as const) {
+    const ys = [a, b, ...between].map((n) => (side === "top" ? n.y : n.y + n.h));
+    const yl = side === "top" ? Math.min(...ys) - 24 - k * 12 : Math.max(...ys) + 24 + k * 12;
+    const sx = a.x + a.w / 2 + (b.x > a.x ? off : -off), tx = b.x + b.w / 2 + (b.x > a.x ? -off : off);
+    const sy = side === "top" ? a.y : a.y + a.h, ty = side === "top" ? b.y : b.y + b.h;
+    const pts = [{ x: sx, y: sy }, { x: sx, y: yl }, { x: tx, y: yl }, { x: tx, y: ty }];
+    if (polyCrosses(pts, others)) continue;
+    return { d: `M${r(sx)},${r(sy)} L${r(sx)},${r(yl)} L${r(tx)},${r(yl)} L${r(tx)},${r(ty)}`, mid: { x: r((sx + tx) / 2), y: r(yl) } };
+  }
+  return undefined;
+}
 const MARGIN = 8;
 function crosses(q: { s: Pt; c: Pt; t: Pt }, nodes: LNode[]): boolean {
   for (let k = 1; k < 40; k++) {
     const u = k / 40, a = (1 - u) ** 2, b = 2 * (1 - u) * u, c = u * u;
-    const x = a * q.s.x + b * q.c.x + c * q.t.x, y = a * q.s.y + b * q.c.y + c * q.t.y;
-    if (nodes.some((n) => x > n.x - MARGIN && x < n.x + n.w + MARGIN && y > n.y - MARGIN && y < n.y + n.h + MARGIN)) return true;
+    if (inside(a * q.s.x + b * q.c.x + c * q.t.x, a * q.s.y + b * q.c.y + c * q.t.y, nodes)) return true;
   }
   return false;
 }

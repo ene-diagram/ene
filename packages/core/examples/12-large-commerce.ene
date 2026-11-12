@@ -1,0 +1,32 @@
+title 대형 커머스 (28 노드)
+web[웹] -> cdn[CDN] : 정적 파일
+app[앱] -> gw[API 게이트웨이] : 요청
+web -> gw : 요청
+gw -> auth[인증] : 토큰 검증
+auth -> redis[Redis] : 세션
+gw -> user[회원] : 프로필
+user -> mysql[MySQL] : SELECT
+gw -> cart[장바구니] : 담기
+cart -> redis : 저장
+gw -> order[주문] : 주문
+order -> stock[재고] : 차감
+stock -> mysql : UPDATE
+order -> coupon[쿠폰] : 적용
+order -> point[포인트] : 차감
+order -> pay[결제] : 승인
+pay -> pg[PG사] : 승인 요청
+pg --> pay : 승인
+pay --> order : 완료
+order -> kafka[Kafka] : order.created
+kafka -> ship[배송] : 소비 & kafka -> notify[알림] : 소비 & kafka -> report[리포트] : 소비
+notify -> mail[메일] : 발송 & notify -> sms[SMS] : 발송
+ship -> mysql : INSERT
+gw -> search[검색] : 검색
+search -> es[Elasticsearch] : query
+gw -> reco[추천] : 추천
+reco -> es : 유사 상품
+gw -> review[리뷰] : 작성
+review -> s3[S3] : 사진
+admin[어드민] -> gw : 관리
+batch[배치] -> report : 집계
+report -> s3 : CSV

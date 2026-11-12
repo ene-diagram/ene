@@ -42,14 +42,23 @@ test("self edge and single node work", async () => {
   expect(l.nodes).toHaveLength(1); expect(l.edges[0].d).toContain("C");
 });
 const quad = (d: string) => (d.match(/[-\d.]+/g) ?? []).map(Number);
+/** M/L/Q 경로를 점으로 샘플링 */
+export const sample = (d: string) => {
+  const pts: { x: number; y: number }[] = []; let cur = { x: 0, y: 0 };
+  for (const m of d.matchAll(/([MLQ])([^MLQ]*)/g)) {
+    const n = (m[2].match(/[-\d.]+/g) ?? []).map(Number);
+    if (m[1] === "M") { cur = { x: n[0], y: n[1] }; continue; }
+    if (m[1] === "L") { for (let k = 1; k <= 10; k++) pts.push({ x: cur.x + (n[0] - cur.x) * k / 10, y: cur.y + (n[1] - cur.y) * k / 10 }); cur = { x: n[0], y: n[1] }; }
+    if (m[1] === "Q") { for (let k = 1; k <= 20; k++) { const t = k / 20; pts.push({ x: (1-t)**2*cur.x + 2*(1-t)*t*n[0] + t*t*n[2], y: (1-t)**2*cur.y + 2*(1-t)*t*n[1] + t*t*n[3] }); } cur = { x: n[2], y: n[3] }; }
+  }
+  return pts;
+};
 test.each(readdirSync(ex).filter(f => f.endsWith(".ene")))("%s: edges do not pass through other nodes", async (f) => {
   const src = readFileSync(new URL(f, ex), "utf8");
   const { doc } = parse(src); const tl = buildTimeline(doc); const l = await layout(doc, tl);
   for (const e of l.edges) {
     const ed = tl.allEdges[e.index]; if (ed.from === ed.to) continue;
-    const [x0, y0, cx, cy, x1, y1] = quad(e.d);
-    for (let k = 1; k < 20; k++) {
-      const t = k / 20, x = (1-t)**2*x0 + 2*(1-t)*t*cx + t*t*x1, y = (1-t)**2*y0 + 2*(1-t)*t*cy + t*t*y1;
+    for (const { x, y } of sample(e.d)) {
       const hit = l.nodes.find(n => n.id !== ed.from && n.id !== ed.to && x > n.x && x < n.x + n.w && y > n.y && y < n.y + n.h);
       expect(hit?.id, `${ed.from}->${ed.to} crosses`).toBeUndefined();
     }
@@ -64,4 +73,16 @@ test.each(readdirSync(ex).filter(f => f.endsWith(".ene")))("%s: every curve stay
       expect(n[i + 1]).toBeGreaterThanOrEqual(0); expect(n[i + 1]).toBeLessThanOrEqual(l.height);
     }
   }
+});
+test("many edges between one pair stay compact", async () => {
+  const src = Array.from({ length: 6 }, (_, i) => (i % 2 ? "b --> a" : "a -> b")).join("\n");
+  const l = await run(src);
+  const ys = l.edges.map(e => e.mid.y); const spread = Math.max(...ys) - Math.min(...ys);
+  expect(spread).toBeLessThanOrEqual(110);
+  for (let i = 0; i < ys.length; i++) for (let j = i + 1; j < ys.length; j++) expect(Math.abs(ys[i] - ys[j])).toBeGreaterThanOrEqual(12);
+});
+test("large example lays out in under 3s", async () => {
+  const src = readFileSync(new URL("12-large-commerce.ene", ex), "utf8");
+  const t0 = performance.now(); const l = await run(src);
+  expect(performance.now() - t0).toBeLessThan(3000); expect(l.nodes.length).toBe(28);
 });
