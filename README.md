@@ -252,6 +252,8 @@ player.destroy();         // stop playback and clear the element
 
 `render()` resolves to `undefined` when the source has errors (an error box is shown instead).
 
+**Focus.** On large diagrams the moving dot is easy to lose, so the player dims every node and edge that is not part of the step playing now (nothing moves or resizes). When the last step ends, the whole diagram shows again. `focus: "auto"` (default) turns it on from 12 nodes; `focus: true` / `false` forces it. Page-wide: `eneConfig.focus`; per diagram: `<pre class="ene" data-focus="on">` (`on`, `off`, `auto`). The fade is skipped under `prefers-reduced-motion`. Exported SVGs are not dimmed.
+
 ### GIF and MP4 in the browser
 
 `pnpm build` also writes `packages/export/dist/ene-export.js` (~12 KB, no dependencies). It turns an exported SVG into a GIF, MP4 or WebM without a server, Chrome or ffmpeg:

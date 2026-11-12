@@ -252,6 +252,8 @@ player.destroy();         // 재생을 멈추고 요소를 비워요
 
 소스에 오류가 있으면 `render()` 는 `undefined` 를 돌려주고 오류 상자를 보여줘요.
 
+**포커스.** 큰 다이어그램에서는 움직이는 점을 놓치기 쉬워서, 플레이어가 지금 재생 중인 단계에 속하지 않은 노드와 엣지를 흐리게 보여줘요(위치나 크기는 그대로예요). 마지막 단계가 끝나면 전체가 다시 또렷해져요. `focus: "auto"`(기본)는 노드가 12개 이상일 때 켜지고, `focus: true` / `false` 로 강제할 수 있어요. 페이지 전체는 `eneConfig.focus`, 다이어그램 하나는 `<pre class="ene" data-focus="on">`(`on`, `off`, `auto`)으로 정해요. `prefers-reduced-motion` 이면 서서히 바뀌는 효과 없이 바로 바뀌어요. 내보낸 SVG 에는 적용되지 않아요.
+
 ### 브라우저에서 GIF 와 MP4 만들기
 
 `pnpm build` 는 `packages/export/dist/ene-export.js`(약 12 KB, 의존성 없음)도 만들어요. 서버나 Chrome, ffmpeg 없이 SVG 를 GIF, MP4, WebM 으로 바꿔요:

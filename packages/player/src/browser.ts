@@ -4,9 +4,9 @@ export { render, autoRun, registerIconPacks, setElkUrl, setIconLoading, createCo
 // ene-elk.js is looked up in the same folder as ene.js by default
 const me = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null)?.src : undefined;
 if (me) setElkUrl(new URL("ene-elk.js", me).href);
-declare global { interface Window { eneConfig?: { startOnLoad?: boolean; lang?: "en" | "ko"; elkUrl?: string } } }
+declare global { interface Window { eneConfig?: { startOnLoad?: boolean; lang?: "en" | "ko"; elkUrl?: string; focus?: boolean | "auto" } } }
 if (typeof window !== "undefined" && window.eneConfig?.elkUrl) setElkUrl(window.eneConfig.elkUrl);
 if (typeof window !== "undefined" && window.eneConfig?.startOnLoad !== false) {
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => void autoRun(undefined, { lang: window.eneConfig?.lang }));
-  else void autoRun(undefined, { lang: window.eneConfig?.lang });
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => void autoRun(undefined, { lang: window.eneConfig?.lang, focus: window.eneConfig?.focus }));
+  else void autoRun(undefined, { lang: window.eneConfig?.lang, focus: window.eneConfig?.focus });
 }
