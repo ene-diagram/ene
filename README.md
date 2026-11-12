@@ -251,6 +251,18 @@ A `flowchart` / `graph` becomes a flow diagram: nodes keep their labels and the 
 
 [`packages/vscode`](packages/vscode) is a VS Code extension: highlighting, diagnostics with quick fixes, Format Document, a live side-by-side preview (with the branch menu) and SVG export. It is not on the Marketplace yet; build the `.vsix` as described in its [README](packages/vscode/README.md).
 
+### In docs sites (Astro, Next.js, Docusaurus, VitePress)
+
+`@ene-diagram/remark` turns ```` ```ene ```` blocks in Markdown/MDX into inline animated SVGs at build time (no client JS), or into players with `mode: "live"`. A markdown-it plugin is included for VitePress.
+
+```js
+import remarkEne from "@ene-diagram/remark";
+// astro.config.mjs
+export default defineConfig({ markdown: { remarkPlugins: [remarkEne] } });
+```
+
+Setup for each framework, options and error handling: [packages/remark](packages/remark/README.md).
+
 ### With Claude
 
 The repo ships a Claude skill (`skills/ene`) that writes a `.ene` file from a description or from your code, runs `ene check --json` until it is clean, formats it and renders the SVG.

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { buildTimeline, checkIcons, formatSource, isIconUrl, parse, resolveIcon, type Lang, type ResolvedIcon } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
-import { renderSvg } from "@ene-diagram/svg";
+import { renderSvg, type ThemeName } from "@ene-diagram/svg";
 import { formatEdit, nonce, parseWebviewMessage, previewHtml, quickFixEdit, splitLines, toEditorDiagnostics, type EneDiag, type Rng } from "./pure.js";
 
 const LANG_ID = "ene";
@@ -163,7 +163,7 @@ async function exportSvg() {
   for (const n of doc.nodes.values()) if (n.icon && !isIconUrl(n.icon)) { const ic = resolveIcon(n.icon, []); if (ic) icons.set(n.icon, ic); }
   try {
     const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
-    const svg = renderSvg(lay, tl, { title: doc.title, icons });
+    const svg = renderSvg(lay, tl, { title: doc.title, icons, theme: doc.theme as ThemeName | undefined });
     await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(svg));
     void vscode.window.showInformationMessage(`ene: exported ${basename(target)} (${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`);
   } catch (e) {
