@@ -7,6 +7,7 @@
     "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/cli"
   },
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "typescript": "^5.6.0",
     "vitest": "^3.0.0"
   }

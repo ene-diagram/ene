@@ -1,0 +1,208 @@
+import { buildTimeline, formatAll, parse, type Lang, type Timeline } from "@ene/core";
+import { layout as computeLayout, type Layout } from "@ene/layout";
+import { STYLE, esc } from "@ene/svg";
+import { createController, type Controller } from "./controller.js";
+
+export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
+export interface Player { controller: Controller; setChoices(choices: number[]): void; destroy(): void }
+
+const NS = "http://www.w3.org/2000/svg";
+const TITLE_H = 44;
+
+const PLAYER_CSS = `
+.ene-player{display:inline-flex;flex-direction:column;gap:8px;max-width:100%;outline:none;font-family:Pretendard,-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+.ene-player:focus-visible{box-shadow:0 0 0 2px #3e63dd;border-radius:10px}
+.ene-player svg{max-width:100%;height:auto;border-radius:10px}
+.ene-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:#3a4048}
+.ene-bar button,.ene-bar select{font:inherit;padding:4px 10px;border:1px solid #c1c8d2;border-radius:6px;background:#fff;color:#1c2024;cursor:pointer}
+.ene-bar button:hover{background:#f1f3f5}
+.ene-step{margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
+.ene-error{color:#e5484d;background:#fff5f5;border:1px solid #ffd1d1;border-radius:8px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre;overflow:auto}
+@media (prefers-color-scheme: dark){.ene-bar{color:#b0b4ba}.ene-bar button,.ene-bar select{background:#1c1d21;color:#edeef0;border-color:#3b3e45}.ene-error{background:#2a1215;border-color:#5c1a1f;color:#ff9592}}`;
+
+let cssInjected = false;
+function injectCss() {
+  if (cssInjected || typeof document === "undefined") return;
+  const s = document.createElement("style");
+  s.textContent = PLAYER_CSS;
+  document.head.appendChild(s);
+  cssInjected = true;
+}
+
+const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}) => {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+  return e;
+};
+
+/** 대상 요소 안에 플레이어를 만든다. 진단 오류가 있으면 오류 메시지를 보여 준다 */
+export async function render(el: HTMLElement, source: string, opts: PlayerOptions = {}): Promise<Player | undefined> {
+  injectCss();
+  const lang = opts.lang ?? (navigator.language.startsWith("ko") ? "ko" : "en");
+  const { doc, diagnostics } = parse(source);
+  el.replaceChildren();
+  if (diagnostics.some((d) => d.severity === "error")) {
+    const pre = document.createElement("pre");
+    pre.className = "ene-error";
+    pre.textContent = formatAll(source, diagnostics, lang);
+    el.appendChild(pre);
+    return undefined;
+  }
+  let choices: number[] = [];
+  let tl = buildTimeline(doc, { choices });
+  const lay = await computeLayout(doc, tl);
+  const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const root = document.createElement("div");
+  root.className = "ene-player";
+  root.tabIndex = 0;
+  root.setAttribute("role", "group");
+  root.setAttribute("aria-label", doc.title ?? "ene diagram");
+
+  const offY = doc.title ? TITLE_H : 0;
+  const svg = svgEl("svg", { viewBox: `0 0 ${lay.width} ${lay.height + offY}`, width: lay.width, height: lay.height + offY, role: "img" });
+  svg.innerHTML =
+    `<style>${STYLE}</style><rect width="100%" height="100%" class="bg"/>` +
+    (doc.title ? `<text x="40" y="34" class="t">${esc(doc.title)}</text>` : "") +
+    `<g transform="translate(0 ${offY})">` +
+    lay.edges.map((e) => `<path d="${e.d}" class="edge"/>`).join("") +
+    lay.nodes.map((n) => `<g><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="10" class="node"/><text x="${n.x + n.w / 2}" y="${n.y + n.h / 2}" class="nl">${esc(n.label)}</text></g>`).join("") +
+    `</g>`;
+  const dyn = svgEl("g", { transform: `translate(0 ${offY})` });
+  svg.appendChild(dyn);
+  root.appendChild(svg);
+
+  // ---- 컨트롤 ----
+  const bar = document.createElement("div");
+  bar.className = "ene-bar";
+  const btn = (label: string, title: string, fn: () => void) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = label; b.title = title; b.setAttribute("aria-label", title);
+    b.addEventListener("click", () => { fn(); draw(); });
+    bar.appendChild(b);
+    return b;
+  };
+  const ko = lang === "ko";
+  btn("⏮", ko ? "처음으로" : "Restart", () => ctl.restart());
+  btn("◀", ko ? "이전 단계" : "Previous step", () => { ctl.pause(); ctl.prev(); });
+  const playBtn = btn("▶", ko ? "재생/정지" : "Play/Pause", () => ctl.toggle());
+  btn("▶▶", ko ? "다음 단계" : "Next step", () => { ctl.pause(); ctl.next(); });
+  const rateSel = document.createElement("select");
+  rateSel.setAttribute("aria-label", ko ? "속도" : "Speed");
+  for (const r of [0.5, 1, 2]) rateSel.add(new Option(`${r}×`, String(r), r === 1, r === 1));
+  rateSel.addEventListener("change", () => ctl.setRate(Number(rateSel.value)));
+  bar.appendChild(rateSel);
+  tl.branches.forEach((b, bi) => {
+    const sel = document.createElement("select");
+    sel.setAttribute("aria-label", `${ko ? "분기" : "Branch"} ${bi + 1}`);
+    b.arms.forEach((a, ai) => sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai))));
+    sel.addEventListener("change", () => { choices[bi] = Number(sel.value); rebuild(); });
+    bar.appendChild(sel);
+  });
+  const stepText = document.createElement("span");
+  stepText.className = "ene-step";
+  stepText.setAttribute("aria-live", "polite");
+  bar.appendChild(stepText);
+  root.appendChild(bar);
+  el.appendChild(root);
+
+  root.addEventListener("keydown", (ev) => {
+    if (ev.key === " ") { ctl.toggle(); ev.preventDefault(); }
+    else if (ev.key === "ArrowRight") { ctl.pause(); ctl.next(); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft") { ctl.pause(); ctl.prev(); ev.preventDefault(); }
+    else return;
+    draw();
+  });
+
+  // ---- 동적 요소 ----
+  let ctl: Controller;
+  let items: ReturnType<typeof buildItems>;
+  function buildItems(t: Timeline, l: Layout) {
+    dyn.replaceChildren();
+    const byIdx = new Map(l.edges.map((e) => [e.index, e]));
+    const byNode = new Map(l.nodes.map((n) => [n.id, n]));
+    const uses = new Map<number, number[]>();
+    t.steps.forEach((s) => s.edges.forEach((e) => uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start])));
+    const hl: SVGPathElement[] = [], lbl: SVGTextElement[] = [], dots: SVGCircleElement[] = [], xs: SVGTextElement[] = [];
+    const list = t.steps.flatMap((s) => s.edges.map((e) => {
+      const le = byIdx.get(e.edgeIndex)!;
+      const p = svgEl("path", { d: le.d, class: `hl ${e.kind}` }); hl.push(p); dyn.appendChild(p);
+      const nextUse = (uses.get(e.edgeIndex) ?? []).find((x) => x > s.start) ?? Infinity;
+      return { s, e, le, p, nextUse, len: p.getTotalLength() };
+    }));
+    for (const it of list) {
+      const tx = svgEl("text", { x: it.le.mid.x, y: it.le.mid.y - 6, class: "lbl" });
+      tx.textContent = it.e.label ? `${it.s.index + 1}. ${it.e.label}` : "";
+      lbl.push(tx); dyn.appendChild(tx);
+    }
+    for (const it of list) {
+      const c = svgEl("circle", { r: 7, class: `dot ${it.e.kind}` }); dots.push(c); dyn.appendChild(c);
+      const n = byNode.get(it.e.to)!;
+      const x = svgEl("text", { x: n.x + n.w / 2, y: n.y - 8, class: "x" }); x.textContent = it.e.kind === "fail" ? "✕" : "";
+      xs.push(x); dyn.appendChild(x);
+    }
+    return { list, hl, lbl, dots, xs };
+  }
+
+  function draw() {
+    const t = ctl.time;
+    items.list.forEach((it, i) => {
+      const t0 = it.s.start, t1 = t0 + it.e.duration * 0.85;
+      const started = t >= t0 - 1e-9;
+      items.hl[i].style.opacity = started ? "1" : "0";
+      items.lbl[i].style.opacity = started && t < it.nextUse - 1e-9 ? "1" : "0";
+      items.xs[i].style.opacity = t >= t1 ? "1" : "0";
+      const moving = started && t < t1;
+      items.dots[i].style.opacity = moving ? "1" : "0";
+      if (moving) {
+        const pt = it.p.getPointAtLength(it.len * ((t - t0) / (t1 - t0)));
+        items.dots[i].setAttribute("cx", String(pt.x));
+        items.dots[i].setAttribute("cy", String(pt.y));
+      }
+    });
+    playBtn.textContent = ctl.playing ? "⏸" : "▶";
+    const si = ctl.currentStep();
+    const step = tl.steps[si];
+    stepText.textContent = step
+      ? `${si + 1}/${tl.steps.length} · ${step.edges.map((e) => `${e.from} → ${e.to}${e.label ? ` ${e.label}` : ""}`).join(", ")}`
+      : "";
+  }
+
+  function rebuild() {
+    tl = buildTimeline(doc, { choices });
+    const wasPlaying = ctl ? ctl.playing : (opts.autoplay ?? true) && !reduce;
+    ctl = createController(tl, { loop: opts.loop ?? true });
+    if (reduce) ctl.time = tl.total;
+    if (wasPlaying) ctl.play();
+    items = buildItems(tl, lay);
+    draw();
+  }
+  rebuild();
+
+  let last = performance.now(), raf = 0, alive = true;
+  const frame = (now: number) => {
+    if (!alive) return;
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    if (ctl.playing) { ctl.tick(dt); draw(); }
+    raf = requestAnimationFrame(frame);
+  };
+  raf = requestAnimationFrame(frame);
+
+  return {
+    get controller() { return ctl; },
+    setChoices(c) { choices = [...c]; rebuild(); },
+    destroy() { alive = false; cancelAnimationFrame(raf); el.replaceChildren(); },
+  };
+}
+
+/** 페이지의 `<pre class="ene">` 를 모두 플레이어로 바꾼다 */
+export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): Promise<void> {
+  const els = Array.from(document.querySelectorAll<HTMLElement>(selector));
+  for (const pre of els) {
+    const src = pre.textContent ?? "";
+    const host = document.createElement("div");
+    pre.replaceWith(host);
+    await render(host, src, opts);
+  }
+}
