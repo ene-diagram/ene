@@ -1,0 +1,192 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "ene",
+  "scopeName": "source.ene",
+  "comment": "To add syntax: add a keyword to #keywords (block openers also to language-configuration.json), an arrow to #arrows. Order of top-level patterns matters: title, comment, label, then the rest.",
+  "patterns": [
+    {
+      "include": "#title"
+    },
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#label"
+    },
+    {
+      "include": "#settings"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#arrows"
+    },
+    {
+      "include": "#parallel"
+    },
+    {
+      "include": "#node-label"
+    },
+    {
+      "include": "#attrs"
+    },
+    {
+      "include": "#number"
+    }
+  ],
+  "repository": {
+    "title": {
+      "match": "^\\s*(title|note)\\b(.*)$",
+      "captures": {
+        "1": {
+          "name": "keyword.other.title.ene"
+        },
+        "2": {
+          "name": "string.unquoted.title.ene"
+        }
+      }
+    },
+    "comment": {
+      "match": "(?:^|(?<=\\s))#.*$",
+      "name": "comment.line.number-sign.ene"
+    },
+    "label": {
+      "comment": "Edge label after the first ':', with an optional trailing @2s duration. Also the member list of `group ... :`.",
+      "match": "(:)(.*?)(?:\\s+(@\\d+(?:\\.\\d+)?s))?\\s*$",
+      "captures": {
+        "1": {
+          "name": "punctuation.separator.label.ene"
+        },
+        "2": {
+          "patterns": [
+            {
+              "include": "#parallel-edge"
+            },
+            {
+              "match": ".+",
+              "name": "string.unquoted.label.ene"
+            }
+          ]
+        },
+        "3": {
+          "name": "constant.numeric.duration.ene"
+        }
+      }
+    },
+    "parallel-edge": {
+      "comment": "` & a -> b` inside a label starts another edge",
+      "match": "^(.*?)\\s(&)\\s(.*)$",
+      "captures": {
+        "1": {
+          "name": "string.unquoted.label.ene"
+        },
+        "2": {
+          "name": "keyword.operator.parallel.ene"
+        },
+        "3": {
+          "patterns": [
+            {
+              "include": "#arrows"
+            },
+            {
+              "include": "#node-label"
+            },
+            {
+              "include": "#attrs"
+            },
+            {
+              "include": "#label"
+            }
+          ]
+        }
+      }
+    },
+    "settings": {
+      "match": "^\\s*(speed|wait|diagram|theme)\\b\\s*(\\S*)",
+      "captures": {
+        "1": {
+          "name": "keyword.other.setting.ene"
+        },
+        "2": {
+          "name": "constant.other.setting-value.ene"
+        }
+      }
+    },
+    "keywords": {
+      "comment": "Line-start keywords. Extend this list for new syntax (e.g. note, opt).",
+      "match": "^\\s*(loop|branch|opt|else|end|pin|rank|group)\\b",
+      "captures": {
+        "1": {
+          "name": "keyword.control.ene"
+        }
+      }
+    },
+    "arrows": {
+      "comment": "Longest first. Extend for new arrows (e.g. ~>).",
+      "match": "(?<=\\s)(-->|->|-x|~>)(?=\\s|$)",
+      "name": "keyword.operator.arrow.ene"
+    },
+    "parallel": {
+      "match": "(?:^\\s*|(?<=\\s))&(?=\\s)",
+      "name": "keyword.operator.parallel.ene"
+    },
+    "node-label": {
+      "match": "(\\[)([^\\]]*)(\\])",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.label.begin.ene"
+        },
+        "2": {
+          "name": "string.unquoted.node-label.ene"
+        },
+        "3": {
+          "name": "punctuation.definition.label.end.ene"
+        }
+      }
+    },
+    "attrs": {
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.attrs.begin.ene"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.attrs.end.ene"
+        }
+      },
+      "patterns": [
+        {
+          "match": "\\b(icon|shape|color)\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "variable.other.attribute.ene"
+            },
+            "2": {
+              "name": "punctuation.separator.key-value.ene"
+            }
+          }
+        },
+        {
+          "match": "(?<=:)\\s*(#[0-9a-fA-F]{3,8})\\b",
+          "captures": {
+            "1": {
+              "name": "constant.other.color.ene"
+            }
+          }
+        },
+        {
+          "match": "(?<=:)[^,}]+",
+          "name": "string.unquoted.attribute-value.ene"
+        }
+      ]
+    },
+    "number": {
+      "match": "\\b\\d+(?:\\.\\d+)?(?:,\\d+)?\\b",
+      "name": "constant.numeric.ene"
+    }
+  }
+}

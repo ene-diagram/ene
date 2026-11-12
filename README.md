@@ -247,6 +247,10 @@ Messages, participants, `alt`/`else`, `opt` (and `break`, as `opt`), `loop`, `pa
 
 A `flowchart` / `graph` becomes a flow diagram: nodes keep their labels and the shapes ene has (`(( ))` circle, `( )` / `([ ])` round, `[( )]` db; others are drawn as boxes with a warning), each link becomes one step in source order (`|label|` and `-- label -->` become labels, dotted links become `-->`, `--x` becomes `-x`), and `subgraph` becomes `group` (nested ones use `in`). Styles, classes, click handlers and links to a subgraph are dropped with a warning. A flowchart has no time axis, so the output starts with a comment asking you to review the step order.
 
+### In VS Code
+
+[`packages/vscode`](packages/vscode) is a VS Code extension: highlighting, diagnostics with quick fixes, Format Document, a live side-by-side preview (with the branch menu) and SVG export. It is not on the Marketplace yet; build the `.vsix` as described in its [README](packages/vscode/README.md).
+
 ### With Claude
 
 The repo ships a Claude skill (`skills/ene`) that writes a `.ene` file from a description or from your code, runs `ene check --json` until it is clean, formats it and renders the SVG.
