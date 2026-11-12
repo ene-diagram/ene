@@ -164,7 +164,7 @@ The SVG loops on its own — no script needed — and respects dark mode and red
 | `id[Label]{icon: …, shape: db, color: #f59e0b}` | node label and style |
 | `diagram sequence` | draw as a sequence diagram |
 
-One line is one step, played top to bottom.
+One line is one step, played top to bottom. The complete reference, with common mistakes, is in [SYNTAX.md](SYNTAX.md) (also served as `llms.txt` for AI tools).
 
 ## Release
 
