@@ -54,7 +54,7 @@ function splitComment(raw: string): { body: string; comment: string } {
   const chars = [...raw];
   let start = 0;
   while (start < chars.length && (chars[start] === " " || chars[start] === "\t")) start++;
-  const isTitle = chars.slice(start, start + 6).join("") === "title ";
+  const isTitle = chars.slice(start, start + 6).join("") === "title " || chars.slice(start, start + 5).join("") === "note ";
   let depth = 0, inLabel = false, end = chars.length;
   for (let j = start; j < chars.length && !(isTitle && j > start); j++) {
     const c = chars[j];
@@ -66,7 +66,7 @@ function splitComment(raw: string): { body: string; comment: string } {
   return { body: chars.slice(start, end).join("").trimEnd(), comment: chars.slice(end).join("").trimEnd() };
 }
 
-const KEYWORD_LINE = /^(title|speed|wait|loop|branch|else|end|pin|rank|group|diagram)(\s|$)/;
+const KEYWORD_LINE = /^(title|speed|wait|loop|branch|else|end|note|pin|rank|group|diagram)(\s|$)/;
 const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x)(\s|$)/u;
 
 function formatBody(body: string): string {
@@ -74,7 +74,7 @@ function formatBody(body: string): string {
   const m = body.match(KEYWORD_LINE);
   if (m) {
     const word = m[1], rest = body.slice(word.length).trim();
-    if (word === "title" || word === "branch" || word === "else") return rest ? `${word} ${rest}` : word;
+    if (word === "title" || word === "branch" || word === "else" || word === "note") return rest ? `${word} ${rest}` : word;
     if (word === "group") return formatGroup(rest);
     return [word, ...rest.split(/\s+/).filter(Boolean)].join(" ");
   }

@@ -87,7 +87,7 @@ convert it instead of rewriting it by hand, then continue from step 4 of the wor
 node <skill>/ene.mjs from-mermaid diagram.mmd -o diagram.ene
 ```
 
-Read the warnings: they name each line that was dropped or changed (notes, activation, `loop` counts).
+Read the warnings: they name each line that was dropped or changed (orphan notes, activation, `loop` counts).
 Other Mermaid diagram kinds cannot be converted.
 
 ## When something does not fit

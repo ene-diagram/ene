@@ -71,7 +71,7 @@ test("opt becomes a branch with a skip arm; empty arms get `wait 0`", () => {
   const r = conv("opt notify\n A->>B: email\nend\nalt a\n A->>B: x\nelse b\n Note over A: nothing\nend");
   clean(r.source);
   expect(r.source).toContain("branch notify\n  A -> B : email\nelse skip\n  wait 0\nend");
-  expect(r.source).toContain("else b\n  # note over A: nothing\n  wait 0\nend");
+  expect(r.source).toContain("else b\n  # note: nothing\n  wait 0\nend");
   const tl = buildTimeline(parse(r.source).doc, { choices: [1, 1] });
   expect(tl.steps).toHaveLength(0);
   expect(tl.branches.map((b) => b.arms)).toEqual([["notify", "skip"], ["a", "b"]]);
@@ -103,11 +103,10 @@ test("unsupported constructs warn with the source line, grouped by kind", () => 
   const r = conv("A->>+B: x\nactivate B\nNote right of B: think\nNote over A,B: both\ndeactivate B\nB-->>-A: y\nlink A: Dashboard @ https://x\nwhatever this is");
   expect(r.warnings).toEqual([
     { line: 2, message: "activation bars are not drawn (and on 3 more lines)" },
-    { line: 4, message: "notes are not drawn; they are kept as comments (and on 1 more line)" },
     { line: 8, message: "participant links and properties are dropped" },
     { line: 9, message: "not converted: `whatever this is`" },
   ]);
-  expect(r.source).toContain("# note right of B: think\n# note over A,B: both\n");
+  expect(r.source).toContain("A -> B : x\nnote think\nnote both\nB --> A : y");
 });
 
 test("message text that would change meaning in ene is adjusted and reported", () => {
@@ -154,4 +153,19 @@ test("participant configuration: type becomes a shape, alias becomes the label",
   const r = conv(`participant D@{ "type": "database", "alias": "My DB" }\nparticipant Q@{ "type": "queue" } as Jobs\nparticipant C@{ "type": "control" }\nD->>Q: x\nQ->>C: y`);
   expect(r.source).toContain("D[My DB]{shape: db}\nQ[Jobs]{shape: queue}\nC[C]\n");
   expect(r.warnings).toEqual([{ line: 4, message: "participant type `control` has no ene shape; drawn as a box" }]);
+});
+
+test("notes become step notes on the message above; orphan notes stay comments", () => {
+  const r = conv("Note over A: intro\nA->>B: get\nNote right of B: cache first, TTL 60s\npar a\n A->>B: x\n Note over B: in par\nand b\n A->>C: y\nend\nNote over A:\nloop 2\n A->>B: z\nend\nNote over A: after loop");
+  clean(r.source);
+  expect(r.source).toContain("# note: intro\nA -> B : get\nnote cache first, TTL 60s\n");
+  expect(r.source).toContain("A -> B : x & A -> C : y\nnote in par\n");
+  expect(r.source).toContain("end\n# note: after loop");
+  const steps = buildTimeline(parse(r.source).doc).steps;
+  expect(steps[0].note).toBe("cache first, TTL 60s");
+  expect(steps[1].note).toBe("in par");
+  expect(r.warnings.map((w) => w.message)).toEqual([
+    "a note with no message right above it is kept as a comment (and on 1 more line)",
+    "empty note is dropped",
+  ]);
 });

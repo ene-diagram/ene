@@ -6,7 +6,7 @@ export interface Group { id: string; label: string; members: string[]; parent?: 
 export type EdgeKind = "ok" | "fail" | "reply"; // -> | -x | -->
 export interface Edge { from: string; to: string; kind: EdgeKind; label: string; duration?: number; span: Span }
 export type Stmt =
-  | { type: "step"; edges: Edge[]; span: Span }
+  | { type: "step"; edges: Edge[]; note?: string; span: Span }
   | { type: "wait"; seconds: number; span: Span }
   | { type: "branch"; arms: { label: string; body: Stmt[]; span: Span }[]; span: Span }
   | { type: "loop"; count: number; body: Stmt[]; span: Span };
@@ -27,5 +27,5 @@ export interface Diagnostic { code: string; severity: Severity; span: Span; args
 export interface ParseResult { doc: Document; diagnostics: Diagnostic[] }
 
 export interface TimelineEdge { edgeIndex: number; from: string; to: string; kind: EdgeKind; label: string; start: number; duration: number }
-export interface TimelineStep { index: number; start: number; duration: number; edges: TimelineEdge[]; branchPath: number[] }
+export interface TimelineStep { index: number; start: number; duration: number; edges: TimelineEdge[]; branchPath: number[]; note?: string }
 export interface Timeline { steps: TimelineStep[]; total: number; branches: { label: string; arms: string[] }[]; allEdges: Edge[] }

@@ -167,6 +167,7 @@ Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Sp
 ene flow.ene -o flow.svg
 cat flow.ene | ene - > flow.svg   # "-" reads stdin; output goes to stdout
 ene flow.ene -o -                # write the SVG to stdout
+ene flow.ene -o flow.svg --no-notes   # leave out the `note` captions
 ```
 
 For places that do not play animated SVG (Slack, Notion, slides, social posts), export a GIF or MP4. The format comes from the extension:
@@ -206,7 +207,7 @@ ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid sequen
 ene diagram.mmd -o diagram.svg               # convert and render in one go
 ```
 
-Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. Notes become comments, and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
+Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
 
 ### With Claude
 
@@ -287,6 +288,7 @@ An icon is either a pack name (`logos:redis`, from packs you register) or an SVG
 | `a -x b : label` | failure |
 | `a -> b & a -> c` | at the same time |
 | `a -> b : label @2s` | this edge takes 2 seconds |
+| `note text` | caption for the step above |
 | `wait 0.5` | pause before the next step |
 | `branch …` / `else …` / `end` | alternative paths, chosen in the player |
 | `loop 3` … `end` | repeat |

@@ -44,6 +44,25 @@ describe("player DOM", () => {
     p.destroy();
   });
 
+  it("shows the note of the current step in a caption (flow and sequence)", async () => {
+    for (const head of ["", "diagram sequence\n"]) {
+      const el = document.createElement("div"); document.body.appendChild(el);
+      const p = (await render(el, `${head}a -> b : one\nnote why one\nb -> c : two\nc --> a : three\nnote why three`, { autoplay: false, lang: "en" }))!;
+      const root = el.querySelector(".ene-player")!;
+      const note = () => root.querySelector(".ene-note")!.textContent;
+      expect(note()).toBe("why one");
+      key(root, "ArrowRight");
+      expect(note()).toBe("");
+      key(root, "ArrowRight");
+      expect(note()).toBe("why three");
+      p.destroy();
+    }
+    const el = document.createElement("div"); document.body.appendChild(el);
+    const p = (await render(el, STEPS, { autoplay: false }))!;
+    expect(el.querySelector(".ene-note")).toBeNull();
+    p.destroy();
+  });
+
   it("buttons drive the controller", async () => {
     const el = document.createElement("div"); document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;

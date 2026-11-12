@@ -179,3 +179,9 @@ describe("from-mermaid", () => {
     expect(spawnSync("node", [bin, f], { encoding: "utf8" }).status).toBe(1);
   });
 });
+test("notes are captions in the SVG unless --no-notes", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "n.ene");
+  writeFileSync(f, "a -> b\nnote why this step\n");
+  expect(runCli([f, "-o", "-"]).stdout).toContain('class="note"');
+  expect(runCli([f, "-o", "-", "--no-notes"]).stdout).not.toContain('class="note"');
+});

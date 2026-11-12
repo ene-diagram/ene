@@ -28,3 +28,16 @@ test("accessibility and preferences", async () => {
   expect(svg).toMatch(/<desc>[^<]*1\. user → api: POST[^<]*2\. api → user: 201/);
   expect(svg).toContain("prefers-reduced-motion"); expect(svg).toContain("prefers-color-scheme: dark");
 });
+test("step notes are a caption under the diagram, shown while their step plays; notes: false omits them", async () => {
+  const src = "a -> b : one\nnote first <why>\nb -> c : two\nc --> a : three\nnote third";
+  const { doc } = parse(src); const tl = buildTimeline(doc); const l = await layout(doc, tl);
+  const svg = renderSvg(l, tl);
+  const notes = svg.match(/<text [^>]*class="note"[^>]*>[^<]*/g)!;
+  expect(notes.map((n) => n.replace(/^.*>/, ""))).toEqual(["first &lt;why&gt;", "third"]);
+  expect(svg).toContain(`height="${l.height + 40}"`);
+  expect(svg).toContain("(first &lt;why&gt;)");
+  const plain = renderSvg(l, tl, { notes: false });
+  expect(plain).not.toContain('class="note"');
+  expect(plain).toContain(`height="${l.height}"`);
+  expect(renderSvg(l, buildTimeline(parse("a -> b").doc))).not.toContain('class="note"');
+});

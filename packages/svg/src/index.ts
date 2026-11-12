@@ -14,7 +14,12 @@ export function sequenceMarkup(l: Layout): string {
   return frames + lines;
 }
 
-export interface SvgOptions { title?: string; icons?: Map<string, ResolvedIcon> }
+export interface SvgOptions {
+  title?: string;
+  icons?: Map<string, ResolvedIcon>;
+  /** Show step notes in a caption line under the diagram (default true) */
+  notes?: boolean;
+}
 
 const ICON = 24, ICON_PAD = 14;
 
@@ -87,6 +92,8 @@ export function iconFromSvgText(text: string): ResolvedIcon {
 }
 
 const TITLE_H = 44, HOLD = 1.5, FADE = 0.3;
+/** Height of the caption line under the diagram that shows step notes */
+export const NOTE_H = 40;
 
 export const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -104,10 +111,10 @@ export const STYLE = `
   .x{text-anchor:middle;font-size:18px;font-weight:700;fill:var(--fail)}
   .t{font-size:17px;font-weight:700;fill:var(--fg)} .gl{font-size:12px;font-weight:600}
   .life{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5} .frame{fill:var(--ok);fill-opacity:.04;stroke:var(--line);stroke-width:1.2}
-  .fl{font-size:11px;font-weight:700;fill:var(--fg2)}
+  .fl{font-size:11px;font-weight:700;fill:var(--fg2)} .note{font-size:13px;fill:var(--fg2)}
   svg{--bg:#fbfcfd;--node:#fff;--line:#c1c8d2;--faint:#d9dde3;--fg:#1c2024;--fg2:#3a4048;--ok:#3e63dd;--fail:#e5484d;--reply:#30a46c}
   @media (prefers-color-scheme: dark){svg{--bg:#111113;--node:#1c1d21;--line:#3b3e45;--faint:#2e3036;--fg:#edeef0;--fg2:#b0b4ba;--ok:#7b9bff;--fail:#ff6369;--reply:#4cc38a}}
-  @media (prefers-reduced-motion: reduce){.dot,.x{display:none}.hl,.lbl{opacity:1 !important}}`;
+  @media (prefers-reduced-motion: reduce){.dot,.x,.note{display:none}.hl,.lbl{opacity:1 !important}}`;
 
 /** Length of one loop of the exported animation: the timeline plus a hold on the final state */
 export const loopSeconds = (tl: Timeline) => Math.max(tl.total + HOLD, 0.1);
@@ -154,14 +161,24 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
 
   const nodes = l.nodes.map((n) => nodeMarkup(n, opts.icons)).join("");
 
-  const desc = tl.steps.flatMap((s) => s.edges.map((e) =>
-    `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : ""}`)).join("; ");
+  // Step notes: one caption line under the diagram, showing the note of the step that is playing
+  const noted = opts.notes === false ? [] : tl.steps.filter((s) => s.note);
+  let notes = "";
+  noted.forEach((s) => {
+    const next = tl.steps[s.index + 1]?.start ?? total - FADE;
+    notes += `<text x="40" y="${l.height + NOTE_H / 2}" class="note" dominant-baseline="central" opacity="0">${esc(s.note!)}` +
+      anim("opacity", "0;0;1;1;0;0", `0;${kt(s.start)};${kt(s.start)};${kt(next)};${kt(next)};1`) + `</text>`;
+  });
 
-  const W = l.width, H = l.height + offY;
+  const desc = tl.steps.flatMap((s) => s.edges.map((e) =>
+    `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : ""}`)
+    .concat(s.note && opts.notes !== false ? [`(${s.note})`] : []).join(" ")).join("; ");
+
+  const W = l.width, H = l.height + offY + (noted.length ? NOTE_H : 0);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" font-family="Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif">` +
     `<title>${esc(opts.title ?? "ene diagram")}</title><desc>${esc(desc)}</desc><style>${STYLE}</style>${ARROW_DEFS}` +
     `<rect width="100%" height="100%" class="bg"/>` +
     (opts.title ? `<text x="40" y="34" class="t">${esc(opts.title)}</text>` : "") +
-    `<g transform="translate(0 ${offY})">${(l.groups ?? []).map(groupMarkup).join("")}${sequenceMarkup(l)}${base}${nodes}${hl}${labels}${dots}</g></svg>`;
+    `<g transform="translate(0 ${offY})">${(l.groups ?? []).map(groupMarkup).join("")}${sequenceMarkup(l)}${base}${nodes}${hl}${labels}${dots}${notes}</g></svg>`;
 }
 export { fetchIcon, iconFromUntrustedSvg, ICON_DEFAULTS, type IconFetchOptions, type IconLoadResult } from "./icon-loader.js";
