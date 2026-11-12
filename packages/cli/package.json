@@ -1,0 +1,2 @@
+{ "name": "@ene/cli", "version": "0.0.0", "type": "module", "bin": { "ene": "./bin/ene.mjs" },
+  "dependencies": { "@ene/core": "workspace:*", "@ene/layout": "workspace:*", "@ene/svg": "workspace:*" } }

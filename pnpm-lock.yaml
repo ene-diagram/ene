@@ -15,7 +15,50 @@ importers:
         specifier: ^3.0.0
         version: 3.2.7
 
+  packages/cli:
+    dependencies:
+      '@ene/core':
+        specifier: workspace:*
+        version: link:../core
+      '@ene/layout':
+        specifier: workspace:*
+        version: link:../layout
+      '@ene/svg':
+        specifier: workspace:*
+        version: link:../svg
+
   packages/core: {}
+
+  packages/layout:
+    dependencies:
+      '@ene/core':
+        specifier: workspace:*
+        version: link:../core
+      elkjs:
+        specifier: ^0.12.1
+        version: 0.12.1
+
+  packages/player:
+    dependencies:
+      '@ene/core':
+        specifier: workspace:*
+        version: link:../core
+      '@ene/layout':
+        specifier: workspace:*
+        version: link:../layout
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
+
+  packages/svg:
+    dependencies:
+      '@ene/core':
+        specifier: workspace:*
+        version: link:../core
+      '@ene/layout':
+        specifier: workspace:*
+        version: link:../layout
 
 packages:
 
@@ -387,6 +430,9 @@ packages:
   deep-eql@5.0.2:
     resolution: {integrity: sha512-h5k/5U50IJJFpzfL6nO9jaaumfjO/f2NjK/oYB2Djzm4p9L+3T9qWpZqZ2hAbLPuuYq9wrU08WQyBTL5GbPk5Q==}
     engines: {node: '>=6'}
+
+  elkjs@0.12.1:
+    resolution: {integrity: sha512-IhMYKHE4S2vtx0QrhBP3lYOIKDeIiJXBrdq9MGYkuB8ZHqhrBnHNfSUndjXFewrX1CPK8chwq+2NA0K0hliYuw==}
 
   es-module-lexer@1.7.0:
     resolution: {integrity: sha512-jEQoCwk8hyb2AZziIOLhDqpm5+2ww5uIE6lkO/6jcOCusfk6LhMHpXXfBLXTZ7Ydyt0j4VoUQv6uGNYbdW+kBA==}
@@ -808,6 +854,8 @@ snapshots:
       ms: 2.1.3
 
   deep-eql@5.0.2: {}
+
+  elkjs@0.12.1: {}
 
   es-module-lexer@1.7.0: {}
 

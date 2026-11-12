@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc -b packages/core"
+    "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/cli"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

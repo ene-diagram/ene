@@ -1,0 +1,5 @@
+{ "name": "@ene/player", "version": "0.0.0", "type": "module", "main": "./dist/index.js", "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "scripts": { "bundle": "esbuild src/browser.ts --bundle --format=iife --global-name=ene --outfile=dist/ene.js --minify" },
+  "dependencies": { "@ene/core": "workspace:*", "@ene/layout": "workspace:*" },
+  "devDependencies": { "esbuild": "^0.28.2" } }
