@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { fetchIcon, iconFromUntrustedSvg } from "../src/index";
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect/></svg>';
 const res = (body: BodyInit | null, init?: ResponseInit) => new Response(body, init);
@@ -31,4 +32,27 @@ test("reports HTTP errors, non-svg bodies, bad schemes and disallowed hosts", as
 test("iconFromUntrustedSvg rejects absurd viewBox sizes", () => {
   expect(iconFromUntrustedSvg('<svg viewBox="0 0 99999 10"></svg>').ok).toBe(false);
   expect(iconFromUntrustedSvg('<?xml version="1.0"?>\n' + SVG).ok).toBe(true);
+});
+
+test.each([404, 500])("closes an unfinished HTTP %i response without waiting for its body", async (status) => {
+  let closed = false;
+  const server = createServer((_req, res) => {
+    res.on("close", () => { closed = true; });
+    res.writeHead(status, { "content-type": "image/svg+xml" });
+    res.write("<svg>"); // Leave the body open, as a stalled server would.
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+  try {
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("missing test server address");
+    const result = await fetchIcon(`http://127.0.0.1:${address.port}/icon.svg`, { timeoutMs: 2000 });
+    expect(result).toEqual({ ok: false, reason: `HTTP ${status}` });
+    await vi.waitFor(() => expect(closed).toBe(true), { timeout: 500 });
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });

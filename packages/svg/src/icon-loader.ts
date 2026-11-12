@@ -35,7 +35,7 @@ export async function fetchIcon(url: string, opts: IconFetchOptions = {}): Promi
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const r = await f(url, { signal: ctl.signal, redirect: opts.allowHosts ? "error" : "follow" });
-    if (!r.ok) return { ok: false, reason: `HTTP ${r.status}` };
+    if (!r.ok) { ctl.abort(); return { ok: false, reason: `HTTP ${r.status}` }; }
     const len = Number(r.headers.get("content-length"));
     if (len > maxBytes) { ctl.abort(); return { ok: false, reason: `response too large (${len} > ${maxBytes} bytes)` }; }
     let text: string;
