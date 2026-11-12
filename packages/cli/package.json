@@ -24,5 +24,8 @@
     "@ene/core": "workspace:*",
     "@ene/layout": "workspace:*",
     "@ene/svg": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@ene/video": "workspace:*"
   }
 }

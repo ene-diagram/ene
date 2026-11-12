@@ -169,6 +169,16 @@ cat flow.ene | ene - > flow.svg   # "-" 는 stdin 에서 읽고, 결과는 stdou
 ene flow.ene -o -                # SVG 를 stdout 으로
 ```
 
+움직이는 SVG 를 재생하지 못하는 곳(Slack, Notion, 발표 자료, SNS)에는 GIF 나 MP4 로 내보내요. 형식은 확장자로 정해요:
+
+```bash
+ene flow.ene -o flow.gif                       # 20 fps
+ene flow.ene -o flow.mp4 --choice 1            # 30 fps, 2배 해상도
+ene flow.ene -o flow.gif --fps 12 --scale 2    # 더 작은 파일 / 더 선명한 프레임
+```
+
+헤드리스 Chrome 에서 SVG 를 한 바퀴 재생하며 프레임을 찍고 ffmpeg 로 인코딩해요. 그래서 둘 다 설치돼 있어야 해요(Chrome·Chromium·Edge 중 하나, `brew install ffmpeg`). `ENE_CHROME`, `ENE_FFMPEG` 로 실행 파일을 직접 지정할 수 있어요. Node.js 22 이상과 `@ene/video` 패키지가 필요하고, 이 패키지는 SVG 만 쓰는 설치를 가볍게 유지하려고 선택 사항으로 뒀어요.
+
 렌더링 없이 검사만 하려면 `check` 를 써요(오류가 있으면 종료 코드 1). `--json` 은 도구·AI 에이전트용으로 진단을 JSON 으로 출력해요:
 
 ```bash
@@ -256,7 +266,7 @@ CLI 에서는 `--icons pack.json`(여러 번 가능)을 써요. `ene icons <svg-
 ene flow.ene -o miss.svg --choice 1
 ```
 
-내보낸 SVG 는 CSS 애니메이션만 써요. 반복 재생하고, 다크 모드를 따르고, `prefers-reduced-motion` 에서는 움직이는 점 없이 모든 단계를 한 번에 보여줘요. SVG 를 정화(sanitize)하는 일부 호스트에서는 애니메이션이 빠질 수 있어요.
+내보낸 SVG 는 스크립트 없이 SMIL 애니메이션으로 움직여요. 반복 재생하고, 다크 모드를 따르고, `prefers-reduced-motion` 에서는 움직이는 점 없이 모든 단계를 한 번에 보여줘요. SVG 를 정화(sanitize)하는 일부 호스트에서는 애니메이션이 빠질 수 있어요.
 
 ### 아이콘 로딩과 네트워크 접근
 

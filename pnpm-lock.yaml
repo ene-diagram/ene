@@ -35,6 +35,10 @@ importers:
       '@ene/svg':
         specifier: workspace:*
         version: link:../svg
+    optionalDependencies:
+      '@ene/video':
+        specifier: workspace:*
+        version: link:../video
 
   packages/core: {}
 
@@ -71,6 +75,8 @@ importers:
       '@ene/layout':
         specifier: workspace:*
         version: link:../layout
+
+  packages/video: {}
 
 packages:
 
