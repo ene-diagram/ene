@@ -85,7 +85,9 @@ export function annotation(file, d) {
 }
 
 /** Only plain npm versions, ranges and dist-tags are accepted */
-export const validVersion = (v) => /^[\w.^~<>=*|+-]+( [\w.^~<>=*|+-]+)*$/.test(v) && !v.startsWith("-");
+export const validVersion = (v, platform = process.platform) =>
+  // Windows runs npm through cmd.exe, where | < > ^ and spaces mean something: allow only exact versions, x-ranges and tags there
+  (platform === "win32" ? /^[\w.*+-]+$/ : /^[\w.^~<>=*|+-]+( [\w.^~<>=*|+-]+)*$/).test(v) && !v.startsWith("-");
 
 function gitFiles() {
   const out = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { encoding: "utf8", maxBuffer: 64 << 20 });
@@ -106,6 +108,20 @@ function installCli(version) {
   return join(dir, "node_modules", "@ene-diagram", "cli", "bin", "ene.mjs");
 }
 
+/**
+ * Branch to push commit-mode changes to: the checked-out branch, or on a detached checkout (the default for
+ * pull_request runs) the PR's head branch, or the pushed branch.
+ */
+export function pushBranch(env = process.env) {
+  try {
+    const b = execFileSync("git", ["symbolic-ref", "-q", "--short", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    if (b) return b;
+  } catch { /* detached */ }
+  if (env.GITHUB_HEAD_REF) return env.GITHUB_HEAD_REF;
+  if (env.GITHUB_REF?.startsWith("refs/heads/")) return env.GITHUB_REF.slice("refs/heads/".length);
+  return undefined;
+}
+
 export function main(env = process.env) {
   const mode = env.ENE_MODE || "check";
   if (mode !== "check" && mode !== "commit") { console.log(`::error::mode must be check or commit, got ${escData(mode)}`); return 1; }
@@ -113,6 +129,10 @@ export function main(env = process.env) {
   if (choice && !/^\d+(,\d+)*$/.test(choice)) { console.log(`::error::choice must look like 0,1`); return 1; }
   const outputDir = (env.ENE_OUTPUT_DIR || "").trim();
   if (outputDir && (resolve(outputDir) + sep).indexOf(resolve(".") + sep) !== 0) { console.log(`::error::output-dir must be inside the workspace`); return 1; }
+
+  // Decide where commit mode pushes before writing anything, so a refusal leaves the checkout untouched
+  const target = mode === "commit" ? pushBranch(env) : undefined;
+  if (mode === "commit" && !target) { console.log("::error::ene: commit mode needs a branch to push to (detached HEAD outside a pull request); check out a branch or use mode: check"); return 1; }
 
   let jobs;
   try { jobs = plan(gitFiles(), list(env.ENE_FILES || "**/*.ene"), outputDir); }
@@ -176,7 +196,7 @@ export function main(env = process.env) {
   const name = env.GIT_COMMITTER_NAME || "github-actions[bot]";
   const email = env.GIT_COMMITTER_EMAIL || "41898282+github-actions[bot]@users.noreply.github.com";
   git(["-c", `user.name=${name}`, "-c", `user.email=${email}`, "commit", "-m", env.ENE_COMMIT_MESSAGE || "chore: regenerate ene diagrams", "--", ...changed]);
-  git(["push"]);
+  git(["push", "origin", `HEAD:refs/heads/${target}`]);
   console.log(`ene: committed ${changed.length} SVG(s)`);
   return 0;
 }

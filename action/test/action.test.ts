@@ -43,6 +43,16 @@ describe("helpers", () => {
   });
 });
 
+describe("validVersion", () => {
+  it("allows ranges on POSIX but only plain versions and tags on Windows", () => {
+    expect(validVersion("^0.1 || >=1", "linux")).toBe(true);
+    expect(validVersion("0.1.0", "win32")).toBe(true);
+    expect(validVersion("latest", "win32")).toBe(true);
+    for (const bad of ["latest|whoami", ">=0.1", "^0.1", "0.1 1.0", "a&b"]) expect(validVersion(bad, "win32")).toBe(false);
+    expect(validVersion("-x", "linux")).toBe(false);
+  });
+});
+
 describe("main", () => {
   let dir: string, cwd: string, log: string[];
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
@@ -106,5 +116,13 @@ describe("main", () => {
     expect(run({ ENE_CHOICE: "1;id" })).toBe(1);
     expect(run({ ENE_OUTPUT_DIR: "../x" })).toBe(1);
     expect(() => main({ ENE_FILES: "diagrams/*.ene", ENE_VERSION: "0.1 && id" })).toThrow(/invalid version/);
+  });
+  it("commit mode on a detached checkout pushes to the PR head branch, and refuses without one", () => {
+    git("checkout", "-q", "--detach");
+    writeFileSync("diagrams/flow.ene", readFileSync("diagrams/flow.ene", "utf8") + "api -> db : read\n");
+    expect(run({ ENE_MODE: "commit", GITHUB_HEAD_REF: "" , GITHUB_REF: "refs/pull/1/merge" })).toBe(1);
+    expect(log.join("\n")).toContain("needs a branch to push to");
+    expect(run({ ENE_MODE: "commit", GITHUB_HEAD_REF: "feature-x" })).toBe(0);
+    expect(git("ls-remote", "origin", "refs/heads/feature-x")).toMatch(/refs\/heads\/feature-x/);
   });
 });
