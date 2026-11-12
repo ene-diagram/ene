@@ -1,6 +1,6 @@
-import { autoRun, render, registerIconPacks, setElkUrl } from "./player.js";
+import { autoRun, render, registerIconPacks, setElkUrl, setIconLoading } from "./player.js";
 import { createController } from "./controller.js";
-export { render, autoRun, registerIconPacks, setElkUrl, createController };
+export { render, autoRun, registerIconPacks, setElkUrl, setIconLoading, createController };
 // ene-elk.js is looked up in the same folder as ene.js by default
 const me = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null)?.src : undefined;
 if (me) setElkUrl(new URL("ene-elk.js", me).href);

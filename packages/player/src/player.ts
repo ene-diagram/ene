@@ -1,6 +1,6 @@
-import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
+import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
 import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene/layout";
-import { ARROW_DEFS, STYLE, esc, groupMarkup, iconFromSvgText, nodeMarkup, sequenceMarkup } from "@ene/svg";
+import { ARROW_DEFS, STYLE, esc, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene/svg";
 import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
@@ -41,7 +41,10 @@ const PLAYER_CSS = `
 export interface IconPackSource { name?: string; pack?: IconPack; loader?: () => Promise<IconPack> }
 const packSources: IconPackSource[] = [];
 let packsPromise: Promise<IconPack[]> | undefined;
-const urlIcons = new Map<string, Promise<ResolvedIcon | undefined>>();
+const urlIcons = new Map<string, Promise<IconLoadResult>>();
+let iconFetchOpts: Omit<IconFetchOptions, "fetch"> = {};
+/** Configure external icon loading: timeout, size limit and an optional host allowlist */
+export function setIconLoading(opts: Omit<IconFetchOptions, "fetch">): void { iconFetchOpts = { ...opts }; urlIcons.clear(); }
 
 /** Register icon packs (Iconify JSON). The loader is called once, when an icon is first needed */
 export function registerIconPacks(sources: IconPackSource[]): void {
@@ -50,13 +53,26 @@ export function registerIconPacks(sources: IconPackSource[]): void {
 }
 async function loadPacks(): Promise<IconPack[]> {
   packsPromise ??= Promise.all(packSources.map(async (s) => {
-    try { return s.pack ?? (await s.loader?.()); } catch { return undefined; }
+    let p: unknown;
+    try { p = s.pack ?? (await s.loader?.()); }
+    catch (e) { console.warn(`ene: icon pack ${s.name ?? ""} failed to load: ${(e as Error).message}`); return undefined; }
+    const errs = p === undefined ? [] : validateIconPack(p);
+    if (errs.length) { console.warn(`ene: invalid icon pack ${s.name ?? ""}:\n  - ${errs.join("\n  - ")}`); return undefined; }
+    return p as IconPack | undefined;
   })).then((ps) => ps.filter((p): p is IconPack => !!p));
   return packsPromise;
 }
-function loadUrlIcon(url: string): Promise<ResolvedIcon | undefined> {
-  if (!urlIcons.has(url))
-    urlIcons.set(url, fetch(url).then((r) => (r.ok ? r.text() : Promise.reject())).then(iconFromSvgText).catch(() => undefined));
+function loadUrlIcon(url: string): Promise<IconLoadResult> {
+  if (!urlIcons.has(url)) {
+    let p: Promise<IconLoadResult>;
+    if (url.startsWith("data:")) {
+      const m = url.match(/^data:image\/svg\+xml(;base64)?,(.*)$/s);
+      try { p = Promise.resolve(m ? iconFromUntrustedSvg(m[1] ? atob(m[2]) : decodeURIComponent(m[2])) : { ok: false, reason: "only data:image/svg+xml URLs are supported" }); }
+      catch { p = Promise.resolve({ ok: false, reason: "malformed data URL" }); }
+    } else p = fetchIcon(new URL(url, document.baseURI).href, iconFetchOpts);
+    // Failed loads are not cached, so a later render can retry
+    urlIcons.set(url, p.then((r) => { if (!r.ok) urlIcons.delete(url); return r; }));
+  }
   return urlIcons.get(url)!;
 }
 
@@ -91,11 +107,14 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   const needIcons = [...doc.nodes.values()].some((n) => n.icon);
   const packs = needIcons ? await loadPacks() : [];
   const icons = new Map<string, ResolvedIcon>();
-  for (const n of doc.nodes.values()) {
-    if (!n.icon || icons.has(n.icon)) continue;
-    const ic = isIconUrl(n.icon) ? await loadUrlIcon(n.icon) : resolveIcon(n.icon, packs);
-    if (ic) icons.set(n.icon, ic);
-  }
+  const refs = [...new Set([...doc.nodes.values()].map((n) => n.icon).filter((i): i is string => !!i))];
+  for (const ref of refs.filter((r) => !isIconUrl(r))) { const ic = resolveIcon(ref, packs); if (ic) icons.set(ref, ic); }
+  const urlRefs = refs.filter(isIconUrl);
+  const results = await Promise.all(urlRefs.map(loadUrlIcon));
+  results.forEach((r, i) => {
+    if (r.ok) icons.set(urlRefs[i], r.icon);
+    else console.warn(`ene: cannot load icon ${urlRefs[i]}: ${r.reason}`);
+  });
   const iconWarnings = checkIcons(doc, packs);
   if (iconWarnings.length) console.warn(formatAll(source, iconWarnings, lang));
   let choices: number[] = [];

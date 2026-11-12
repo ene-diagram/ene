@@ -34,3 +34,12 @@ test("checkIcons warns W104 with suggestion, skips URLs", () => {
 test("new codes have messages", () => {
   for (const c of ["E108", "E109", "W104"] as const) { expect(CODES).toContain(c); expect(MESSAGES.ko[c].message).toBeTruthy(); }
 });
+test("validateIconPack accepts valid packs and reports structural problems", async () => {
+  const { validateIconPack } = await import("../src/icons");
+  expect(validateIconPack(pack)).toEqual([]);
+  expect(validateIconPack(null)).toEqual(["pack must be a JSON object"]);
+  expect(validateIconPack({ prefix: "a", icons: [] })).toContain('"icons" must be an object');
+  expect(validateIconPack({ prefix: "a", icons: { x: { body: 1 } } })[0]).toContain("icons.x");
+  expect(validateIconPack({ prefix: "a", width: "1\" onload", icons: {} })[0]).toContain('"width"');
+  expect(validateIconPack({ prefix: "a", icons: { x: { body: "", width: -1 } } })[0]).toContain("width/height");
+});
