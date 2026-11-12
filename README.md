@@ -186,6 +186,18 @@ ene fmt --check *.ene       # exit 1 if any file is not formatted (CI)
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
+### With Claude
+
+The repo ships a Claude skill (`skills/ene`) that writes a `.ene` file from a description or from your code, runs `ene check --json` until it is clean, formats it and renders the SVG.
+
+```bash
+pnpm build
+pnpm skill:install                      # links it into ~/.claude/skills/ene
+pnpm skill:install path/to/project/.claude/skills   # or into one project
+```
+
+Then ask Claude Code for a diagram, e.g. "draw the checkout flow as an ene diagram".
+
 ### Browser assets
 
 `pnpm build` writes two files to `packages/player/dist/`. Deploy both to the same folder:

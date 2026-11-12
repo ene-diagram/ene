@@ -6,7 +6,8 @@
     "build": "tsc -b packages/core packages/layout packages/svg packages/player packages/cli && pnpm -C packages/player bundle",
     "test": "vitest run",
     "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/cli",
-    "demo": "node scripts/demo.mjs"
+    "demo": "node scripts/demo.mjs",
+    "skill:install": "node scripts/install-skill.mjs"
   },
   "devDependencies": {
     "@iconify-json/logos": "^1.2.19",
