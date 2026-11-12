@@ -27,3 +27,10 @@ test.each([...CODES])("every code has en and ko message and hint: %s", (c) => {
   expect(MESSAGES.en[c].message).toBeTruthy(); expect(MESSAGES.ko[c].hint).toBeTruthy();
   expect(MESSAGES.ko[c].message).toBeTruthy(); expect(MESSAGES.en[c].hint).toBeTruthy();
 });
+test("diagnosticToJson flattens span and fills message/hint", async () => {
+  const { diagnosticToJson } = await import("../src/format");
+  const d = parse("a -> b\npin c 0,0").diagnostics[0];
+  const j = diagnosticToJson(d, "en");
+  expect(j).toMatchObject({ code: d.code, severity: d.severity, line: d.span.line, col: d.span.col, length: d.span.length });
+  expect(j.message).not.toMatch(/\{\w+\}/);
+});

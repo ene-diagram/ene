@@ -1,10 +1,11 @@
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
+import { buildTimeline, checkIcons, diagnosticToJson, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
 import { layout, layoutSequence } from "@ene/layout";
 import { iconFromSvgText, renderSvg } from "@ene/svg";
 
 const USAGE = `usage: ene <input.ene> [-o out.svg] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
+       ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
        ene icons <svg-dir> --prefix <name> [-o pack.json]`;
 
 /** "Arch_AWS-Lambda_48.svg" → "aws-lambda" */
@@ -43,8 +44,38 @@ async function loadIcon(ref: string, base: string): Promise<ResolvedIcon | undef
   } catch { return undefined; }
 }
 
+/** `ene check`: parse and check icons without rendering. Exit 1 on errors, 2 on usage errors */
+function checkCommand(argv: string[]): number {
+  let input: string | undefined, json = false, lang: Lang = "en";
+  const packFiles: string[] = [];
+  const bad = () => { console.error(USAGE); return 2; };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--json") json = true;
+    else if (a === "--lang") { const v = argv[++i]; if (v !== "en" && v !== "ko") return bad(); lang = v; }
+    else if (a === "--icons") { const v = argv[++i]; if (!v) return bad(); packFiles.push(v); }
+    else if (a.startsWith("-") || input) return bad();
+    else input = a;
+  }
+  if (!input) return bad();
+  let src: string;
+  try { src = readFileSync(input, "utf8"); }
+  catch (e) { console.error(`error: cannot read ${input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
+  let packs: IconPack[];
+  try { packs = packFiles.map((f) => JSON.parse(readFileSync(f, "utf8")) as IconPack); }
+  catch (e) { console.error(`error: cannot load icon pack (${(e as Error).message})`); return 1; }
+  const { doc, diagnostics } = parse(src);
+  diagnostics.push(...checkIcons(doc, packs));
+  diagnostics.sort((a, b) => a.span.line - b.span.line || a.span.col - b.span.col);
+  if (json) console.log(JSON.stringify(diagnostics.map((d) => diagnosticToJson(d, lang)), null, 2));
+  else if (diagnostics.length) console.error(formatAll(src, diagnostics, lang));
+  else console.log(`✅ ${input}: no problems`);
+  return diagnostics.some((d) => d.severity === "error") ? 1 : 0;
+}
+
 export async function main(argv: string[]): Promise<number> {
   if (argv[0] === "icons") return iconsCommand(argv.slice(1));
+  if (argv[0] === "check") return checkCommand(argv.slice(1));
   const packFiles: string[] = [];
   let input: string | undefined, out: string | undefined, lang: Lang = "en", choices: number[] = [];
   const bad = () => { console.error(USAGE); return 2; };

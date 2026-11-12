@@ -63,3 +63,22 @@ test("ene icons converts a folder of svgs to an iconify pack", () => {
   expect(j.icons["aws-lambda"]).toEqual({ body: '<path d="M0 0"/>', width: 48, height: 48 });
   expect(Object.keys(j.icons)).toContain("amazon-simple-storage-service");
 });
+test("check --json prints machine-readable diagnostics and exits 1 on errors", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "c.ene");
+  writeFileSync(f, "api -> cache : get\npin cahce 0,0");
+  const r = runCli(["check", f, "--json"]);
+  expect(r.status).toBe(1);
+  const out = JSON.parse(r.stdout);
+  expect(Array.isArray(out)).toBe(true);
+  const e = out.find((x: { code: string }) => x.code === "E401");
+  expect(e).toMatchObject({ severity: "error", line: 2, suggestion: "cache" });
+  expect(Object.keys(e)).toEqual(expect.arrayContaining(["code", "severity", "line", "col", "length", "message", "hint"]));
+  expect(existsSync(join(d, "c.svg"))).toBe(false);
+});
+test("check on a clean file exits 0 and prints [] with --json", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "ok.ene");
+  writeFileSync(f, "a -> b\nb --> a");
+  const r = runCli(["check", f, "--json"]);
+  expect(r.status).toBe(0); expect(JSON.parse(r.stdout)).toEqual([]);
+  expect(runCli(["check", f]).stdout).toContain("no problems");
+});

@@ -21,3 +21,16 @@ export function formatDiagnostic(source: string, d: Diagnostic, lang: Lang = "en
 
 export const formatAll = (source: string, ds: Diagnostic[], lang: Lang = "en") =>
   ds.map((d) => formatDiagnostic(source, d, lang)).join("\n\n");
+
+/** Machine-readable diagnostic (for `ene check --json` and tools/agents) */
+export interface DiagnosticJson {
+  code: string; severity: Diagnostic["severity"]; line: number; col: number; length: number;
+  message: string; hint: string; suggestion?: string;
+}
+export function diagnosticToJson(d: Diagnostic, lang: Lang = "en"): DiagnosticJson {
+  const m = MESSAGES[lang][d.code as Code];
+  const hint = d.args.suggestion ? fill(DID_YOU_MEAN[lang], d.args) : fill(m.hint, d.args);
+  const j: DiagnosticJson = { code: d.code, severity: d.severity, line: d.span.line, col: d.span.col, length: d.span.length, message: fill(m.message, d.args), hint };
+  if (d.args.suggestion) j.suggestion = d.args.suggestion;
+  return j;
+}

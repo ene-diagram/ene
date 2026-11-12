@@ -146,6 +146,13 @@ Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Sp
 ene flow.ene -o flow.svg
 ```
 
+Check a file without rendering (exit 1 on errors). `--json` prints diagnostics for tools and AI agents:
+
+```bash
+ene check flow.ene --json
+# [{"code":"E401","severity":"error","line":3,"col":5,"length":5,"message":"unknown node \"cahce\"","hint":"did you mean \"cache\"?","suggestion":"cache"}]
+```
+
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
 ## Syntax
