@@ -4,7 +4,7 @@
 
 export type Theme = "auto" | "light" | "dark";
 
-const DARK = /@media \(prefers-color-scheme: dark\)\{(svg\{[^}]*\})\}/;
+const DARK = /@media \(prefers-color-scheme: dark\)\{(svg(?:\.[\w-]+)?\{[^}]*\})\}/;
 const REDUCED = /@media \(prefers-reduced-motion: reduce\)\{[^{}]*(\{[^}]*\}[^{}]*)*\}/;
 
 /** Fix the colour scheme: `light` drops the dark-mode rule, `dark` applies it unconditionally, `auto` keeps it */

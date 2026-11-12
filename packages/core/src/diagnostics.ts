@@ -1,5 +1,5 @@
 export const CODES = [
-  "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109", "E110", "E111", "E112", "E113", "E114", "E115", "E116", "E117",
+  "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109", "E110", "E111", "E112", "E113", "E114", "E115", "E116", "E117", "E118",
   "E201", "E203", "E204", "E205", "E206",
   "E301", "E302", "E303", "E304", "E305", "E306", "E307",
   "E401", "E402", "E403", "E404", "E405", "E406", "E407",
@@ -37,7 +37,7 @@ export function suggest(word: string, candidates: Iterable<string>): string | un
   return best;
 }
 
-export const KEYWORDS = ["title", "speed", "wait", "loop", "branch", "else", "end", "pin", "rank", "group", "diagram", "note", "opt"];
+export const KEYWORDS = ["title", "speed", "wait", "loop", "branch", "else", "end", "pin", "rank", "group", "diagram", "note", "opt", "theme"];
 
 export type Lang = "en" | "ko";
 interface Msg { message: string; hint: string }
@@ -46,7 +46,7 @@ interface Msg { message: string; hint: string }
 export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
   en: {
     E101: { message: "no steps to play", hint: "write at least one edge, e.g. `user -> api : request`" },
-    E102: { message: 'unknown statement "{word}"', hint: "an edge looks like `a -> b : label`; keywords are title, diagram, speed, wait, loop, branch, opt, else, end, note, pin, rank, group" },
+    E102: { message: 'unknown statement "{word}"', hint: "an edge looks like `a -> b : label`; keywords are title, diagram, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group" },
     E103: { message: "missing target node after the arrow", hint: "add the node the data goes to, e.g. `a -> b`" },
     E104: { message: "missing source node before the arrow", hint: "add the node the data comes from, e.g. `a -> b`" },
     E105: { message: "unclosed `[` in node label", hint: "close the label with `]`, e.g. `api[API server]`" },
@@ -60,6 +60,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E113: { message: "`-x` needs a space on both sides", hint: "write `a -x b`; without the spaces `-x` is read as part of a node id" },
     E114: { message: 'attribute "{name}" needs a value', hint: "write `{name}: value`, e.g. `api{icon: logos:redis, shape: db, color: #f59e0b}`" },
     E115: { message: "`{keyword}` at the start of a line is a keyword, not a node", hint: "rename the node (e.g. `{keyword}_node[{keyword}]`); a keyword can only be a node id after an arrow" },
+    E118: { message: 'unknown theme "{value}"', hint: "use one of {themes}" },
     E116: { message: "`note` has no step to attach to", hint: "a note explains the step right above it; put it after an edge in the same block" },
     E117: { message: "`~>` needs a space on both sides", hint: "write `a ~> b` for an async message" },
     E201: { message: 'branch arm "{arm}" has no steps', hint: "add at least one edge under this `branch` / `opt` line" },
@@ -96,7 +97,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
   },
   ko: {
     E101: { message: "재생할 단계가 없어요", hint: "엣지를 하나 이상 써 주세요. 예: `user -> api : 요청`" },
-    E102: { message: '"{word}" 을(를) 이해하지 못했어요', hint: "엣지는 `a -> b : 라벨` 형태예요. 키워드: title, diagram, speed, wait, loop, branch, opt, else, end, note, pin, rank, group" },
+    E102: { message: '"{word}" 을(를) 이해하지 못했어요', hint: "엣지는 `a -> b : 라벨` 형태예요. 키워드: title, diagram, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group" },
     E103: { message: "화살표 뒤에 대상 노드가 없어요", hint: "데이터가 가는 노드를 써 주세요. 예: `a -> b`" },
     E104: { message: "화살표 앞에 출발 노드가 없어요", hint: "데이터가 나오는 노드를 써 주세요. 예: `a -> b`" },
     E105: { message: "노드 라벨의 `[` 가 닫히지 않았어요", hint: "`]` 로 닫아 주세요. 예: `api[API 서버]`" },
@@ -110,6 +111,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E113: { message: "`-x` 는 양쪽에 공백이 있어야 해요", hint: "`a -x b` 처럼 써 주세요. 공백이 없으면 `-x` 를 노드 id 의 일부로 읽어요" },
     E114: { message: '속성 "{name}" 에 값이 없어요', hint: "`{name}: 값` 으로 써 주세요. 예: `api{icon: logos:redis, shape: db, color: #f59e0b}`" },
     E115: { message: "줄 맨 앞의 `{keyword}` 는 노드가 아니라 키워드예요", hint: "노드 이름을 바꿔 주세요(예: `{keyword}_node[{keyword}]`). 키워드는 화살표 뒤에서만 노드 id 로 쓸 수 있어요" },
+    E118: { message: '"{value}" 는 알 수 없는 테마예요', hint: "{themes} 중에서 골라 주세요" },
     E116: { message: "`note` 를 붙일 단계가 없어요", hint: "note 는 바로 위 단계를 설명해요. 같은 블록 안에서 엣지 뒤에 써 주세요" },
     E117: { message: "`~>` 는 양쪽에 공백이 있어야 해요", hint: "비동기 메시지는 `a ~> b` 처럼 써 주세요" },
     E201: { message: '분기 갈래 "{arm}" 에 단계가 없어요', hint: "이 `branch`·`opt` 줄 아래에 엣지를 하나 이상 써 주세요" },

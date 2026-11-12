@@ -184,6 +184,16 @@ describe("from-mermaid", () => {
     expect(spawnSync("node", [bin, f], { encoding: "utf8" }).status).toBe(1);
   });
 });
+test("--theme overrides the document theme; an unknown theme exits 2", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "t.ene");
+  writeFileSync(f, "theme mono\na -> b");
+  execFileSync("node", [bin, f]);
+  expect(readFileSync(join(d, "t.svg"), "utf8")).toContain("ene-theme-mono");
+  execFileSync("node", [bin, f, "--theme", "high-contrast"]);
+  expect(readFileSync(join(d, "t.svg"), "utf8")).toContain("ene-theme-high-contrast");
+  const r = runCli([f, "--theme", "neon"]);
+  expect(r.status).toBe(2); expect(r.stderr).toContain('unknown theme "neon"');
+});
 test("notes are captions in the SVG unless --no-notes", () => {
   const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "n.ene");
   writeFileSync(f, "a -> b\nnote why this step\n");

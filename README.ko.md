@@ -330,6 +330,35 @@ ene flow.ene -o miss.svg --choice 1
 
 내보낸 SVG 는 스크립트 없이 SMIL 애니메이션으로 움직여요. 반복 재생하고, 다크 모드를 따르고, `prefers-reduced-motion` 에서는 움직이는 점 없이 모든 단계를 한 번에 보여줘요. SVG 를 정화(sanitize)하는 일부 호스트에서는 애니메이션이 빠질 수 있어요.
 
+### 테마
+
+소스에서는 `theme <이름>`, CLI 에서는 `--theme <이름>`(소스보다 우선), 브라우저에서는 `ene.render(el, src, { theme })` / `eneConfig.theme` / `<pre class="ene" data-theme="mono">` 로 정해요. 테마마다 밝은 변형과 어두운 변형이 있고 `prefers-color-scheme` 을 따라가요.
+
+| 테마 | 용도 |
+|---|---|
+| `default` | 기본 모양 |
+| `mono` | 회색만 써요. 인쇄와 문서용(실패는 ✕ 로 구분돼요) |
+| `high-contrast` | 흑백 바탕에 대비 7:1 이상인 색 |
+
+모든 색은 루트 `<svg class="ene ene-theme-<이름>">` 의 CSS 변수예요:
+
+| 변수 | 쓰이는 곳 |
+|---|---|
+| `--bg` | 배경 |
+| `--node` | 노드 채우기 |
+| `--line` | 노드 테두리, 생명선 |
+| `--faint` | 대기 중인 엣지 |
+| `--fg` / `--fg2` | 노드 라벨과 제목 / 엣지 라벨 |
+| `--ok` / `--fail` / `--reply` / `--async` | 요청, 실패, 응답, 비동기 강조선과 점 |
+
+플레이어를 넣은 페이지에서는 어떤 선택자로든 덮어쓸 수 있어요(플레이어 규칙의 우선순위가 0 이에요). 내보낸 SVG 를 인라인으로 붙였다면 SVG 안의 규칙이 그냥 `svg` 라서 그보다 구체적인 선택자를 쓰세요. 아래는 두 경우 모두 돼요:
+
+```css
+:root svg.ene { --ok: #e11d48; --bg: transparent; }
+```
+
+`<img>` 로 불러온 SVG 는 페이지에서 꾸밀 수 없으니, 렌더할 때 테마를 고르세요.
+
 ### 아이콘 로딩과 네트워크 접근
 
 아이콘은 팩 이름(등록한 팩의 `logos:redis`) 또는 SVG 주소(`http(s)://…`, `./`, `../`, `/`, `data:image/svg+xml,…`)예요.
@@ -359,6 +388,7 @@ ene flow.ene -o miss.svg --choice 1
 | `id[라벨]{icon: …, shape: db, color: #f59e0b}` | 노드 라벨과 모양 |
 | `id[라벨]{…}` 만 있는 줄 | 엣지 없이 노드 선언 |
 | `diagram sequence` | 시퀀스 다이어그램으로 그리기 |
+| `theme mono` | 색 테마: `default`, `mono`, `high-contrast` |
 
 한 줄이 한 단계이고, 위에서 아래로 재생됩니다. 흔한 실수까지 담은 전체 문법은 [SYNTAX.md](SYNTAX.md) 에 있어요(AI 도구용 `llms.txt` 와 같은 내용이에요).
 

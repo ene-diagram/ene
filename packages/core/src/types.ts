@@ -16,6 +16,8 @@ export interface Rank { ids: string[]; span: Span }
 export interface Document {
   kind: "flow" | "sequence";
   title?: string;
+  /** `theme <name>`: one of THEMES (unset = default) */
+  theme?: string;
   speed: number;
   nodes: Map<string, NodeDecl>;
   body: Stmt[];

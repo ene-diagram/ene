@@ -66,7 +66,7 @@ function splitComment(raw: string): { body: string; comment: string } {
   return { body: chars.slice(start, end).join("").trimEnd(), comment: chars.slice(end).join("").trimEnd() };
 }
 
-const KEYWORD_LINE = /^(title|speed|wait|loop|branch|opt|else|end|note|pin|rank|group|diagram)(\s|$)/;
+const KEYWORD_LINE = /^(title|speed|wait|loop|branch|opt|else|end|note|pin|rank|group|diagram|theme)(\s|$)/;
 const NEXT_EDGE = /^\s*[\p{L}\p{N}_-]+?(\[.*?\])?(\{[^}]*\})?\s*(-->|->|-x|~>)(\s|$)/u;
 
 function formatBody(body: string): string {

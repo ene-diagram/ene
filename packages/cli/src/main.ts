@@ -1,11 +1,12 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { buildTimeline, checkIcons, diagnosticToJson, formatAll, formatSource, fromMermaid, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene-diagram/core";
+import { THEMES, buildTimeline, checkIcons, diagnosticToJson, formatAll, formatSource, fromMermaid, isIconUrl, isTheme, parse, type ThemeName, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
 import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, loopSeconds, renderSvg, type IconLoadResult } from "@ene-diagram/svg";
 
 const USAGE = `usage: ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1]
                  [--icons pack.json ...] [--no-network] [--allow-host host ...] [--fps n] [--scale n] [--no-notes]
+                 [--theme default|mono|high-contrast]
        ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
        ene fmt <input.ene ...> [--check | --write]
        ene from-mermaid <input.mmd|input.md|-> [-o out.ene|-]
@@ -174,7 +175,7 @@ export async function main(argv: string[]): Promise<number> {
   const packFiles: string[] = [];
   const net: NetPolicy = { network: true };
   let input: string | undefined, out: string | undefined, lang: Lang = "en", choices: number[] = [];
-  let fps: number | undefined, scale: number | undefined, notes = true;
+  let fps: number | undefined, scale: number | undefined, theme: ThemeName | undefined, notes = true;
   const bad = () => { console.error(USAGE); return 2; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -190,6 +191,11 @@ export async function main(argv: string[]): Promise<number> {
     else if (a === "--fps" || a === "--scale") {
       const v = Number(val()); if (!(v > 0) || !Number.isFinite(v)) return bad();
       if (a === "--fps") fps = v; else scale = v;
+    }
+    else if (a === "--theme") {
+      const v = val() ?? "";
+      if (!isTheme(v)) { console.error(`error: unknown theme "${v}" (use one of ${THEMES.join(", ")})`); return 2; }
+      theme = v;
     }
     else if (a === "--no-network") net.network = false;
     else if (a === "--no-notes") notes = false;
@@ -238,7 +244,8 @@ export async function main(argv: string[]): Promise<number> {
     else console.error(`warning: cannot load icon ${urlRefs[i]}: ${res.reason}`);
   });
   const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
-  const svg = renderSvg(lay, tl, { title: doc.title, icons, notes });
+  // --theme wins over the document's `theme` setting
+  const svg = renderSvg(lay, tl, { title: doc.title, icons, notes, theme: theme ?? (doc.theme as ThemeName | undefined) });
   const target = out ?? (fromStdin ? "-" : input.replace(/\.[^./\\]+$/, "") + ".svg");
   const summary = `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
   const video = /\.(gif|mp4)$/i.exec(target)?.[1].toLowerCase() as "gif" | "mp4" | undefined;

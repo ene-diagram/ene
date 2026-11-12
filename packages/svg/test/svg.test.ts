@@ -1,6 +1,6 @@
 import { parse, buildTimeline } from "@ene-diagram/core";
-import { layout } from "@ene-diagram/layout";
-import { renderSvg } from "../src/index";
+import { layout, layoutSequence } from "@ene-diagram/layout";
+import { renderSvg, themeCss, THEMES, THEME_VARS, type ThemeName } from "../src/index";
 const make = async (src: string) => {
   const { doc } = parse(src); const tl = buildTimeline(doc);
   return renderSvg(await layout(doc, tl), tl, { title: doc.title });
@@ -27,6 +27,31 @@ test("accessibility and preferences", async () => {
   expect(svg).toContain("<title>주문</title>");
   expect(svg).toMatch(/<desc>[^<]*1\. user → api: POST[^<]*2\. api → user: 201/);
   expect(svg).toContain("prefers-reduced-motion"); expect(svg).toContain("prefers-color-scheme: dark");
+});
+
+describe("themes", () => {
+  const doc = parse("a -> b").doc, tl = buildTimeline(doc);
+  const out = (theme?: ThemeName) => renderSvg(layoutSequence(doc, tl), tl, { theme });
+  it("tags the root and emits that theme's variables with a dark variant", () => {
+    for (const t of THEMES) {
+      const svg = out(t);
+      expect(svg).toContain(`class="ene ene-theme-${t}"`);
+      expect(svg).toContain(`svg.ene-theme-${t}{--bg:${THEME_VARS[t].light.bg}`);
+      expect(svg).toContain(`@media (prefers-color-scheme: dark){svg.ene-theme-${t}{--bg:${THEME_VARS[t].dark.bg}`);
+    }
+  });
+  it("scopes inline rules to the theme class with zero specificity", () => {
+    expect(themeCss("mono")).toMatch(/^:where\(svg\.ene-theme-mono\)\{--bg:/);
+  });
+  it("scopes exported rules to the theme class so inline exports don't restyle each other", () => {
+    const a = out("mono"), b = out("high-contrast");
+    expect(a).not.toMatch(/(^|[;}\s])svg\{--/);
+    expect(b).toContain("svg.ene-theme-high-contrast{--bg:");
+  });
+  it("falls back to default for no or unknown theme", () => {
+    expect(out()).toContain("ene-theme-default");
+    expect(out("nope" as ThemeName)).toContain("ene-theme-default");
+  });
 });
 test("step notes are a caption under the diagram, shown while their step plays; notes: false omits them", async () => {
   const src = "a -> b : one\nnote first <why>\nb -> c : two\nc --> a : three\nnote third";
