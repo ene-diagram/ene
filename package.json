@@ -7,9 +7,14 @@
     "test": "vitest run",
     "typecheck": "tsc -b packages/core packages/layout packages/svg packages/player packages/video packages/cli",
     "demo": "node scripts/demo.mjs",
-    "skill:install": "node scripts/install-skill.mjs"
+    "skill:install": "node scripts/install-skill.mjs",
+    "changeset": "changeset",
+    "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.6.7",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
     "@iconify-json/logos": "^1.2.19",
     "@types/node": "^24.19.2",
     "happy-dom": "^21.0.4",
