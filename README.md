@@ -14,6 +14,7 @@ Write data flows as text. Watch the data move.
 
 - [About](#about)
 - [Examples](#examples)
+- [Getting started](#getting-started)
 - [Usage](#usage)
 - [Syntax](#syntax)
 - [Release](#release)
@@ -125,6 +126,26 @@ end
 
 More examples in [`packages/core/examples`](packages/core/examples).
 
+## Getting started
+
+ene is not published to npm yet; use it from source.
+
+**Requirements:** Node.js 20 or newer, pnpm 10 (`corepack enable` picks the pinned version from `package.json`).
+
+```bash
+git clone https://github.com/slop-makers/ene.git
+cd ene
+pnpm install
+pnpm build          # compiles all packages and the browser bundle
+
+printf 'user -> api : GET /\napi --> user : 200\n' > flow.ene
+node packages/cli/bin/ene.mjs flow.ene -o flow.svg
+```
+
+To call it as `ene`, add an alias: `alias ene="node $PWD/packages/cli/bin/ene.mjs"`.
+
+`pnpm test` and `pnpm typecheck` run the checks; `pnpm demo` rebuilds `demo/` and `site/`.
+
 ## Usage
 
 ### In a web page
@@ -147,6 +168,54 @@ ene flow.ene -o flow.svg
 ```
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
+
+### Browser assets
+
+`pnpm build` writes two files to `packages/player/dist/`. Deploy both to the same folder:
+
+| File | What it is |
+|---|---|
+| `ene.js` | the player (~50 KB) |
+| `ene-elk.js` | the ELK layout engine, loaded on first use for flow diagrams |
+
+`ene.js` looks for `ene-elk.js` next to itself. To host it elsewhere, set the URL before the script loads:
+
+```html
+<script>window.eneConfig = { elkUrl: "/assets/ene-elk.js", lang: "en" }</script>
+<script src="/assets/ene.js"></script>
+```
+
+Set `startOnLoad: false` in `eneConfig` to skip the automatic `pre.ene` scan and render yourself:
+
+```js
+const player = await ene.render(element, source, { autoplay: false, loop: true });
+player.setChoices([1]);   // pick arm 1 of the first branch
+player.destroy();          // stop playback and clear the element
+```
+
+`render()` resolves to `undefined` when the source has errors (an error box is shown instead).
+
+### Icon packs
+
+Register [Iconify](https://iconify.design) JSON packs before rendering. `loader` runs once, the first time an icon from the packs is needed:
+
+```js
+ene.registerIconPacks([
+  { name: "logos", loader: () => fetch("/icons/logos.json").then((r) => r.json()) },
+]);
+```
+
+For the CLI, pass `--icons pack.json` (repeatable). `ene icons <svg-dir> --prefix aws -o aws.json` builds a pack from a folder of SVGs.
+
+### Branches in the player and in SVG
+
+The player shows one menu per `branch`, so the reader can replay another path. An exported SVG has no controls: it plays one path, chosen with `--choice` (one zero-based arm per branch, in order; default all `0`):
+
+```bash
+ene flow.ene -o miss.svg --choice 1
+```
+
+Exported SVGs use CSS animation only. They loop, follow dark mode, and hide the moving dots under `prefers-reduced-motion`. Some hosts that sanitize SVGs may strip the animation.
 
 ## Syntax
 
