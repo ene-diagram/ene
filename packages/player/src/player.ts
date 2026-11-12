@@ -1,9 +1,27 @@
-import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene-diagram/core";
+import { buildTimeline, checkIcons, formatAll, isIconUrl, isTheme, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene-diagram/core";
 import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene-diagram/layout";
-import { ARROW_DEFS, STYLE, esc, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene-diagram/svg";
+import { ARROW_DEFS, STYLE, esc, renderSvg, themeClass, themeCss, type ThemeName, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene-diagram/svg";
 import { createController, type Controller } from "./controller.js";
 
-export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
+export interface PlayerOptions {
+  lang?: Lang; autoplay?: boolean; loop?: boolean;
+  /** Initial branch choices: one zero-based arm per branch, in order */
+  choices?: number[];
+  /** Called when the viewer picks another arm in a branch menu (not for `setChoices`) */
+  onChoicesChange?: (choices: number[]) => void;
+  /**
+   * Dim the nodes and edges that are not part of the step playing now (nothing moves).
+   * `"auto"` (default) turns it on for diagrams with at least FOCUS_AUTO_NODES nodes
+   */
+  focus?: boolean | "auto";
+  /** Colour theme; overrides the document's `theme` setting */
+  theme?: ThemeName;
+}
+
+/** Node count from which `focus: "auto"` dims inactive parts */
+export const FOCUS_AUTO_NODES = 12;
+/** Opacity of dimmed parts in focus mode */
+const DIM = 0.2;
 
 // ---- ELK lazy loading: load ene-elk.js next to ene.js once, on first need ----
 let elkUrl: string | undefined;
@@ -22,7 +40,15 @@ function loadElk(): Promise<ElkApi> {
   });
   return elkPromise;
 }
-export interface Player { controller: Controller; setChoices(choices: number[]): void; destroy(): void }
+export interface Player {
+  controller: Controller;
+  /** Current branch choices (a copy) */
+  readonly choices: number[];
+  setChoices(choices: number[]): void;
+  /** The self-playing animated SVG (as `ene -o x.svg` writes it) for the current branch choices */
+  toSvg(): string;
+  destroy(): void;
+}
 
 const NS = "http://www.w3.org/2000/svg";
 const TITLE_H = 44;
@@ -34,9 +60,13 @@ const PLAYER_CSS = `
 .ene-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:#3a4048}
 .ene-bar button,.ene-bar select{font:inherit;padding:4px 10px;border:1px solid #c1c8d2;border-radius:6px;background:#fff;color:#1c2024;cursor:pointer}
 .ene-bar button:hover{background:#f1f3f5}
+.ene-opt{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.ene-note{font-size:14px;line-height:1.5;color:#3a4048;min-height:1.5em;width:0;min-width:100%}
 .ene-step{margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
 .ene-error{color:#e5484d;background:#fff5f5;border:1px solid #ffd1d1;border-radius:8px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre;overflow:auto}
-@media (prefers-color-scheme: dark){.ene-bar{color:#b0b4ba}.ene-bar button,.ene-bar select{background:#1c1d21;color:#edeef0;border-color:#3b3e45}.ene-error{background:#2a1215;border-color:#5c1a1f;color:#ff9592}}`;
+.ene-focus .ene-n,.ene-focus .edge{transition:opacity .25s}.ene-focus .ene-dim{opacity:${DIM}}
+@media (prefers-reduced-motion: reduce){.ene-focus .ene-n,.ene-focus .edge{transition:none}}
+@media (prefers-color-scheme: dark){.ene-note{color:#b0b4ba}.ene-bar{color:#b0b4ba}.ene-bar button,.ene-bar select{background:#1c1d21;color:#edeef0;border-color:#3b3e45}.ene-error{background:#2a1215;border-color:#5c1a1f;color:#ff9592}}`;
 
 export interface IconPackSource { name?: string; pack?: IconPack; loader?: () => Promise<IconPack> }
 const packSources: IconPackSource[] = [];
@@ -135,7 +165,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   });
   const iconWarnings = checkIcons(doc, packs);
   if (iconWarnings.length) console.warn(formatAll(source, iconWarnings, lang));
-  let choices: number[] = [];
+  const clampChoices = (c: number[]) => c.map((v) => (Number.isInteger(v) && v >= 0 ? v : 0));
+  let choices: number[] = clampChoices(opts.choices ?? []);
   let tl = buildTimeline(doc, { choices });
   let lay: Layout;
   try { lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await computeLayout(doc, tl, { elk: await loadElk() }); }
@@ -159,24 +190,37 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   root.setAttribute("aria-label", doc.title ?? "ene diagram");
 
   const offY = doc.title ? TITLE_H : 0;
-  const svg = svgEl("svg", { role: "img" });
+  const theme: ThemeName = [opts.theme, doc.theme].find((t): t is ThemeName => !!t && isTheme(t)) ?? "default";
+  const svg = svgEl("svg", { role: "img", class: `ene ${themeClass(theme)}` });
   const staticG = svgEl("g", { transform: `translate(0 ${offY})` });
+  let staticNodes: { id: string; el: SVGGElement }[] = [], staticEdges: { e: Layout["edges"][number]; el: SVGPathElement }[] = [];
+  const focus = opts.focus === undefined || opts.focus === "auto" ? doc.nodes.size >= FOCUS_AUTO_NODES : opts.focus;
+  if (focus) root.classList.add("ene-focus");
   function drawStatic() {
     svg.setAttribute("viewBox", `0 0 ${lay.width} ${lay.height + offY}`);
     svg.setAttribute("width", String(lay.width));
     svg.setAttribute("height", String(lay.height + offY));
     staticG.innerHTML = lay.groups.map(groupMarkup).join("") + sequenceMarkup(lay) +
       lay.edges.map((e) => `<path d="${e.d}" class="edge"/>`).join("") +
-      lay.nodes.map((n) => nodeMarkup(n, icons)).join("");
+      lay.nodes.map((n) => `<g class="ene-n">${nodeMarkup(n, icons)}</g>`).join("");
+    const nodeEls = staticG.querySelectorAll<SVGGElement>("g.ene-n"), edgeEls = staticG.querySelectorAll<SVGPathElement>("path.edge");
+    staticNodes = lay.nodes.map((n, i) => ({ id: n.id, el: nodeEls[i] })).filter((x) => x.el);
+    staticEdges = lay.edges.map((e, i) => ({ e, el: edgeEls[i] })).filter((x) => x.el);
   }
   svg.innerHTML =
-    `<style>${STYLE}</style>${ARROW_DEFS}<rect width="100%" height="100%" class="bg"/>` +
+    `<style>${STYLE}${themeCss(theme)}</style>${ARROW_DEFS}<rect width="100%" height="100%" class="bg"/>` +
     (doc.title ? `<text x="40" y="34" class="t">${esc(doc.title)}</text>` : "");
   svg.appendChild(staticG);
   drawStatic();
   const dyn = svgEl("g", { transform: `translate(0 ${offY})` });
   svg.appendChild(dyn);
   root.appendChild(svg);
+  // Caption with the note of the current step (same place for flow and sequence diagrams)
+  const noteEl = document.createElement("div");
+  noteEl.className = "ene-note";
+  noteEl.setAttribute("aria-live", "polite");
+  // Only diagrams with notes get the caption; its height is kept so the layout does not jump between steps
+  if (hasNotes(doc.body)) root.appendChild(noteEl);
 
   // ---- controls ----
   const bar = document.createElement("div");
@@ -198,11 +242,30 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   for (const r of [0.5, 1, 2]) rateSel.add(new Option(`${r}×`, String(r), r === 1, r === 1));
   rateSel.addEventListener("change", () => ctl.setRate(Number(rateSel.value)));
   bar.appendChild(rateSel);
+  const branchSels: HTMLSelectElement[] = [];
+  const syncSels = () => branchSels.forEach((sel, bi) => { sel.value = String(choices[bi] ?? 0); if (sel.selectedIndex < 0) sel.value = "0"; });
   tl.branches.forEach((b, bi) => {
+    if (b.optional) {
+      // `opt`: a toggle; checked = the steps play (arm 0), unchecked = skipped (arm 1)
+      const lab = document.createElement("label");
+      lab.className = "ene-opt";
+      const box = document.createElement("input");
+      box.type = "checkbox"; box.checked = true;
+      box.addEventListener("change", () => { choices[bi] = box.checked ? 0 : 1; rebuild(); });
+      lab.append(box, b.arms[0] || "opt");
+      bar.appendChild(lab);
+      return;
+    }
     const sel = document.createElement("select");
+    branchSels.push(sel);
     sel.setAttribute("aria-label", `${ko ? "분기" : "Branch"} ${bi + 1}`);
     b.arms.forEach((a, ai) => sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai))));
-    sel.addEventListener("change", () => { choices[bi] = Number(sel.value); rebuild(); });
+    sel.addEventListener("change", () => {
+      choices[bi] = Number(sel.value);
+      for (let i = 0; i < bi; i++) choices[i] ??= 0;
+      rebuild();
+      opts.onChoicesChange?.([...choices]);
+    });
     bar.appendChild(sel);
   });
   const stepText = document.createElement("span");
@@ -213,6 +276,9 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   el.appendChild(root);
 
   root.addEventListener("keydown", (ev) => {
+    // Form controls (the `opt` checkbox, menus) keep their own keys
+    const tag = (ev.target as HTMLElement | null)?.tagName;
+    if (tag === "INPUT" || tag === "SELECT") return;
     if (ev.key === " ") { ctl.toggle(); ev.preventDefault(); }
     else if (ev.key === "ArrowRight") { ctl.pause(); ctl.next(); ev.preventDefault(); }
     else if (ev.key === "ArrowLeft") { ctl.pause(); ctl.prev(); ev.preventDefault(); }
@@ -253,12 +319,21 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
 
   function draw() {
     const t = ctl.time;
+    // Focus: while a step plays, everything outside it is dimmed; at the end the whole diagram shows
+    const live = focus && t < tl.total - 1e-9 ? tl.steps[ctl.currentStep()] : undefined;
+    if (focus) {
+      const ids = new Set(live?.edges.flatMap((e) => [e.from, e.to]));
+      const paths = new Set(live?.edges.map((e, k) => edgeFor(lay, live.index, k, e.edgeIndex)));
+      for (const n of staticNodes) n.el.classList.toggle("ene-dim", !!live && !ids.has(n.id));
+      for (const e of staticEdges) e.el.classList.toggle("ene-dim", !!live && !paths.has(e.e));
+    }
+    const on = (s: Timeline["steps"][number]) => (live && s !== live ? String(DIM) : "1");
     items.list.forEach((it, i) => {
       const t0 = it.s.start, t1 = t0 + it.e.duration * 0.85;
       const started = t >= t0 - 1e-9;
-      items.hl[i].style.opacity = started ? "1" : "0";
-      items.lbl[i].style.opacity = started && t < it.nextUse - 1e-9 ? "1" : "0";
-      items.xs[i].style.opacity = t >= t1 ? "1" : "0";
+      items.hl[i].style.opacity = started ? on(it.s) : "0";
+      items.lbl[i].style.opacity = started && t < it.nextUse - 1e-9 ? on(it.s) : "0";
+      items.xs[i].style.opacity = t >= t1 ? on(it.s) : "0";
       const moving = started && t < t1;
       items.dots[i].style.opacity = moving ? "1" : "0";
       if (moving) {
@@ -273,6 +348,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     stepText.textContent = step
       ? `${si + 1}/${tl.steps.length} · ${step.edges.map((e) => `${e.from} → ${e.to}${e.label ? ` ${e.label}` : ""}`).join(", ")}`
       : "";
+    const note = step?.note ?? "";
+    if (noteEl.textContent !== note) noteEl.textContent = note;
   }
 
   function rebuild() {
@@ -307,11 +384,14 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     raf = requestAnimationFrame(frame);
   }
   rebuild();
+  syncSels();
   syncLoop();
 
   const player: Player = {
     get controller() { return ctl; },
-    setChoices(c) { if (!alive) return; choices = [...c]; rebuild(); syncLoop(); },
+    get choices() { return [...choices]; },
+    setChoices(c) { if (!alive) return; choices = clampChoices(c); rebuild(); syncSels(); syncLoop(); },
+    toSvg() { return renderSvg(lay, tl, { title: doc.title, icons, theme }); },
     destroy() {
       if (!alive) return;
       alive = false;
@@ -325,6 +405,10 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   return player;
 }
 
+type Body = Parameters<typeof buildTimeline>[0]["body"];
+const hasNotes = (body: Body): boolean => body.some((s) =>
+  s.type === "step" ? s.note !== undefined : s.type === "loop" ? hasNotes(s.body) : s.type === "branch" ? s.arms.some((a) => hasNotes(a.body)) : false);
+
 /**
  * Replace every `<pre class="ene">` on the page with a player.
  * Resolves to the created players (diagrams with errors are skipped) so callers can destroy them.
@@ -336,7 +420,11 @@ export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): P
     const src = pre.textContent ?? "";
     const host = document.createElement("div");
     pre.replaceWith(host);
-    const p = await render(host, src, opts);
+    // <pre class="ene" data-focus="on|off|auto"> overrides the page-wide option
+    const f = pre.dataset.focus;
+    const focus = f === "on" || f === "" ? true : f === "off" ? false : f === "auto" ? "auto" : opts.focus;
+    const th = pre.dataset.theme;
+    const p = await render(host, src, { ...opts, focus, ...(th && isTheme(th) ? { theme: th } : {}) });
     if (p) players.push(p);
   }
   return players;

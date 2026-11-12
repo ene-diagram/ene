@@ -1,6 +1,6 @@
 import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
-import { esc, fetchIcon, renderSvg } from "@ene-diagram/svg";
+import { esc, fetchIcon, renderSvg, type ThemeName } from "@ene-diagram/svg";
 
 export interface RenderOptions {
   /** Diagnostic language (default "en") */
@@ -49,7 +49,7 @@ export async function renderEne(src: string, opts: RenderOptions = {}): Promise<
   }));
   const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
   const title = opts.title ?? doc.title;
-  return { ok: true, svg: renderSvg(lay, tl, { title, icons }), warnings };
+  return { ok: true, svg: renderSvg(lay, tl, { title, icons, theme: doc.theme as ThemeName | undefined }), warnings };
 }
 
 /**

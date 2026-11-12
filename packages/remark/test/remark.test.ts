@@ -127,3 +127,18 @@ describe("markdown-it plugin", () => {
     expect(html).not.toContain("<script");
   });
 });
+
+describe("themes and notes from main", () => {
+  it("keeps each inline diagram's theme to itself and shows step notes", async () => {
+    const { html } = await toHtml(md(fence("theme mono\na -> b\nnote why") + "\n\n" + fence("theme high-contrast\na ~> b")));
+    const styles = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+    expect(styles).toHaveLength(2);
+    // no rule may target every <svg> on the page
+    for (const s of styles) expect(s).not.toMatch(/(^|[}\s;])svg\{/);
+    const bgRules = styles.map((s) => s.match(/[^{}]*\{--bg:[^;]*/g) ?? []);
+    expect(bgRules[0].join(" ")).toContain("#ffffff");
+    expect(bgRules[0].join(" ")).not.toContain("#000000");
+    expect(bgRules[1].join(" ")).toContain("#000000");
+    expect(html).toContain('class="note"');
+  });
+});

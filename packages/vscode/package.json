@@ -1,0 +1,43 @@
+{
+  "name": "ene-vscode",
+  "displayName": "ene diagrams",
+  "description": "Syntax highlighting, diagnostics, formatting, live preview and SVG export for ene animated diagrams",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "ene-diagram",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/ene-diagram/ene.git", "directory": "packages/vscode" },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages", "Formatters", "Visualization"],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [{ "id": "ene", "aliases": ["ene", "Ene"], "extensions": [".ene"], "configuration": "./language-configuration.json" }],
+    "grammars": [{ "language": "ene", "scopeName": "source.ene", "path": "./syntaxes/ene.tmLanguage.json" }],
+    "commands": [
+      { "command": "ene.openPreview", "title": "Open Preview to the Side", "category": "ene", "icon": "$(open-preview)" },
+      { "command": "ene.exportSvg", "title": "Export SVG", "category": "ene" }
+    ],
+    "menus": {
+      "editor/title": [{ "command": "ene.openPreview", "when": "editorLangId == ene", "group": "navigation" }],
+      "commandPalette": [
+        { "command": "ene.openPreview", "when": "editorLangId == ene" },
+        { "command": "ene.exportSvg", "when": "editorLangId == ene" }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "package": "pnpm build && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@ene-diagram/core": "workspace:*",
+    "@ene-diagram/layout": "workspace:*",
+    "@ene-diagram/svg": "workspace:*",
+    "@ene-diagram/player": "workspace:*",
+    "@types/vscode": "~1.85.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.28.2"
+  }
+}

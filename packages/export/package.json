@@ -1,0 +1,38 @@
+{
+  "name": "@ene-diagram/export",
+  "version": "0.1.0",
+  "description": "In-browser GIF / MP4 / WebM export for ene diagrams",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ene-diagram/ene.git",
+    "directory": "packages/export"
+  },
+  "homepage": "https://github.com/ene-diagram/ene#readme",
+  "bugs": "https://github.com/ene-diagram/ene/issues",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "bundle": "esbuild src/browser.ts --bundle --format=iife --global-name=eneExport --outfile=dist/ene-export.js --minify"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
