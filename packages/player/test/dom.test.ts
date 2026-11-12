@@ -79,6 +79,30 @@ describe("player DOM", () => {
     p.destroy();
   });
 
+  it("opt reports and restores its choice, and menus after it keep their own index", async () => {
+    const src = "a -> b : one\nopt cached\n  b --> a : two\nend\nbranch hit\n  a -> c : x\nelse miss\n  a -> d : y\nend";
+    const seen: number[][] = [];
+    const el = document.createElement("div"); document.body.appendChild(el);
+    const p = (await render(el, src, { autoplay: false, lang: "en", onChoicesChange: (c) => seen.push(c) }))!;
+    const box = el.querySelector<HTMLInputElement>(".ene-opt input")!;
+    box.checked = false; box.dispatchEvent(new Event("change"));
+    expect(seen.at(-1)).toEqual([1]);
+    const sel = el.querySelector<HTMLSelectElement>('select[aria-label="Branch 2"]')!;
+    sel.value = "1"; sel.dispatchEvent(new Event("change"));
+    expect(seen.at(-1)).toEqual([1, 1]);
+    p.setChoices([0, 1]);
+    expect(box.checked).toBe(true);
+    expect(sel.value).toBe("1");
+    p.destroy();
+
+    const el2 = document.createElement("div"); document.body.appendChild(el2);
+    const p2 = (await render(el2, src, { autoplay: false, lang: "en", choices: [1, 0] }))!;
+    expect(el2.querySelector<HTMLInputElement>(".ene-opt input")!.checked).toBe(false);
+    expect(el2.querySelector<HTMLSelectElement>('select[aria-label="Branch 2"]')!.value).toBe("0");
+    expect(p2.choices).toEqual([1, 0]);
+    p2.destroy();
+  });
+
   it("buttons drive the controller", async () => {
     const el = document.createElement("div"); document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;

@@ -242,30 +242,36 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   for (const r of [0.5, 1, 2]) rateSel.add(new Option(`${r}×`, String(r), r === 1, r === 1));
   rateSel.addEventListener("change", () => ctl.setRate(Number(rateSel.value)));
   bar.appendChild(rateSel);
-  const branchSels: HTMLSelectElement[] = [];
-  const syncSels = () => branchSels.forEach((sel, bi) => { sel.value = String(choices[bi] ?? 0); if (sel.selectedIndex < 0) sel.value = "0"; });
+  // One control per branch, indexed like tl.branches (an `opt` checkbox or an arm menu)
+  const branchCtls: (HTMLSelectElement | HTMLInputElement)[] = [];
+  const syncSels = () => branchCtls.forEach((c, bi) => {
+    if (c instanceof HTMLInputElement) { c.checked = (choices[bi] ?? 0) === 0; return; }
+    c.value = String(choices[bi] ?? 0); if (c.selectedIndex < 0) c.value = "0";
+  });
+  const pick = (bi: number, arm: number) => {
+    choices[bi] = arm;
+    for (let i = 0; i < bi; i++) choices[i] ??= 0;
+    rebuild();
+    opts.onChoicesChange?.([...choices]);
+  };
   tl.branches.forEach((b, bi) => {
     if (b.optional) {
       // `opt`: a toggle; checked = the steps play (arm 0), unchecked = skipped (arm 1)
       const lab = document.createElement("label");
       lab.className = "ene-opt";
       const box = document.createElement("input");
-      box.type = "checkbox"; box.checked = true;
-      box.addEventListener("change", () => { choices[bi] = box.checked ? 0 : 1; rebuild(); });
+      box.type = "checkbox"; box.checked = (choices[bi] ?? 0) === 0;
+      branchCtls[bi] = box;
+      box.addEventListener("change", () => pick(bi, box.checked ? 0 : 1));
       lab.append(box, b.arms[0] || "opt");
       bar.appendChild(lab);
       return;
     }
     const sel = document.createElement("select");
-    branchSels.push(sel);
+    branchCtls[bi] = sel;
     sel.setAttribute("aria-label", `${ko ? "분기" : "Branch"} ${bi + 1}`);
     b.arms.forEach((a, ai) => sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai))));
-    sel.addEventListener("change", () => {
-      choices[bi] = Number(sel.value);
-      for (let i = 0; i < bi; i++) choices[i] ??= 0;
-      rebuild();
-      opts.onChoicesChange?.([...choices]);
-    });
+    sel.addEventListener("change", () => pick(bi, Number(sel.value)));
     bar.appendChild(sel);
   });
   const stepText = document.createElement("span");
