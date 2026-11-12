@@ -77,6 +77,18 @@ end
 api --> client : 200
 ```
 
+## Starting from Mermaid
+
+If the user already has a Mermaid `sequenceDiagram` (a `.mmd` file or a ```` ```mermaid ```` block in Markdown),
+convert it instead of rewriting it by hand, then continue from step 4 of the workflow:
+
+```bash
+node <skill>/ene.mjs from-mermaid diagram.mmd -o diagram.ene
+```
+
+Read the warnings: they name each line that was dropped or changed (notes, activation, `loop` counts).
+Other Mermaid diagram kinds cannot be converted.
+
 ## When something does not fit
 
 - The user wants a static structure (classes, tables, org chart): say ene is the wrong tool and suggest Mermaid.

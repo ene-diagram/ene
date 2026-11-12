@@ -147,3 +147,35 @@ test("fmt prints, --check exits 1 on unformatted files, --write fixes them", () 
   expect(readFileSync(f, "utf8")).toBe("a -> b : hi\nbranch x\n  b --> a\nend\n");
   expect(runCli(["fmt", "--check", f]).status).toBe(0);
 });
+describe("from-mermaid", () => {
+  const mmd = "sequenceDiagram\n  participant A as Alice\n  A->>+B: hello\n  alt ok\n    B-->>-A: hi\n  else down\n    B--xA: 503\n  end\n";
+  test("prints .ene on stdout, warnings with file:line on stderr", () => {
+    const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "s.mmd"); writeFileSync(f, mmd);
+    const r = spawnSync("node", [bin, "from-mermaid", f], { encoding: "utf8" });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe("diagram sequence\n\nA[Alice]\nB[B]\n\nA -> B : hello\nbranch ok\n  B --> A : hi\nelse down\n  B -x A : 503\nend\n");
+    expect(r.stderr).toContain(`warning: ${f}:3: activation bars are not drawn (and on 1 more line)`);
+  });
+  test("reads stdin and writes -o; the result checks clean", () => {
+    const d = mkdtempSync(join(tmpdir(), "ene-")); const out = join(d, "s.ene");
+    const r = spawnSync("node", [bin, "from-mermaid", "-", "-o", out], { input: mmd, encoding: "utf8" });
+    expect(r.status).toBe(0); expect(r.stdout).toBe("");
+    expect(spawnSync("node", [bin, "check", out, "--json"], { encoding: "utf8" }).stdout.trim()).toBe("[]");
+  });
+  test("exit 1 with a message for a diagram that is not a sequence diagram; 2 on usage errors", () => {
+    const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "f.mmd"); writeFileSync(f, "flowchart LR\n a-->b\n");
+    const r = spawnSync("node", [bin, "from-mermaid", f], { encoding: "utf8" });
+    expect(r.status).toBe(1); expect(r.stdout).toBe(""); expect(r.stderr).toContain("only `sequenceDiagram` can be converted");
+    expect(spawnSync("node", [bin, "from-mermaid"], { encoding: "utf8" }).status).toBe(2);
+    expect(spawnSync("node", [bin, "from-mermaid", join(d, "missing.mmd")], { encoding: "utf8" }).status).toBe(1);
+  });
+  test("a .mmd file renders directly, with --choice", () => {
+    const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "s.mmd"); writeFileSync(f, mmd);
+    const r = spawnSync("node", [bin, f, "--choice", "1"], { encoding: "utf8" });
+    expect(r.status).toBe(0);
+    const svg = readFileSync(join(d, "s.svg"), "utf8");
+    expect(svg).toContain("503"); expect(svg).toContain("Alice");
+    writeFileSync(f, "flowchart LR\n a-->b\n");
+    expect(spawnSync("node", [bin, f], { encoding: "utf8" }).status).toBe(1);
+  });
+});

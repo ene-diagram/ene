@@ -186,6 +186,18 @@ ene fmt --check *.ene       # 정리 안 된 파일이 있으면 종료 코드 1
 
 만들어진 SVG 는 스크립트 없이 스스로 반복 재생되고, 다크 모드와 모션 줄이기 설정을 따릅니다.
 
+### Mermaid 시퀀스 다이어그램에서
+
+이미 Mermaid `sequenceDiagram` 이 있다면 변환하거나 바로 그릴 수 있어요:
+
+```bash
+ene from-mermaid diagram.mmd > diagram.ene   # 고칠 수 있는 .ene 소스
+ene from-mermaid README.md -o flow.ene       # 마크다운 파일의 첫 ```mermaid 시퀀스 블록을 읽어요
+ene diagram.mmd -o diagram.svg               # 변환과 렌더링을 한 번에
+```
+
+메시지, 참여자, `alt`/`else`, `opt`, `loop`, `par` 를 변환해요. 노트는 주석이 되고, 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요. `sequenceDiagram` 만 지원해요.
+
 ### Claude 와 함께
 
 저장소에 Claude 스킬(`skills/ene`)이 들어 있어요. 설명이나 코드를 보고 `.ene` 파일을 쓰고, `ene check --json` 이 깨끗해질 때까지 고친 뒤, 정리하고 SVG 로 그려요.
