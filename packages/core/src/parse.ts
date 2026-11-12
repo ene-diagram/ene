@@ -1,5 +1,5 @@
 import { scan, type Line } from "./scan.js";
-import type { Code } from "./diagnostics.js";
+import { suggest, type Code } from "./diagnostics.js";
 import type { Diagnostic, Document, Edge, NodeDecl, ParseResult, Span, Stmt } from "./types.js";
 
 const ID_CHAR = /[\p{L}\p{N}_-]/u;
@@ -18,6 +18,7 @@ type Frame =
 
 class Parser {
   private stack: Frame[] = [];
+  private hints: { kind: "pin" | "rank"; ids: { id: string; from: number; to: number }[]; line: Line; col?: number; row?: number }[] = [];
   private nodes = new Map<string, NodeDecl>();
   private labeled = new Set<string>();
   private diags: Diagnostic[] = [];
@@ -34,6 +35,7 @@ class Parser {
       if (f.kind === "branch") this.checkArm(f);
       this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind });
     }
+    this.resolveHints();
     if (this.doc.body.length === 0 && !this.diags.some((d) => d.severity === "error"))
       this.diags.push({ code: "E101", severity: "error", span: { line: 1, col: 1, length: 0 }, args: {} });
     return { doc: this.doc, diagnostics: this.diags };
@@ -72,6 +74,7 @@ class Parser {
       return void (this.doc.speed = n);
     }
     const whole = this.span(l, 0, t.length);
+    if (word === "pin" || word === "rank") return this.hint(l, t, word);
     if (word === "end") {
       const f = this.stack.pop();
       if (!f) return this.report("E204", l, 0, 3);
@@ -198,6 +201,48 @@ class Parser {
     }
     this.report("E105", l, i, i + 1);
     return null;
+  }
+
+  hint(l: Line, t: string[], kind: "pin" | "rank") {
+    const ids: { id: string; from: number; to: number }[] = [];
+    let pos = skip(t, kind.length);
+    while (pos < t.length) {
+      const start = pos;
+      while (pos < t.length && !/\s/.test(t[pos])) pos++;
+      ids.push({ id: t.slice(start, pos).join(""), from: start, to: pos });
+      pos = skip(t, pos);
+    }
+    if (kind === "rank") {
+      if (ids.length < 2) return this.report("E102", l, 0, t.length, { word: "rank" });
+      return void this.hints.push({ kind, ids, line: l });
+    }
+    const coord = ids[1]?.id.match(/^(\d+),(\d+)$/);
+    if (ids.length !== 2 || !coord) {
+      const at = ids[1] ?? { from: t.length, to: t.length };
+      return this.report("E402", l, at.from, at.to, { value: ids[1]?.id ?? "" });
+    }
+    this.hints.push({ kind, ids: [ids[0]], line: l, col: Number(coord[1]), row: Number(coord[2]) });
+  }
+
+  resolveHints() {
+    const cells = new Map<string, string>();
+    for (const h of this.hints) {
+      const missing = h.ids.find((x) => !this.nodes.has(x.id));
+      if (missing) {
+        const sug = suggest(missing.id, this.nodes.keys());
+        this.report("E401", h.line, missing.from, missing.to, sug ? { name: missing.id, suggestion: sug } : { name: missing.id });
+        continue;
+      }
+      const span = this.span(h.line, 0, [...h.line.text].length);
+      if (h.kind === "rank") { this.doc.ranks.push({ ids: h.ids.map((x) => x.id), span }); continue; }
+      const key = `${h.col},${h.row}`, id = h.ids[0].id, other = cells.get(key);
+      if (other) {
+        this.report("E403", h.line, 0, [...h.line.text].length, { name: id, other, cell: key });
+        continue;
+      }
+      cells.set(key, id);
+      this.doc.pins.push({ id, col: h.col!, row: h.row!, span });
+    }
   }
 
   declare(l: Line, r: Ref) {
