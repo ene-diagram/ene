@@ -126,6 +126,39 @@ describe("player DOM", () => {
     p.destroy();
   });
 
+  it("focus dims nodes and edges outside the playing step and clears at the end", async () => {
+    const el = document.createElement("div"); document.body.appendChild(el);
+    const p = (await render(el, "a -> b : one\nb -> c : two\nc -> d : three", { autoplay: false, lang: "en", focus: true }))!;
+    const root = el.querySelector(".ene-player")!;
+    expect(root.classList.contains("ene-focus")).toBe(true);
+    const dimmed = () => [...root.querySelectorAll("g.ene-n")].map((g) => g.classList.contains("ene-dim"));
+    expect(dimmed()).toEqual([false, false, true, true]);
+    key(root, "ArrowRight");
+    expect(dimmed()).toEqual([true, false, false, true]);
+    expect([...root.querySelectorAll("path.edge")].map((e) => e.classList.contains("ene-dim"))).toEqual([true, false, true]);
+    const hl = root.querySelectorAll<SVGPathElement>("path.hl");
+    expect(hl[0].style.opacity).toBe("0.2");
+    expect(hl[1].style.opacity).toBe("1");
+    p.controller.time = p.controller.total; key(root, "ArrowRight");
+    expect(dimmed()).toEqual([false, false, false, false]);
+    expect(hl[0].style.opacity).toBe("1");
+    p.destroy();
+  });
+
+  it("focus is off for small diagrams by default and can be forced off", async () => {
+    const el = document.createElement("div"); document.body.appendChild(el);
+    const big = Array.from({ length: 12 }, (_, i) => `n${i} -> n${i + 1}`).join("\n");
+    let p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;
+    expect(el.querySelector(".ene-focus")).toBeNull();
+    p = (await render(el, big, { autoplay: false, lang: "en" }))!;
+    expect(el.querySelector(".ene-focus")).not.toBeNull();
+    expect(el.querySelectorAll("g.ene-dim").length).toBe(11);
+    p = (await render(el, big, { autoplay: false, lang: "en", focus: false }))!;
+    expect(el.querySelector(".ene-focus")).toBeNull();
+    expect(el.querySelectorAll(".ene-dim").length).toBe(0);
+    p.destroy();
+  });
+
   it("shows a localized error box and returns undefined for invalid source", async () => {
     const el = document.createElement("div"); document.body.appendChild(el);
     expect(await render(el, "a ->", { lang: "ko" })).toBeUndefined();

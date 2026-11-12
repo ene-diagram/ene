@@ -9,7 +9,17 @@ export interface PlayerOptions {
   choices?: number[];
   /** Called when the viewer picks another arm in a branch menu (not for `setChoices`) */
   onChoicesChange?: (choices: number[]) => void;
+  /**
+   * Dim the nodes and edges that are not part of the step playing now (nothing moves).
+   * `"auto"` (default) turns it on for diagrams with at least FOCUS_AUTO_NODES nodes
+   */
+  focus?: boolean | "auto";
 }
+
+/** Node count from which `focus: "auto"` dims inactive parts */
+export const FOCUS_AUTO_NODES = 12;
+/** Opacity of dimmed parts in focus mode */
+const DIM = 0.2;
 
 // ---- ELK lazy loading: load ene-elk.js next to ene.js once, on first need ----
 let elkUrl: string | undefined;
@@ -52,6 +62,8 @@ const PLAYER_CSS = `
 .ene-note{font-size:14px;line-height:1.5;color:#3a4048;min-height:1.5em;width:0;min-width:100%}
 .ene-step{margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
 .ene-error{color:#e5484d;background:#fff5f5;border:1px solid #ffd1d1;border-radius:8px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre;overflow:auto}
+.ene-focus .ene-n,.ene-focus .edge{transition:opacity .25s}.ene-focus .ene-dim{opacity:${DIM}}
+@media (prefers-reduced-motion: reduce){.ene-focus .ene-n,.ene-focus .edge{transition:none}}
 @media (prefers-color-scheme: dark){.ene-note{color:#b0b4ba}.ene-bar{color:#b0b4ba}.ene-bar button,.ene-bar select{background:#1c1d21;color:#edeef0;border-color:#3b3e45}.ene-error{background:#2a1215;border-color:#5c1a1f;color:#ff9592}}`;
 
 export interface IconPackSource { name?: string; pack?: IconPack; loader?: () => Promise<IconPack> }
@@ -178,13 +190,19 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   const offY = doc.title ? TITLE_H : 0;
   const svg = svgEl("svg", { role: "img" });
   const staticG = svgEl("g", { transform: `translate(0 ${offY})` });
+  let staticNodes: { id: string; el: SVGGElement }[] = [], staticEdges: { e: Layout["edges"][number]; el: SVGPathElement }[] = [];
+  const focus = opts.focus === undefined || opts.focus === "auto" ? doc.nodes.size >= FOCUS_AUTO_NODES : opts.focus;
+  if (focus) root.classList.add("ene-focus");
   function drawStatic() {
     svg.setAttribute("viewBox", `0 0 ${lay.width} ${lay.height + offY}`);
     svg.setAttribute("width", String(lay.width));
     svg.setAttribute("height", String(lay.height + offY));
     staticG.innerHTML = lay.groups.map(groupMarkup).join("") + sequenceMarkup(lay) +
       lay.edges.map((e) => `<path d="${e.d}" class="edge"/>`).join("") +
-      lay.nodes.map((n) => nodeMarkup(n, icons)).join("");
+      lay.nodes.map((n) => `<g class="ene-n">${nodeMarkup(n, icons)}</g>`).join("");
+    const nodeEls = staticG.querySelectorAll<SVGGElement>("g.ene-n"), edgeEls = staticG.querySelectorAll<SVGPathElement>("path.edge");
+    staticNodes = lay.nodes.map((n, i) => ({ id: n.id, el: nodeEls[i] })).filter((x) => x.el);
+    staticEdges = lay.edges.map((e, i) => ({ e, el: edgeEls[i] })).filter((x) => x.el);
   }
   svg.innerHTML =
     `<style>${STYLE}</style>${ARROW_DEFS}<rect width="100%" height="100%" class="bg"/>` +
@@ -298,12 +316,21 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
 
   function draw() {
     const t = ctl.time;
+    // Focus: while a step plays, everything outside it is dimmed; at the end the whole diagram shows
+    const live = focus && t < tl.total - 1e-9 ? tl.steps[ctl.currentStep()] : undefined;
+    if (focus) {
+      const ids = new Set(live?.edges.flatMap((e) => [e.from, e.to]));
+      const paths = new Set(live?.edges.map((e, k) => edgeFor(lay, live.index, k, e.edgeIndex)));
+      for (const n of staticNodes) n.el.classList.toggle("ene-dim", !!live && !ids.has(n.id));
+      for (const e of staticEdges) e.el.classList.toggle("ene-dim", !!live && !paths.has(e.e));
+    }
+    const on = (s: Timeline["steps"][number]) => (live && s !== live ? String(DIM) : "1");
     items.list.forEach((it, i) => {
       const t0 = it.s.start, t1 = t0 + it.e.duration * 0.85;
       const started = t >= t0 - 1e-9;
-      items.hl[i].style.opacity = started ? "1" : "0";
-      items.lbl[i].style.opacity = started && t < it.nextUse - 1e-9 ? "1" : "0";
-      items.xs[i].style.opacity = t >= t1 ? "1" : "0";
+      items.hl[i].style.opacity = started ? on(it.s) : "0";
+      items.lbl[i].style.opacity = started && t < it.nextUse - 1e-9 ? on(it.s) : "0";
+      items.xs[i].style.opacity = t >= t1 ? on(it.s) : "0";
       const moving = started && t < t1;
       items.dots[i].style.opacity = moving ? "1" : "0";
       if (moving) {
@@ -390,7 +417,10 @@ export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): P
     const src = pre.textContent ?? "";
     const host = document.createElement("div");
     pre.replaceWith(host);
-    const p = await render(host, src, opts);
+    // <pre class="ene" data-focus="on|off|auto"> overrides the page-wide option
+    const f = pre.dataset.focus;
+    const focus = f === "on" || f === "" ? true : f === "off" ? false : f === "auto" ? "auto" : opts.focus;
+    const p = await render(host, src, { ...opts, focus });
     if (p) players.push(p);
   }
   return players;
