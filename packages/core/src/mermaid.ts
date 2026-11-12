@@ -71,10 +71,10 @@ export function fromMermaid(input: string): MermaidResult {
   while (i < lines.length && (!lines[i].text || lines[i].text.startsWith("%%"))) i++;
   const header = lines[i]?.text ?? "";
   if (/^(flowchart|graph)\b/.test(header)) {
-    // Re-read with quote-aware statements; front matter and `%%` lines come out the same, so the header index holds
-    const fl = extract(input, true);
-    const at = fl.findIndex((l) => l.no === lines[i].no && l.text === header);
-    return fromFlowchart(fl, at, title);
+    // Re-read the diagram itself (header to the last line, inside its fence) with quote-aware statements
+    const raw = input.replace(/^﻿/, "").split(/\r\n|\r|\n/);
+    const from = lines[i].no, to = lines[lines.length - 1].no;
+    return fromFlowchart(quotedStatements(raw.slice(from - 1, to).join("\n"), from), 0, title);
   }
   if (!/^sequenceDiagram\b/.test(header)) {
     const kind = header.split(/\s/, 1)[0];
@@ -349,8 +349,8 @@ function flush(warnings: MermaidWarning[], grouped: Map<string, { line: number; 
  * Statements of the diagram with their original line numbers; a ```mermaid fence in Markdown is unwrapped.
  * `;` separates statements on one line, except where it closes an entity such as `#59;` and inside `%%` comments.
  */
-function extract(input: string, quoted = false): { text: string; no: number }[] {
-  const all = quoted ? quotedStatements(input) : input.replace(/^﻿/, "").split(/\r\n|\r|\n/).flatMap((l, k) => {
+function extract(input: string): { text: string; no: number }[] {
+  const all = input.replace(/^﻿/, "").split(/\r\n|\r|\n/).flatMap((l, k) => {
     const line = l.trim();
     const parts = line.startsWith("%%") ? [line] : line.split(/(?<!#\w+);/).map((p) => p.trim()).filter(Boolean);
     return (parts.length ? parts : [""]).map((text) => ({ text, no: k + 1 }));
@@ -445,7 +445,7 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
       if (!sh) warn(line, `the ${shapeName} shape has no ene equivalent; drawn as a box`, `shape-${shapeName}`);
       break;
     }
-    const cfg = rest.match(/^@\{([^}]*)\}/);
+    const cfg = rest.startsWith("@{") ? configBlock(rest) : undefined;
     if (cfg) {
       const sh = cfg[1].match(/shape\s*:\s*["']?([\w-]+)/)?.[1]?.toLowerCase();
       if (sh) declared = true;
@@ -580,19 +580,31 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   return result;
 }
 
+/** `@{ … }` at the start of s, with `}` inside quotes kept: [whole, inside] like a regex match */
+function configBlock(s: string): [string, string] | undefined {
+  let q: string | undefined;
+  for (let k = 2; k < s.length; k++) {
+    const c = s[k];
+    if (q) { if (c === q) q = undefined; }
+    else if (c === '"' || c === "'") q = c;
+    else if (c === "}") return [s.slice(0, k + 1), s.slice(2, k)];
+  }
+  return undefined;
+}
+
 /**
  * Flowchart statements: like extract(), but `;` and line breaks inside `"…"` belong to the label
  * (a multi-line label is joined with spaces and keeps the line number where it starts).
  */
-function quotedStatements(input: string): { text: string; no: number }[] {
+function quotedStatements(input: string, first: number): { text: string; no: number }[] {
   const out: { text: string; no: number }[] = [];
-  let cur = "", no = 1, start = 1, q = false;
+  let cur = "", no = first, start = first, q = false;
   const push = () => {
     const t = cur.trim();
     if (t || !out.length || out[out.length - 1].no !== start) out.push({ text: t, no: start });
     cur = "";
   };
-  for (const c of input.replace(/^﻿/, "").replace(/\r\n?/g, "\n")) {
+  for (const c of input) {
     const comment = cur.trimStart().startsWith("%%");
     if (c === '"' && !comment) q = !q;
     if (c === "\n") {

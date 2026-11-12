@@ -127,3 +127,13 @@ test("quoted labels keep ; | and line breaks; redeclaring a node resets its shap
   expect(r.source).toContain("A -> B\nA -> C : yes | no\nD -> B\nB -> E\nB -> F\nE -> F");
   expect(r.warnings.map((w) => w.line)).toEqual([1, 8]);
 });
+
+test("quotes outside the diagram do not leak in; quoted } inside @{ }", () => {
+  const md = 'Text with an unmatched " quote\n\n```mermaid\nflowchart LR\n  a-->b\n```\nmore "text\n';
+  const r = fromMermaid(md);
+  expect(r.error).toBeUndefined();
+  expect(r.source).toContain("a -> b");
+  const c = fromMermaid('flowchart LR\n a@{ label: "a } b", shape: rect } --> b');
+  expect(c.source).toContain("a[a } b]\n");
+  expect(c.source).toContain("a -> b");
+});
