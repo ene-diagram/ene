@@ -27,3 +27,9 @@ test.each([...CODES])("every code has en and ko message and hint: %s", (c) => {
   expect(MESSAGES.en[c].message).toBeTruthy(); expect(MESSAGES.ko[c].hint).toBeTruthy();
   expect(MESSAGES.ko[c].message).toBeTruthy(); expect(MESSAGES.en[c].hint).toBeTruthy();
 });
+test("E307 for keywords with no value", () => {
+  for (const [src, kw] of [["speed", "speed"], ["a -> b\nwait", "wait"], ["loop\na -> b\nend", "loop"]] as const) {
+    const d = parse(src).diagnostics.find((x) => x.code === "E307");
+    expect(d?.args).toMatchObject({ keyword: kw });
+  }
+});

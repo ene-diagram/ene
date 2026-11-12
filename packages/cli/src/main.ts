@@ -4,7 +4,7 @@ import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, ty
 import { layout, layoutSequence } from "@ene/layout";
 import { iconFromSvgText, renderSvg } from "@ene/svg";
 
-const USAGE = `usage: ene <input.ene> [-o out.svg] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
+const USAGE = `usage: ene <input.ene|-> [-o out.svg|-] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
        ene icons <svg-dir> --prefix <name> [-o pack.json]`;
 
 /** "Arch_AWS-Lambda_48.svg" → "aws-lambda" */
@@ -50,7 +50,8 @@ export async function main(argv: string[]): Promise<number> {
   const bad = () => { console.error(USAGE); return 2; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    const val = () => (i + 1 < argv.length && !argv[i + 1].startsWith("-") ? argv[++i] : undefined);
+    // "-" alone is a value (stdin/stdout), not a flag
+    const val = () => (i + 1 < argv.length && (argv[i + 1] === "-" || !argv[i + 1].startsWith("-")) ? argv[++i] : undefined);
     if (a === "-o" || a === "--out") { out = val(); if (!out) return bad(); }
     else if (a === "--lang") { const v = val(); if (v !== "en" && v !== "ko") return bad(); lang = v; }
     else if (a === "--choice") {
@@ -59,13 +60,14 @@ export async function main(argv: string[]): Promise<number> {
     }
     else if (a === "--icons") { const v = val(); if (!v) return bad(); packFiles.push(v); }
     else if (a === "-h" || a === "--help") { console.log(USAGE); return 0; }
-    else if (a.startsWith("-") || input) return bad();
+    else if ((a.startsWith("-") && a !== "-") || input) return bad();
     else input = a;
   }
   if (!input) return bad();
   let src: string;
-  try { src = readFileSync(input, "utf8"); }
-  catch (e) { console.error(`error: cannot read ${input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
+  const fromStdin = input === "-";
+  try { src = readFileSync(fromStdin ? 0 : input, "utf8"); }
+  catch (e) { console.error(`error: cannot read ${fromStdin ? "stdin" : input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
   const { doc, diagnostics } = parse(src);
   let packs: IconPack[];
   try { packs = packFiles.map((f) => JSON.parse(readFileSync(f, "utf8")) as IconPack); }
@@ -82,14 +84,15 @@ export async function main(argv: string[]): Promise<number> {
   const icons = new Map<string, ResolvedIcon>();
   for (const n of doc.nodes.values()) {
     if (!n.icon || icons.has(n.icon)) continue;
-    const ic = isIconUrl(n.icon) ? await loadIcon(n.icon, dirname(input)) : resolveIcon(n.icon, packs);
+    const ic = isIconUrl(n.icon) ? await loadIcon(n.icon, fromStdin ? process.cwd() : dirname(input)) : resolveIcon(n.icon, packs);
     if (ic) icons.set(n.icon, ic);
     else if (isIconUrl(n.icon)) console.error(`warning: cannot load icon ${n.icon}`);
   }
   const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
   const svg = renderSvg(lay, tl, { title: doc.title, icons });
-  const target = out ?? input.replace(/\.[^./\\]+$/, "") + ".svg";
-  writeFileSync(target, svg);
-  console.log(`✅ ${target} (${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`);
+  const target = out ?? (fromStdin ? "-" : input.replace(/\.[^./\\]+$/, "") + ".svg");
+  const summary = `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
+  if (target === "-") { process.stdout.write(svg); console.error(`✅ stdout ${summary}`); }
+  else { writeFileSync(target, svg); console.log(`✅ ${target} ${summary}`); }
   return 0;
 }

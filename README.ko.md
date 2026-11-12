@@ -144,6 +144,8 @@ api --> user : 200
 
 ```bash
 ene flow.ene -o flow.svg
+cat flow.ene | ene - > flow.svg   # "-" 는 stdin 에서 읽고, 결과는 stdout 으로
+ene flow.ene -o -                # SVG 를 stdout 으로
 ```
 
 만들어진 SVG 는 스크립트 없이 스스로 반복 재생되고, 다크 모드와 모션 줄이기 설정을 따릅니다.

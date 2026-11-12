@@ -144,6 +144,8 @@ Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Sp
 
 ```bash
 ene flow.ene -o flow.svg
+cat flow.ene | ene - > flow.svg   # "-" reads stdin; output goes to stdout
+ene flow.ene -o -                # write the SVG to stdout
 ```
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
