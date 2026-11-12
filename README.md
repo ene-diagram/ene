@@ -186,6 +186,18 @@ ene fmt --check *.ene       # exit 1 if any file is not formatted (CI)
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
+### From a Mermaid sequence diagram
+
+Already have a Mermaid `sequenceDiagram`? Convert it, or render it directly:
+
+```bash
+ene from-mermaid diagram.mmd > diagram.ene   # editable .ene source
+ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid sequence block in a Markdown file
+ene diagram.mmd -o diagram.svg               # convert and render in one go
+```
+
+Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. Notes become comments, and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
+
 ### With Claude
 
 The repo ships a Claude skill (`skills/ene`) that writes a `.ene` file from a description or from your code, runs `ene check --json` until it is clean, formats it and renders the SVG.

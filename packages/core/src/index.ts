@@ -6,3 +6,4 @@ export { formatDiagnostic, formatAll, diagnosticToJson, type DiagnosticJson } fr
 export { CODES, MESSAGES, KEYWORDS, type Code, type Lang } from "./diagnostics.js";
 export { resolveIcon, checkIcons, isIconUrl, validateIconPack, type IconPack, type ResolvedIcon } from "./icons.js";
 export { formatSource } from "./fmt.js";
+export { fromMermaid, type MermaidResult, type MermaidWarning } from "./mermaid.js";

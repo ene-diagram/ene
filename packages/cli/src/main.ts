@@ -1,13 +1,14 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { buildTimeline, checkIcons, diagnosticToJson, formatAll, formatSource, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
+import { buildTimeline, checkIcons, diagnosticToJson, formatAll, formatSource, fromMermaid, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
 import { layout, layoutSequence } from "@ene/layout";
 import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, renderSvg, type IconLoadResult } from "@ene/svg";
 
-const USAGE = `usage: ene <input.ene|-> [-o out.svg|-] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
+const USAGE = `usage: ene <input.ene|input.mmd|-> [-o out.svg|-] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
                  [--no-network] [--allow-host host ...]
        ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
        ene fmt <input.ene ...> [--check | --write]
+       ene from-mermaid <input.mmd|input.md|-> [-o out.ene|-]
        ene icons <svg-dir> --prefix <name> [-o pack.json]`;
 
 /** "Arch_AWS-Lambda_48.svg" → "aws-lambda" */
@@ -114,10 +115,43 @@ function fmtCommand(argv: string[]): number {
   return mode === "check" && changed ? 1 : 0;
 }
 
+const isMermaidFile = (f: string) => /\.(mmd|mermaid)$/i.test(f);
+
+/** Convert Mermaid text, printing warnings (and the error) to stderr. undefined = nothing usable */
+function convertMermaid(text: string, name: string): string | undefined {
+  const r = fromMermaid(text);
+  for (const w of r.warnings) console.error(`warning: ${name}:${w.line}: ${w.message}`);
+  if (r.error) console.error(`error: ${name}: ${r.error}`);
+  return r.error ? undefined : r.source;
+}
+
+/** `ene from-mermaid`: Mermaid sequenceDiagram → .ene source on stdout or -o. Exit 1 if it cannot be converted */
+function fromMermaidCommand(argv: string[]): number {
+  let input: string | undefined, out: string | undefined;
+  const bad = () => { console.error(USAGE); return 2; };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "-o" || a === "--out") { out = argv[++i]; if (!out) return bad(); }
+    else if ((a.startsWith("-") && a !== "-") || input) return bad();
+    else input = a;
+  }
+  if (!input) return bad();
+  const fromStdin = input === "-";
+  let text: string;
+  try { text = readFileSync(fromStdin ? 0 : input, "utf8"); }
+  catch (e) { console.error(`error: cannot read ${fromStdin ? "stdin" : input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
+  const source = convertMermaid(text, fromStdin ? "stdin" : input);
+  if (source === undefined) return 1;
+  if (!out || out === "-") process.stdout.write(source);
+  else { writeFileSync(out, source); console.error(`✅ ${out}`); }
+  return 0;
+}
+
 export async function main(argv: string[]): Promise<number> {
   if (argv[0] === "icons") return iconsCommand(argv.slice(1));
   if (argv[0] === "fmt") return fmtCommand(argv.slice(1));
   if (argv[0] === "check") return checkCommand(argv.slice(1));
+  if (argv[0] === "from-mermaid") return fromMermaidCommand(argv.slice(1));
   const packFiles: string[] = [];
   const net: NetPolicy = { network: true };
   let input: string | undefined, out: string | undefined, lang: Lang = "en", choices: number[] = [];
@@ -144,6 +178,12 @@ export async function main(argv: string[]): Promise<number> {
   const fromStdin = input === "-";
   try { src = readFileSync(fromStdin ? 0 : input, "utf8"); }
   catch (e) { console.error(`error: cannot read ${fromStdin ? "stdin" : input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
+  // A Mermaid sequence diagram renders directly: it is converted first (see `ene from-mermaid`)
+  if (!fromStdin && isMermaidFile(input)) {
+    const converted = convertMermaid(src, input);
+    if (converted === undefined) return 1;
+    src = converted;
+  }
   const { doc, diagnostics } = parse(src);
   const packs: IconPack[] = [];
   for (const f of packFiles) {
