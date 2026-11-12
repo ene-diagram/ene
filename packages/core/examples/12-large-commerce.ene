@@ -1,3 +1,5 @@
+# A large commerce platform with 28 nodes (web/app clients, gateway, many services, data stores and
+# pipelines), to show automatic layout at scale.
 title Large commerce platform (28 nodes)
 web[Web] -> cdn[CDN] : static files
 app[App] -> gw[API Gateway] : request

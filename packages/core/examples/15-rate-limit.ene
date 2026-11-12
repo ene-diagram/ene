@@ -1,0 +1,19 @@
+# A client calls an API behind a rate limiter, three times. Each time the limiter checks a token bucket
+# in Redis. Branch: with tokens left the request is forwarded and answered; when the bucket is empty the
+# limiter rejects it with 429 and the client backs off before the next attempt.
+title Rate-limited API calls
+speed 0.9
+client[Client]{shape: circle} -> limiter[Rate Limiter]{shape: round} : GET /orders
+loop 3
+  limiter -> bucket[Token Bucket]{shape: db, color: #f59e0b} : take token
+  branch token available
+    bucket --> limiter : ok
+    limiter -> api[Orders API] : forward
+    api --> client : 200 @0.6s
+  else bucket empty
+    bucket -x limiter : empty
+    limiter -x client : 429 Too Many Requests
+    wait 0.8
+  end
+  client -> limiter : next request
+end

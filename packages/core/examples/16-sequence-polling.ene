@@ -1,0 +1,18 @@
+# A report export drawn as a sequence diagram: the user starts an export job, a worker builds the file
+# while the browser polls the status twice, then the browser downloads the finished file from storage.
+diagram sequence
+title Export job with polling
+user[User] -> api[API] : POST /exports
+api -> queue[Job Queue]{shape: queue} : enqueue export
+api --> user : 202 job id
+queue -> worker[Worker] : run job @2s
+loop 2
+  wait 0.5
+  user -> api : GET /exports/42
+  api --> user : running
+end
+worker -> store[File Storage]{shape: db} : upload report.csv
+user -> api : GET /exports/42
+api --> user : done + URL
+user -> store : download
+store --> user : report.csv

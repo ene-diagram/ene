@@ -1,3 +1,5 @@
+# Direct upload with a presigned URL: the user uploads an image straight to S3 (slow, 2 s). S3
+# triggers a Lambda that writes two thumbnails and the metadata in parallel.
 title Upload and thumbnails
 user[User] -> api[API] : request upload URL
 api --> user : presigned URL
