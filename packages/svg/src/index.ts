@@ -1,12 +1,31 @@
 import type { Timeline } from "@ene/core";
 import type { ResolvedIcon } from "@ene/core";
-import type { LNode, Layout } from "@ene/layout";
+import type { LGroup, LNode, Layout } from "@ene/layout";
 
 export interface SvgOptions { title?: string; icons?: Map<string, ResolvedIcon> }
 
 const ICON = 24, ICON_PAD = 14;
 
-/** 노드 하나(박스 + 아이콘 + 라벨) 마크업. 플레이어도 같은 것을 쓴다 */
+/** 노드 모양 (박스·알약·원통·큐·원) — fill/stroke 는 인자로 */
+function shapeMarkup(n: LNode, attrs: string): string {
+  const { x, y, w, h } = n;
+  switch (n.shape) {
+    case "round": return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2}" ${attrs}/>`;
+    case "circle": return `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" ${attrs}/>`;
+    case "db": {
+      const e = 8;
+      return `<path d="M${x},${y + e} A${w / 2},${e} 0 0,1 ${x + w},${y + e} V${y + h - e} A${w / 2},${e} 0 0,1 ${x},${y + h - e} Z" ${attrs}/>` +
+        `<path d="M${x},${y + e} A${w / 2},${e} 0 0,0 ${x + w},${y + e}" fill="none" ${attrs.replace(/fill="[^"]*"/, "")}/>`;
+    }
+    case "queue": {
+      const lines = [0, 1, 2].map((i) => { const lx = x + w - 10 - i * 7; return `<line x1="${lx}" y1="${y + 8}" x2="${lx}" y2="${y + h - 8}" ${attrs.replace(/fill="[^"]*"/, "")}/>`; }).join("");
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ${attrs}/>` + lines;
+    }
+    default: return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ${attrs}/>`;
+  }
+}
+
+/** 노드 하나(모양 + 색 + 아이콘 + 라벨) 마크업. 플레이어도 같은 것을 쓴다 */
 export function nodeMarkup(n: LNode, icons: Map<string, ResolvedIcon> = new Map()): string {
   const icon = n.icon ? icons.get(n.icon) : undefined;
   const cy = n.y + n.h / 2;
@@ -14,8 +33,17 @@ export function nodeMarkup(n: LNode, icons: Map<string, ResolvedIcon> = new Map(
     ? `<svg x="${n.x + ICON_PAD}" y="${cy - ICON / 2}" width="${ICON}" height="${ICON}" viewBox="0 0 ${icon.width} ${icon.height}">${icon.body}</svg>`
     : "";
   const lx = icon ? (n.x + ICON_PAD + ICON + n.x + n.w) / 2 : n.x + n.w / 2;
-  return `<g><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="10" class="node"/>${iconSvg}` +
-    `<text x="${lx}" y="${cy}" class="nl">${esc(n.label)}</text></g>`;
+  const c = n.color ? esc(n.color) : undefined;
+  const body = shapeMarkup(n, 'class="node"') +
+    (c ? shapeMarkup(n, `fill="${c}" fill-opacity="0.1" stroke="${c}" stroke-width="1.5"`) : "");
+  return `<g>${body}${iconSvg}<text x="${lx}" y="${cy}" class="nl">${esc(n.label)}</text></g>`;
+}
+
+/** 그룹 상자 (점선 테두리 + 왼쪽 위 라벨) */
+export function groupMarkup(g: LGroup): string {
+  const c = g.color ? esc(g.color) : "var(--line)";
+  return `<g><rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="14" class="grp" fill="${c}" fill-opacity="0.05" stroke="${c}" stroke-width="1.5" stroke-dasharray="6 4"/>` +
+    `<text x="${g.x + 14}" y="${g.y + 21}" class="gl" fill="${c}">${esc(g.label)}</text></g>`;
 }
 
 declare const btoa: (s: string) => string;
@@ -43,7 +71,7 @@ export const STYLE = `
   .dot.ok{fill:var(--ok)} .dot.fail{fill:var(--fail)} .dot.reply{fill:var(--reply)}
   .lbl{text-anchor:middle;font-size:12px;fill:var(--fg2);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
   .x{text-anchor:middle;font-size:18px;font-weight:700;fill:var(--fail)}
-  .t{font-size:17px;font-weight:700;fill:var(--fg)}
+  .t{font-size:17px;font-weight:700;fill:var(--fg)} .gl{font-size:12px;font-weight:600}
   svg{--bg:#fbfcfd;--node:#fff;--line:#c1c8d2;--faint:#d9dde3;--fg:#1c2024;--fg2:#3a4048;--ok:#3e63dd;--fail:#e5484d;--reply:#30a46c}
   @media (prefers-color-scheme: dark){svg{--bg:#111113;--node:#1c1d21;--line:#3b3e45;--faint:#2e3036;--fg:#edeef0;--fg2:#b0b4ba;--ok:#7b9bff;--fail:#ff6369;--reply:#4cc38a}}
   @media (prefers-reduced-motion: reduce){.dot,.x{display:none}.hl,.lbl{opacity:1 !important}}`;
@@ -95,5 +123,5 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
     `<title>${esc(opts.title ?? "ene diagram")}</title><desc>${esc(desc)}</desc><style>${STYLE}</style>` +
     `<rect width="100%" height="100%" class="bg"/>` +
     (opts.title ? `<text x="40" y="34" class="t">${esc(opts.title)}</text>` : "") +
-    `<g transform="translate(0 ${offY})">${base}${nodes}${hl}${labels}${dots}</g></svg>`;
+    `<g transform="translate(0 ${offY})">${(l.groups ?? []).map(groupMarkup).join("")}${base}${nodes}${hl}${labels}${dots}</g></svg>`;
 }

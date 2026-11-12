@@ -1,6 +1,6 @@
 import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene/core";
 import { layout as computeLayout, type ElkApi, type Layout } from "@ene/layout";
-import { STYLE, esc, iconFromSvgText, nodeMarkup } from "@ene/svg";
+import { STYLE, esc, groupMarkup, iconFromSvgText, nodeMarkup } from "@ene/svg";
 import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
@@ -122,7 +122,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   svg.innerHTML =
     `<style>${STYLE}</style><rect width="100%" height="100%" class="bg"/>` +
     (doc.title ? `<text x="40" y="34" class="t">${esc(doc.title)}</text>` : "") +
-    `<g transform="translate(0 ${offY})">` +
+    `<g transform="translate(0 ${offY})">` + lay.groups.map(groupMarkup).join("") +
     lay.edges.map((e) => `<path d="${e.d}" class="edge"/>`).join("") +
     lay.nodes.map((n) => nodeMarkup(n, icons)).join("") +
     `</g>`;
