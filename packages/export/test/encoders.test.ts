@@ -69,6 +69,15 @@ describe("GifEncoder", () => {
     expect(total).toBe(100);
     expect(() => new GifEncoder(1, 1, pal, 60)).toThrow(/50 fps/);
   });
+  it("splits holds longer than the 16-bit delay field", () => {
+    const enc = new GifEncoder(1, 1, new Uint8Array([0, 0, 0, 255, 0, 0]), 1);
+    for (let i = 0; i < 700; i++) enc.add({ width: 1, height: 1, data: new Uint8Array([0, 0, 0, 255]) });
+    const gif = enc.finish();
+    const delays: number[] = [];
+    for (let i = 0; i < gif.length - 5; i++) if (gif[i] === 0x21 && gif[i + 1] === 0xf9 && gif[i + 2] === 4) delays.push(gif[i + 4] | (gif[i + 5] << 8));
+    expect(delays.reduce((a, b) => a + b, 0)).toBe(70000);
+    expect(Math.max(...delays)).toBe(0xffff);
+  });
 });
 
 describe("muxMp4", () => {

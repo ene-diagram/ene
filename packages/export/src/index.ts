@@ -27,13 +27,15 @@ export const DEFAULTS: Record<ExportFormat, { fps: number; scale: number }> = { 
 /** Theme a downloadable animated SVG: `auto` keeps following the viewer's dark mode */
 export const themedSvg = (svg: string, theme: Theme = "auto") => applyTheme(svg, theme);
 
+const WEBM = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
 const H264 = ["avc1.640034", "avc1.640028", "avc1.4d0028", "avc1.42002a", "avc1.42001f"];
 
 /** Which video format this browser can encode without a real-time recording: mp4 (WebCodecs H.264), else webm (MediaRecorder) */
 export async function videoSupport(): Promise<{ mp4: boolean; webm: boolean }> {
   const mp4 = typeof VideoEncoder !== "undefined" &&
     (await Promise.all(H264.map((codec) => VideoEncoder.isConfigSupported({ codec, width: 1280, height: 720 }).then((r) => !!r.supported, () => false)))).some(Boolean);
-  const webm = typeof MediaRecorder !== "undefined" && typeof HTMLCanvasElement !== "undefined" && "captureStream" in HTMLCanvasElement.prototype;
+  const webm = typeof MediaRecorder !== "undefined" && typeof HTMLCanvasElement !== "undefined" && "captureStream" in HTMLCanvasElement.prototype &&
+    WEBM.some((t) => MediaRecorder.isTypeSupported(t));
   return { mp4, webm };
 }
 
@@ -179,7 +181,7 @@ async function encodeMp4(framer: Framer, times: number[], fps: number, opts: Exp
 
 async function recordWebm(framer: Framer, times: number[], fps: number, opts: ExportOptions): Promise<Blob> {
   if (typeof MediaRecorder === "undefined") throw new Error("this browser cannot record video");
-  const type = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((t) => MediaRecorder.isTypeSupported(t));
+  const type = WEBM.find((t) => MediaRecorder.isTypeSupported(t));
   if (!type) throw new Error("this browser cannot record WebM");
   await framer.draw(0);
   const stream = framer.canvas.captureStream(0);

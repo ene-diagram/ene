@@ -145,7 +145,7 @@ export class GifEncoder {
     const { width, height } = this, b = this.bytes;
     // Frame i starts at round(i * 100 / fps) centiseconds, so rounding never drifts
     const cs = (i: number) => Math.round((i * 100) / this.fps);
-    const delay = Math.max(2, cs(end) - cs(f.start));
+    let delay = Math.max(2, cs(end) - cs(f.start));
     let x0 = 0, y0 = 0, x1 = width - 1, y1 = height - 1;
     const prev = this.prev, idx = f.idx;
     if (prev) {
@@ -158,9 +158,16 @@ export class GifEncoder {
     const w = x1 - x0 + 1, h = y1 - y0 + 1;
     const rect = new Uint8Array(w * h);
     for (let y = 0; y < h; y++) rect.set(idx.subarray((y0 + y) * width + x0, (y0 + y) * width + x0 + w), y * w);
-    b.push(0x21, 0xf9, 4, 0x04, delay & 255, (delay >> 8) & 255, 0, 0);
+    // The delay field is 16 bits: a longer hold continues in 1-pixel frames that repeat pixel (0, 0)
+    const gce = (d: number) => b.push(0x21, 0xf9, 4, 0x04, d & 255, (d >> 8) & 255, 0, 0);
+    gce(Math.min(delay, 0xffff));
     b.push(0x2c, x0 & 255, x0 >> 8, y0 & 255, y0 >> 8, w & 255, w >> 8, h & 255, h >> 8, 0);
     lzw(rect, 8, b);
+    for (delay -= 0xffff; delay > 0; delay -= 0xffff) {
+      gce(Math.max(2, Math.min(delay, 0xffff)));
+      b.push(0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0);
+      lzw(idx.subarray(0, 1), 8, b);
+    }
     this.prev = idx;
     this.pending = undefined;
   }
