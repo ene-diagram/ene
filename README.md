@@ -207,6 +207,31 @@ ene fmt --check *.ene       # exit 1 if any file is not formatted (CI)
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
+### Use in a blog
+
+**Hosts that allow a script** (your own site, a Tistory skin, self-hosted WordPress): load the player from a CDN. The major version is pinned, so fixes arrive without breaking changes:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js"></script>
+<pre class="ene">
+user -> api : POST /order
+api --> user : 201
+</pre>
+```
+
+`https://unpkg.com/@ene-diagram/player@0.1/dist/ene.js` works the same way. `ene.js` (~64 KB) loads `ene-elk.js` (~1.6 MB) from the same folder the first time it draws a flow diagram; pages with only `diagram sequence` diagrams never download it.
+
+**Markdown-only hosts** (no scripts): upload an image instead. Use the SVG (`ene flow.ene -o flow.svg`) where the host keeps SVG animation, otherwise a GIF (`-o flow.gif`).
+
+| Host | Route | Status |
+|---|---|---|
+| Self-built sites (Astro, Next, Hugo, Jekyll) | CDN script in the layout | the script works in any HTML page; framework plugins are tracked in #52 |
+| Tistory (skin HTML), self-hosted WordPress | CDN script | untested |
+| velog, Medium, dev.to, Brunch | GIF upload; SVG upload support unknown | untested |
+| Hosts that accept iframes | playground embed view (#47) | not available yet |
+
+Entries marked untested have not been checked on the host yet; reports are welcome.
+
 ### From a Mermaid sequence diagram
 
 Already have a Mermaid `sequenceDiagram`? Convert it, or render it directly:
