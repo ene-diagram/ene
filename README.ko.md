@@ -233,17 +233,19 @@ api --> user : 201
 
 "확인 전"은 그 플랫폼에서 아직 직접 확인하지 않은 항목입니다. 확인해 주시면 반영합니다.
 
-### Mermaid 시퀀스 다이어그램에서
+### Mermaid 에서
 
-이미 Mermaid `sequenceDiagram` 이 있다면 변환하거나 바로 그릴 수 있어요:
+이미 Mermaid `sequenceDiagram`·`flowchart`·`graph` 가 있다면 변환하거나 바로 그릴 수 있어요:
 
 ```bash
 ene from-mermaid diagram.mmd > diagram.ene   # 고칠 수 있는 .ene 소스
-ene from-mermaid README.md -o flow.ene       # 마크다운 파일의 첫 ```mermaid 시퀀스 블록을 읽어요
+ene from-mermaid README.md -o flow.ene       # 마크다운 파일에서 변환할 수 있는 첫 ```mermaid 블록을 읽어요
 ene diagram.mmd -o diagram.svg               # 변환과 렌더링을 한 번에
 ```
 
-메시지, 참여자, `alt`/`else`, `opt`(`break` 도 `opt` 로), `loop`, `par`, 비동기 화살표 `-)`(`~>` 로) 를 변환해요. `Note` 는 바로 위 메시지의 `note` 가 되고(위에 메시지가 없으면 주석), 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요. `sequenceDiagram` 만 지원해요.
+메시지, 참여자, `alt`/`else`, `opt`(`break` 도 `opt` 로), `loop`, `par`, 비동기 화살표 `-)`(`~>` 로) 를 변환해요. `Note` 는 바로 위 메시지의 `note` 가 되고(위에 메시지가 없으면 주석), 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요.
+
+`flowchart`·`graph` 는 흐름 다이어그램이 돼요. 노드는 라벨과 ene 에 있는 모양을 그대로 써요(`(( ))` 원, `( )`·`([ ])` 둥근 상자, `[( )]` db, 나머지는 경고와 함께 상자). 연결선은 소스 순서대로 하나씩 단계가 되고(`|라벨|`·`-- 라벨 -->` 는 라벨로, 점선은 `-->` 로, `--x` 는 `-x` 로), `subgraph` 는 `group` 이 돼요(안쪽 subgraph 는 `in`). 스타일·클래스·클릭 핸들러·subgraph 로 가는 연결선은 경고와 함께 빠져요. 플로차트에는 시간 축이 없어서, 결과 맨 위에 단계 순서를 확인하라는 주석을 달아요.
 
 ### Claude 와 함께
 

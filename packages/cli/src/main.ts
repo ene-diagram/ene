@@ -144,7 +144,7 @@ function convertMermaid(text: string, name: string): string | undefined {
   return r.error ? undefined : r.source;
 }
 
-/** `ene from-mermaid`: Mermaid sequenceDiagram → .ene source on stdout or -o. Exit 1 if it cannot be converted */
+/** `ene from-mermaid`: Mermaid sequenceDiagram / flowchart → .ene source on stdout or -o. Exit 1 if it cannot be converted */
 function fromMermaidCommand(argv: string[]): number {
   let input: string | undefined, out: string | undefined;
   const bad = () => { console.error(USAGE); return 2; };
@@ -203,7 +203,7 @@ export async function main(argv: string[]): Promise<number> {
   const fromStdin = input === "-";
   try { src = readFileSync(fromStdin ? 0 : input, "utf8"); }
   catch (e) { console.error(`error: cannot read ${fromStdin ? "stdin" : input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
-  // A Mermaid sequence diagram renders directly: it is converted first (see `ene from-mermaid`)
+  // A Mermaid sequence diagram or flowchart renders directly: it is converted first (see `ene from-mermaid`)
   if (!fromStdin && isMermaidFile(input)) {
     const converted = convertMermaid(src, input);
     if (converted === undefined) return 1;

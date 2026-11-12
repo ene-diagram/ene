@@ -136,14 +136,14 @@ test("unclosed and stray blocks", () => {
 });
 
 test("a ```mermaid fence in Markdown is unwrapped, with line numbers from the file", () => {
-  const md = "# Doc\n\n```mermaid\nflowchart LR\n a-->b\n```\n\n```mermaid\nsequenceDiagram\n  A->>B: x\n  activate B\n```\n";
+  const md = "# Doc\n\n```mermaid\npie\n \"a\": 1\n```\n\n```mermaid\nsequenceDiagram\n  A->>B: x\n  activate B\n```\n";
   const r = fromMermaid(md);
   expect(r.source).toContain("A -> B : x");
   expect(r.warnings).toEqual([{ line: 11, message: "activation bars are not drawn" }]);
 });
 
 test("errors: other diagram kinds, empty input, no messages, nesting beyond the ene limit", () => {
-  expect(fromMermaid("flowchart LR\n a-->b")).toMatchObject({ source: "", error: "only `sequenceDiagram` can be converted (found `flowchart`)" });
+  expect(fromMermaid("pie\n \"a\": 1")).toMatchObject({ source: "", error: "only `sequenceDiagram`, `flowchart` and `graph` can be converted (found `pie`)" });
   expect(fromMermaid("\n")).toMatchObject({ source: "", error: "no Mermaid diagram found" });
   expect(conv("participant A\nNote over A: x")).toMatchObject({ source: "", error: "the diagram has no messages to play" });
   const deep = conv(`${"opt x\n".repeat(40)}A->>B: y\n${"end\n".repeat(40)}`);
