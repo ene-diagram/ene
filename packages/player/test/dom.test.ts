@@ -124,6 +124,17 @@ describe("player DOM", () => {
     p.destroy();
   });
 
+  it("applies the document theme, and the theme option overrides it (also in toSvg)", async () => {
+    const el = document.createElement("div"); document.body.appendChild(el);
+    let p = (await render(el, "theme mono\na -> b", { autoplay: false, lang: "en" }))!;
+    expect(el.querySelector("svg")!.getAttribute("class")).toBe("ene ene-theme-mono");
+    expect(p.toSvg()).toContain("ene-theme-mono");
+    p = (await render(el, "theme mono\na -> b", { autoplay: false, lang: "en", theme: "high-contrast" }))!;
+    expect(el.querySelector("svg")!.getAttribute("class")).toBe("ene ene-theme-high-contrast");
+    expect(p.toSvg()).toContain("ene-theme-high-contrast");
+    p.destroy();
+  });
+
   it("shows a localized error box and returns undefined for invalid source", async () => {
     const el = document.createElement("div"); document.body.appendChild(el);
     expect(await render(el, "a ->", { lang: "ko" })).toBeUndefined();

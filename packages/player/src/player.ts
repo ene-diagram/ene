@@ -1,6 +1,6 @@
-import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene-diagram/core";
+import { buildTimeline, checkIcons, formatAll, isIconUrl, isTheme, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon, type Timeline } from "@ene-diagram/core";
 import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene-diagram/layout";
-import { ARROW_DEFS, STYLE, esc, renderSvg, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene-diagram/svg";
+import { ARROW_DEFS, STYLE, esc, renderSvg, themeClass, themeCss, type ThemeName, fetchIcon, groupMarkup, iconFromUntrustedSvg, nodeMarkup, sequenceMarkup, type IconFetchOptions, type IconLoadResult } from "@ene-diagram/svg";
 import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions {
@@ -14,6 +14,8 @@ export interface PlayerOptions {
    * `"auto"` (default) turns it on for diagrams with at least FOCUS_AUTO_NODES nodes
    */
   focus?: boolean | "auto";
+  /** Colour theme; overrides the document's `theme` setting */
+  theme?: ThemeName;
 }
 
 /** Node count from which `focus: "auto"` dims inactive parts */
@@ -186,7 +188,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   root.setAttribute("aria-label", doc.title ?? "ene diagram");
 
   const offY = doc.title ? TITLE_H : 0;
-  const svg = svgEl("svg", { role: "img" });
+  const theme: ThemeName = [opts.theme, doc.theme].find((t): t is ThemeName => !!t && isTheme(t)) ?? "default";
+  const svg = svgEl("svg", { role: "img", class: `ene ${themeClass(theme)}` });
   const staticG = svgEl("g", { transform: `translate(0 ${offY})` });
   let staticNodes: { id: string; el: SVGGElement }[] = [], staticEdges: { e: Layout["edges"][number]; el: SVGPathElement }[] = [];
   const focus = opts.focus === undefined || opts.focus === "auto" ? doc.nodes.size >= FOCUS_AUTO_NODES : opts.focus;
@@ -203,7 +206,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     staticEdges = lay.edges.map((e, i) => ({ e, el: edgeEls[i] })).filter((x) => x.el);
   }
   svg.innerHTML =
-    `<style>${STYLE}</style>${ARROW_DEFS}<rect width="100%" height="100%" class="bg"/>` +
+    `<style>${STYLE}${themeCss(theme)}</style>${ARROW_DEFS}<rect width="100%" height="100%" class="bg"/>` +
     (doc.title ? `<text x="40" y="34" class="t">${esc(doc.title)}</text>` : "");
   svg.appendChild(staticG);
   drawStatic();
@@ -364,7 +367,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     get controller() { return ctl; },
     get choices() { return [...choices]; },
     setChoices(c) { if (!alive) return; choices = clampChoices(c); rebuild(); syncSels(); syncLoop(); },
-    toSvg() { return renderSvg(lay, tl, { title: doc.title, icons }); },
+    toSvg() { return renderSvg(lay, tl, { title: doc.title, icons, theme }); },
     destroy() {
       if (!alive) return;
       alive = false;
@@ -392,7 +395,8 @@ export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): P
     // <pre class="ene" data-focus="on|off|auto"> overrides the page-wide option
     const f = pre.dataset.focus;
     const focus = f === "on" || f === "" ? true : f === "off" ? false : f === "auto" ? "auto" : opts.focus;
-    const p = await render(host, src, { ...opts, focus });
+    const th = pre.dataset.theme;
+    const p = await render(host, src, { ...opts, focus, ...(th && isTheme(th) ? { theme: th } : {}) });
     if (p) players.push(p);
   }
   return players;

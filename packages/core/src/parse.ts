@@ -1,5 +1,6 @@
 import { scan, type Line } from "./scan.js";
 import { KEYWORDS, suggest, type Code } from "./diagnostics.js";
+import { THEMES, isTheme } from "./themes.js";
 import { SHAPES, type Shape } from "./types.js";
 import type { Diagnostic, Document, Edge, EdgeKind, Group, NodeDecl, ParseResult, Span, Stmt } from "./types.js";
 
@@ -133,7 +134,7 @@ class Parser {
       if (word !== "title" && word !== "branch" && word !== "else") return this.report("E115", l, 0, word.length, { keyword: word });
       this.report("W109", l, 0, word.length, { keyword: word });
     }
-    if (word === "title" || word === "diagram" || word === "speed") {
+    if (word === "title" || word === "diagram" || word === "speed" || word === "theme") {
       if (this.settings.has(word)) this.report("W107", l, 0, word.length, { keyword: word });
       this.settings.add(word);
     }
@@ -145,8 +146,15 @@ class Parser {
       if (rest !== "flow" && rest !== "sequence") return this.report("E112", l, 8, t.length, { value: rest });
       return void (this.doc.kind = rest);
     }
-    const EXAMPLES: Record<string, string> = { speed: "speed 1.2", wait: "wait 0.5", loop: "loop 3" };
+    const EXAMPLES: Record<string, string> = { speed: "speed 1.2", wait: "wait 0.5", loop: "loop 3", theme: "theme mono" };
     if (!rest && word in EXAMPLES) return this.report("E307", l, 0, t.length, { keyword: word, example: EXAMPLES[word] });
+    if (word === "theme") {
+      if (!isTheme(rest)) {
+        const suggestion = suggest(rest, [...THEMES]);
+        return this.report("E116", l, 6, t.length, { value: rest, themes: THEMES.join(", "), ...(suggestion ? { suggestion } : {}) });
+      }
+      return void (this.doc.theme = rest);
+    }
     if (word === "speed") {
       const n = Number(rest);
       if (!rest || !(n > 0) || !Number.isFinite(n)) return this.report("E304", l, 0, t.length, { value: rest });

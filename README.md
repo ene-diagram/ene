@@ -291,6 +291,35 @@ ene flow.ene -o miss.svg --choice 1
 
 Exported SVGs animate with SMIL (no script). They loop, follow dark mode, and under `prefers-reduced-motion` show every step at once without moving dots. Some hosts that sanitize SVGs may strip the animation.
 
+### Themes
+
+`theme <name>` in the source, `--theme <name>` on the CLI (wins over the source) or `ene.render(el, src, { theme })` / `eneConfig.theme` / `<pre class="ene" data-theme="mono">` in the browser. Each theme has a light and a dark variant that follows `prefers-color-scheme`.
+
+| Theme | Use |
+|---|---|
+| `default` | the standard look |
+| `mono` | greys only, for print and documents (failures keep their ✕) |
+| `high-contrast` | black/white surfaces, colours with at least 7:1 contrast |
+
+Every colour is a CSS variable on the root `<svg class="ene ene-theme-<name>">`:
+
+| Variable | Used for |
+|---|---|
+| `--bg` | background |
+| `--node` | node fill |
+| `--line` | node borders, lifelines |
+| `--faint` | idle edges |
+| `--fg` / `--fg2` | node labels and title / edge labels |
+| `--ok` / `--fail` / `--reply` | request, failure and response highlights and dots |
+
+A page that embeds the player (or an inline SVG) can override them. The SVG's own rule is `svg.ene-theme-<name>`, so use a more specific selector:
+
+```css
+:root svg.ene { --ok: #e11d48; --bg: transparent; }
+```
+
+An SVG loaded through `<img>` cannot be styled by the page; pick a theme when rendering instead.
+
 ### Icon loading and network access
 
 An icon is either a pack name (`logos:redis`, from packs you register) or an SVG address: `http(s)://…`, `./`, `../`, `/` or `data:image/svg+xml,…`.
@@ -317,6 +346,7 @@ An icon is either a pack name (`logos:redis`, from packs you register) or an SVG
 | `id[Label]{icon: …, shape: db, color: #f59e0b}` | node label and style |
 | `id[Label]{…}` on its own line | declare a node without an edge |
 | `diagram sequence` | draw as a sequence diagram |
+| `theme mono` | colour theme: `default`, `mono`, `high-contrast` |
 
 One line is one step, played top to bottom. The complete reference, with common mistakes, is in [SYNTAX.md](SYNTAX.md) (also served as `llms.txt` for AI tools).
 

@@ -1,5 +1,6 @@
-import type { Timeline } from "@ene-diagram/core";
+import { isTheme, type Timeline } from "@ene-diagram/core";
 import type { ResolvedIcon } from "@ene-diagram/core";
+import { themeClass, themeCss, type ThemeName } from "./themes.js";
 import { edgeFor, type LEdge, type LFrame, type LGroup, type LNode, type Layout } from "@ene-diagram/layout";
 
 /** Path id: per unique edge for flow, per step and index for sequence */
@@ -14,7 +15,11 @@ export function sequenceMarkup(l: Layout): string {
   return frames + lines;
 }
 
-export interface SvgOptions { title?: string; icons?: Map<string, ResolvedIcon> }
+export interface SvgOptions {
+  title?: string; icons?: Map<string, ResolvedIcon>;
+  /** Colour theme (the document's `theme` setting; default "default") */
+  theme?: ThemeName;
+}
 
 const ICON = 24, ICON_PAD = 14;
 
@@ -105,14 +110,14 @@ export const STYLE = `
   .t{font-size:17px;font-weight:700;fill:var(--fg)} .gl{font-size:12px;font-weight:600}
   .life{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5} .frame{fill:var(--ok);fill-opacity:.04;stroke:var(--line);stroke-width:1.2}
   .fl{font-size:11px;font-weight:700;fill:var(--fg2)}
-  svg{--bg:#fbfcfd;--node:#fff;--line:#c1c8d2;--faint:#d9dde3;--fg:#1c2024;--fg2:#3a4048;--ok:#3e63dd;--fail:#e5484d;--reply:#30a46c}
-  @media (prefers-color-scheme: dark){svg{--bg:#111113;--node:#1c1d21;--line:#3b3e45;--faint:#2e3036;--fg:#edeef0;--fg2:#b0b4ba;--ok:#7b9bff;--fail:#ff6369;--reply:#4cc38a}}
+
   @media (prefers-reduced-motion: reduce){.dot,.x{display:none}.hl,.lbl{opacity:1 !important}}`;
 
 /** Length of one loop of the exported animation: the timeline plus a hold on the final state */
 export const loopSeconds = (tl: Timeline) => Math.max(tl.total + HOLD, 0.1);
 
 export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): string {
+  const theme: ThemeName = opts.theme && isTheme(opts.theme) ? opts.theme : "default";
   const total = loopSeconds(tl);
   const kt = (t: number) => (Math.min(1, Math.max(0, t / total))).toFixed(4);
   const anim = (attr: string, values: string, times: string) =>
@@ -158,10 +163,12 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
     `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : ""}`)).join("; ");
 
   const W = l.width, H = l.height + offY;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" font-family="Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif">` +
-    `<title>${esc(opts.title ?? "ene diagram")}</title><desc>${esc(desc)}</desc><style>${STYLE}</style>${ARROW_DEFS}` +
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="ene ${themeClass(theme)}" role="img" font-family="Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif">` +
+    `<title>${esc(opts.title ?? "ene diagram")}</title><desc>${esc(desc)}</desc><style>${STYLE}
+  ${themeCss(theme)}</style>${ARROW_DEFS}` +
     `<rect width="100%" height="100%" class="bg"/>` +
     (opts.title ? `<text x="40" y="34" class="t">${esc(opts.title)}</text>` : "") +
     `<g transform="translate(0 ${offY})">${(l.groups ?? []).map(groupMarkup).join("")}${sequenceMarkup(l)}${base}${nodes}${hl}${labels}${dots}</g></svg>`;
 }
+export { THEMES, THEME_VARS, themeClass, themeCss, type ThemeName, type ThemeVars } from "./themes.js";
 export { fetchIcon, iconFromUntrustedSvg, ICON_DEFAULTS, type IconFetchOptions, type IconLoadResult } from "./icon-loader.js";

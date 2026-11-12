@@ -67,11 +67,13 @@ db -x api : timeout
 | `title Order flow` | title shown above the diagram |
 | `speed 1.2` | default seconds per step (default `1.2`, must be > 0) |
 | `diagram flow` | layout: `flow` (default) or `sequence` |
+| `theme mono` | colours: `default`, `mono` (greys, for print) or `high-contrast`; each has a light and a dark variant |
 
 ```ene
 title Checkout
 diagram sequence
 speed 0.8
+theme high-contrast
 user -> api : POST /checkout
 api --> user : 201
 ```

@@ -35,7 +35,7 @@ describe("svg helpers", () => {
     expect(dark).toContain("--bg:#111113");
     expect(svg).toContain("prefers-reduced-motion");
     expect(stripReducedMotion(svg)).not.toContain("prefers-reduced-motion");
-    expect(stripReducedMotion(svg)).toContain("svg{--bg:#fbfcfd");
+    expect(stripReducedMotion(svg)).toContain("svg.ene-theme-default{--bg:#fbfcfd");
   });
 });
 
