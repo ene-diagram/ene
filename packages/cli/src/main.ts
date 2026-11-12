@@ -1,11 +1,12 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { buildTimeline, checkIcons, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
+import { buildTimeline, checkIcons, diagnosticToJson, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
 import { layout, layoutSequence } from "@ene/layout";
 import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, renderSvg, type IconLoadResult } from "@ene/svg";
 
 const USAGE = `usage: ene <input.ene|-> [-o out.svg|-] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
                  [--no-network] [--allow-host host ...]
+       ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
        ene icons <svg-dir> --prefix <name> [-o pack.json]`;
 
 /** "Arch_AWS-Lambda_48.svg" → "aws-lambda" */
@@ -51,8 +52,44 @@ async function loadIcon(ref: string, base: string, net: NetPolicy): Promise<Icon
   } catch (e) { return { ok: false, reason: `cannot read ${file} (${(e as NodeJS.ErrnoException).code ?? "unknown"})` }; }
 }
 
+/** `ene check`: parse and check icons without rendering. Exit 1 on errors, 2 on usage errors */
+function checkCommand(argv: string[]): number {
+  let input: string | undefined, json = false, lang: Lang = "en";
+  const packFiles: string[] = [];
+  const bad = () => { console.error(USAGE); return 2; };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--json") json = true;
+    else if (a === "--lang") { const v = argv[++i]; if (v !== "en" && v !== "ko") return bad(); lang = v; }
+    else if (a === "--icons") { const v = argv[++i]; if (!v) return bad(); packFiles.push(v); }
+    else if (a.startsWith("-") || input) return bad();
+    else input = a;
+  }
+  if (!input) return bad();
+  let src: string;
+  try { src = readFileSync(input, "utf8"); }
+  catch (e) { console.error(`error: cannot read ${input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
+  const packs: IconPack[] = [];
+  for (const f of packFiles) {
+    let data: unknown;
+    try { data = JSON.parse(readFileSync(f, "utf8")); }
+    catch (e) { console.error(`error: cannot load icon pack ${f} (${(e as Error).message})`); return 1; }
+    const errs = validateIconPack(data);
+    if (errs.length) { console.error(`error: invalid icon pack ${f}:\n  - ${errs.join("\n  - ")}`); return 1; }
+    packs.push(data as IconPack);
+  }
+  const { doc, diagnostics } = parse(src);
+  diagnostics.push(...checkIcons(doc, packs));
+  diagnostics.sort((a, b) => a.span.line - b.span.line || a.span.col - b.span.col);
+  if (json) console.log(JSON.stringify(diagnostics.map((d) => diagnosticToJson(d, lang)), null, 2));
+  else if (diagnostics.length) console.error(formatAll(src, diagnostics, lang));
+  else console.log(`✅ ${input}: no problems`);
+  return diagnostics.some((d) => d.severity === "error") ? 1 : 0;
+}
+
 export async function main(argv: string[]): Promise<number> {
   if (argv[0] === "icons") return iconsCommand(argv.slice(1));
+  if (argv[0] === "check") return checkCommand(argv.slice(1));
   const packFiles: string[] = [];
   const net: NetPolicy = { network: true };
   let input: string | undefined, out: string | undefined, lang: Lang = "en", choices: number[] = [];

@@ -169,6 +169,13 @@ cat flow.ene | ene - > flow.svg   # "-" reads stdin; output goes to stdout
 ene flow.ene -o -                # write the SVG to stdout
 ```
 
+Check a file without rendering (exit 1 on errors). `--json` prints diagnostics for tools and AI agents:
+
+```bash
+ene check flow.ene --json
+# [{"code":"E401","severity":"error","line":3,"col":5,"length":5,"message":"unknown node \"cahce\"","hint":"did you mean \"cache\"?","suggestion":"cache"}]
+```
+
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
 ### Browser assets

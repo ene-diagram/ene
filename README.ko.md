@@ -169,6 +169,13 @@ cat flow.ene | ene - > flow.svg   # "-" 는 stdin 에서 읽고, 결과는 stdou
 ene flow.ene -o -                # SVG 를 stdout 으로
 ```
 
+렌더링 없이 검사만 하려면 `check` 를 써요(오류가 있으면 종료 코드 1). `--json` 은 도구·AI 에이전트용으로 진단을 JSON 으로 출력해요:
+
+```bash
+ene check flow.ene --json
+# [{"code":"E401","severity":"error","line":3,"col":5,"length":5,"message":"unknown node \"cahce\"","hint":"did you mean \"cache\"?","suggestion":"cache"}]
+```
+
 만들어진 SVG 는 스크립트 없이 스스로 반복 재생되고, 다크 모드와 모션 줄이기 설정을 따릅니다.
 
 ### 브라우저용 파일
