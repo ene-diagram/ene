@@ -128,12 +128,23 @@ end
 
 ## 시작하기
 
-ene 는 아직 npm 에 배포되지 않았어요. 소스에서 빌드해 써요.
-
-**필요한 것:** Node.js 20 이상, pnpm 10(`corepack enable` 을 켜면 `package.json` 에 고정된 버전을 써요).
+**필요한 것:** Node.js 20 이상.
 
 ```bash
-git clone https://github.com/slop-makers/ene.git
+npm install -g @ene-diagram/cli
+
+printf 'user -> api : GET /\napi --> user : 200\n' > flow.ene
+ene flow.ene -o flow.svg
+```
+
+설치 없이 한 번만 돌리려면 `npx @ene-diagram/cli flow.ene -o flow.svg` 를 써요.
+
+### 소스에서
+
+pnpm 10 도 필요해요(`corepack enable` 을 켜면 `package.json` 에 고정된 버전을 써요).
+
+```bash
+git clone https://github.com/ene-diagram/ene.git
 cd ene
 pnpm install
 pnpm build          # 모든 패키지와 브라우저 번들을 빌드해요
@@ -166,6 +177,7 @@ api --> user : 200
 ```bash
 ene flow.ene -o flow.svg
 cat flow.ene | ene - > flow.svg   # "-" 는 stdin 에서 읽고, 결과는 stdout 으로
+ene flow.ene -o flow.svg --no-notes   # `note` 자막 빼기
 ene flow.ene -o -                # SVG 를 stdout 으로
 ```
 
@@ -196,17 +208,44 @@ ene fmt --check *.ene       # 정리 안 된 파일이 있으면 종료 코드 1
 
 만들어진 SVG 는 스크립트 없이 스스로 반복 재생되고, 다크 모드와 모션 줄이기 설정을 따릅니다.
 
-### Mermaid 시퀀스 다이어그램에서
+### 블로그에서
 
-이미 Mermaid `sequenceDiagram` 이 있다면 변환하거나 바로 그릴 수 있어요:
+**스크립트를 넣을 수 있는 곳** (직접 만든 사이트, 티스토리 스킨, 설치형 워드프레스): CDN 에서 플레이어를 불러옵니다. 메이저 버전을 고정해 두었으니 호환이 깨지지 않는 수정만 받습니다.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js"></script>
+<pre class="ene">
+user -> api : POST /order
+api --> user : 201
+</pre>
+```
+
+`https://unpkg.com/@ene-diagram/player@0.1/dist/ene.js` 도 똑같이 씁니다. `ene.js`(약 64 KB)는 흐름 다이어그램을 처음 그릴 때 같은 폴더의 `ene-elk.js`(약 1.6 MB)를 불러옵니다. `diagram sequence` 다이어그램만 있는 페이지는 이 파일을 받지 않습니다.
+
+**마크다운만 되는 곳** (스크립트 불가): 이미지를 올립니다. SVG 애니메이션이 살아 있는 곳이면 SVG(`ene flow.ene -o flow.svg`), 아니면 GIF(`-o flow.gif`)를 씁니다.
+
+| 플랫폼 | 방법 | 상태 |
+|---|---|---|
+| 직접 만든 사이트 (Astro, Next, Hugo, Jekyll) | 레이아웃에 CDN 스크립트 | 스크립트는 어느 HTML 페이지에서나 동작, 프레임워크 플러그인은 #52 |
+| 티스토리(스킨 HTML), 설치형 워드프레스 | CDN 스크립트 | 확인 전 |
+| velog, Medium, dev.to, 브런치 | GIF 업로드, SVG 업로드 가능 여부 모름 | 확인 전 |
+| iframe 을 받는 곳 | 플레이그라운드 임베드 화면 (#47) | 아직 없음 |
+
+"확인 전"은 그 플랫폼에서 아직 직접 확인하지 않은 항목입니다. 확인해 주시면 반영합니다.
+
+### Mermaid 에서
+
+이미 Mermaid `sequenceDiagram`·`flowchart`·`graph` 가 있다면 변환하거나 바로 그릴 수 있어요:
 
 ```bash
 ene from-mermaid diagram.mmd > diagram.ene   # 고칠 수 있는 .ene 소스
-ene from-mermaid README.md -o flow.ene       # 마크다운 파일의 첫 ```mermaid 시퀀스 블록을 읽어요
+ene from-mermaid README.md -o flow.ene       # 마크다운 파일에서 변환할 수 있는 첫 ```mermaid 블록을 읽어요
 ene diagram.mmd -o diagram.svg               # 변환과 렌더링을 한 번에
 ```
 
-메시지, 참여자, `alt`/`else`, `opt`, `loop`, `par` 를 변환해요. 노트는 주석이 되고, 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요. `sequenceDiagram` 만 지원해요.
+메시지, 참여자, `alt`/`else`, `opt`(`break` 도 `opt` 로), `loop`, `par`, 비동기 화살표 `-)`(`~>` 로) 를 변환해요. `Note` 는 바로 위 메시지의 `note` 가 되고(위에 메시지가 없으면 주석), 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요.
+
+`flowchart`·`graph` 는 흐름 다이어그램이 돼요. 노드는 라벨과 ene 에 있는 모양을 그대로 써요(`(( ))` 원, `( )`·`([ ])` 둥근 상자, `[( )]` db, 나머지는 경고와 함께 상자). 연결선은 소스 순서대로 하나씩 단계가 되고(`|라벨|`·`-- 라벨 -->` 는 라벨로, 점선은 `-->` 로, `--x` 는 `-x` 로), `subgraph` 는 `group` 이 돼요(안쪽 subgraph 는 `in`). 스타일·클래스·클릭 핸들러·subgraph 로 가는 연결선은 경고와 함께 빠져요. 플로차트에는 시간 축이 없어서, 결과 맨 위에 단계 순서를 확인하라는 주석을 달아요.
 
 ### Claude 와 함께
 
@@ -283,7 +322,7 @@ CLI 에서는 `--icons pack.json`(여러 번 가능)을 써요. `ene icons <svg-
 
 ### 플레이어와 SVG 의 갈림길
 
-플레이어는 `branch` 마다 메뉴를 보여줘서 다른 경로를 다시 재생할 수 있어요. 내보낸 SVG 에는 컨트롤이 없어서 한 경로만 재생해요. 경로는 `--choice` 로 골라요(branch 순서대로 0부터 센 갈래 번호, 기본값은 모두 `0`):
+플레이어는 `branch` 마다 메뉴를 보여줘서 다른 경로를 다시 재생할 수 있어요. 내보낸 SVG 에는 컨트롤이 없어서 한 경로만 재생해요. 경로는 `--choice` 로 골라요(`branch`·`opt` 순서대로 0부터 센 갈래 번호, `opt` 는 `0` = 실행·`1` = 건너뜀, 기본값은 모두 `0`):
 
 ```bash
 ene flow.ene -o miss.svg --choice 1
@@ -308,10 +347,13 @@ ene flow.ene -o miss.svg --choice 1
 | `a -> b : 라벨` | 요청 |
 | `a --> b : 라벨` | 응답 (점선) |
 | `a -x b : 라벨` | 실패 |
+| `a ~> b : 라벨` | 비동기 (보내고 기다리지 않음) |
 | `a -> b & a -> c` | 동시에 |
 | `a -> b : 라벨 @2s` | 이 엣지는 2초 동안 |
+| `note 설명` | 바로 위 단계의 설명 자막 |
 | `wait 0.5` | 다음 단계 전에 쉬기 |
 | `branch …` / `else …` / `end` | 갈림길 (플레이어에서 선택) |
+| `opt …` / `end` | 선택 단계 (플레이어에서 켜고 끄기) |
 | `loop 3` … `end` | 반복 |
 | `group vpc[VPC] : a b` | 묶음 상자 |
 | `id[라벨]{icon: …, shape: db, color: #f59e0b}` | 노드 라벨과 모양 |
@@ -322,7 +364,7 @@ ene flow.ene -o miss.svg --choice 1
 
 ## 릴리스
 
-아직 공개되지 않았습니다.
+0.1.0 이 npm 의 [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) 스코프에 있어요: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player`, 선택 사항인 `video`.
 
 ## 관련 프로젝트
 

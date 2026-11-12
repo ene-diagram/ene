@@ -58,11 +58,13 @@ const PLAYER_CSS = `
 .ene-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:#3a4048}
 .ene-bar button,.ene-bar select{font:inherit;padding:4px 10px;border:1px solid #c1c8d2;border-radius:6px;background:#fff;color:#1c2024;cursor:pointer}
 .ene-bar button:hover{background:#f1f3f5}
+.ene-opt{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.ene-note{font-size:14px;line-height:1.5;color:#3a4048;min-height:1.5em;width:0;min-width:100%}
 .ene-step{margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
 .ene-error{color:#e5484d;background:#fff5f5;border:1px solid #ffd1d1;border-radius:8px;padding:12px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre;overflow:auto}
 .ene-focus .ene-n,.ene-focus .edge{transition:opacity .25s}.ene-focus .ene-dim{opacity:${DIM}}
 @media (prefers-reduced-motion: reduce){.ene-focus .ene-n,.ene-focus .edge{transition:none}}
-@media (prefers-color-scheme: dark){.ene-bar{color:#b0b4ba}.ene-bar button,.ene-bar select{background:#1c1d21;color:#edeef0;border-color:#3b3e45}.ene-error{background:#2a1215;border-color:#5c1a1f;color:#ff9592}}`;
+@media (prefers-color-scheme: dark){.ene-note{color:#b0b4ba}.ene-bar{color:#b0b4ba}.ene-bar button,.ene-bar select{background:#1c1d21;color:#edeef0;border-color:#3b3e45}.ene-error{background:#2a1215;border-color:#5c1a1f;color:#ff9592}}`;
 
 export interface IconPackSource { name?: string; pack?: IconPack; loader?: () => Promise<IconPack> }
 const packSources: IconPackSource[] = [];
@@ -210,6 +212,12 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   const dyn = svgEl("g", { transform: `translate(0 ${offY})` });
   svg.appendChild(dyn);
   root.appendChild(svg);
+  // Caption with the note of the current step (same place for flow and sequence diagrams)
+  const noteEl = document.createElement("div");
+  noteEl.className = "ene-note";
+  noteEl.setAttribute("aria-live", "polite");
+  // Only diagrams with notes get the caption; its height is kept so the layout does not jump between steps
+  if (hasNotes(doc.body)) root.appendChild(noteEl);
 
   // ---- controls ----
   const bar = document.createElement("div");
@@ -234,6 +242,17 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   const branchSels: HTMLSelectElement[] = [];
   const syncSels = () => branchSels.forEach((sel, bi) => { sel.value = String(choices[bi] ?? 0); if (sel.selectedIndex < 0) sel.value = "0"; });
   tl.branches.forEach((b, bi) => {
+    if (b.optional) {
+      // `opt`: a toggle; checked = the steps play (arm 0), unchecked = skipped (arm 1)
+      const lab = document.createElement("label");
+      lab.className = "ene-opt";
+      const box = document.createElement("input");
+      box.type = "checkbox"; box.checked = true;
+      box.addEventListener("change", () => { choices[bi] = box.checked ? 0 : 1; rebuild(); });
+      lab.append(box, b.arms[0] || "opt");
+      bar.appendChild(lab);
+      return;
+    }
     const sel = document.createElement("select");
     branchSels.push(sel);
     sel.setAttribute("aria-label", `${ko ? "분기" : "Branch"} ${bi + 1}`);
@@ -254,6 +273,9 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   el.appendChild(root);
 
   root.addEventListener("keydown", (ev) => {
+    // Form controls (the `opt` checkbox, menus) keep their own keys
+    const tag = (ev.target as HTMLElement | null)?.tagName;
+    if (tag === "INPUT" || tag === "SELECT") return;
     if (ev.key === " ") { ctl.toggle(); ev.preventDefault(); }
     else if (ev.key === "ArrowRight") { ctl.pause(); ctl.next(); ev.preventDefault(); }
     else if (ev.key === "ArrowLeft") { ctl.pause(); ctl.prev(); ev.preventDefault(); }
@@ -323,6 +345,8 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     stepText.textContent = step
       ? `${si + 1}/${tl.steps.length} · ${step.edges.map((e) => `${e.from} → ${e.to}${e.label ? ` ${e.label}` : ""}`).join(", ")}`
       : "";
+    const note = step?.note ?? "";
+    if (noteEl.textContent !== note) noteEl.textContent = note;
   }
 
   function rebuild() {
@@ -377,6 +401,10 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   hosts.get(el)!.player = player;
   return player;
 }
+
+type Body = Parameters<typeof buildTimeline>[0]["body"];
+const hasNotes = (body: Body): boolean => body.some((s) =>
+  s.type === "step" ? s.note !== undefined : s.type === "loop" ? hasNotes(s.body) : s.type === "branch" ? s.arms.some((a) => hasNotes(a.body)) : false);
 
 /**
  * Replace every `<pre class="ene">` on the page with a player.

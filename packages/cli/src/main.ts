@@ -5,7 +5,7 @@ import { layout, layoutSequence } from "@ene-diagram/layout";
 import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, loopSeconds, renderSvg, type IconLoadResult } from "@ene-diagram/svg";
 
 const USAGE = `usage: ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1]
-                 [--icons pack.json ...] [--no-network] [--allow-host host ...] [--fps n] [--scale n]
+                 [--icons pack.json ...] [--no-network] [--allow-host host ...] [--fps n] [--scale n] [--no-notes]
        ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
        ene fmt <input.ene ...> [--check | --write]
        ene from-mermaid <input.mmd|input.md|-> [-o out.ene|-]
@@ -144,7 +144,7 @@ function convertMermaid(text: string, name: string): string | undefined {
   return r.error ? undefined : r.source;
 }
 
-/** `ene from-mermaid`: Mermaid sequenceDiagram → .ene source on stdout or -o. Exit 1 if it cannot be converted */
+/** `ene from-mermaid`: Mermaid sequenceDiagram / flowchart → .ene source on stdout or -o. Exit 1 if it cannot be converted */
 function fromMermaidCommand(argv: string[]): number {
   let input: string | undefined, out: string | undefined;
   const bad = () => { console.error(USAGE); return 2; };
@@ -174,7 +174,7 @@ export async function main(argv: string[]): Promise<number> {
   const packFiles: string[] = [];
   const net: NetPolicy = { network: true };
   let input: string | undefined, out: string | undefined, lang: Lang = "en", choices: number[] = [];
-  let fps: number | undefined, scale: number | undefined;
+  let fps: number | undefined, scale: number | undefined, notes = true;
   const bad = () => { console.error(USAGE); return 2; };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -192,6 +192,7 @@ export async function main(argv: string[]): Promise<number> {
       if (a === "--fps") fps = v; else scale = v;
     }
     else if (a === "--no-network") net.network = false;
+    else if (a === "--no-notes") notes = false;
     else if (a === "--allow-host") { const v = val(); if (!v) return bad(); (net.allowHosts ??= []).push(v); }
     else if (a === "-h" || a === "--help") { console.log(USAGE); return 0; }
     else if ((a.startsWith("-") && a !== "-") || input) return bad();
@@ -202,7 +203,7 @@ export async function main(argv: string[]): Promise<number> {
   const fromStdin = input === "-";
   try { src = readFileSync(fromStdin ? 0 : input, "utf8"); }
   catch (e) { console.error(`error: cannot read ${fromStdin ? "stdin" : input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
-  // A Mermaid sequence diagram renders directly: it is converted first (see `ene from-mermaid`)
+  // A Mermaid sequence diagram or flowchart renders directly: it is converted first (see `ene from-mermaid`)
   if (!fromStdin && isMermaidFile(input)) {
     const converted = convertMermaid(src, input);
     if (converted === undefined) return 1;
@@ -237,7 +238,7 @@ export async function main(argv: string[]): Promise<number> {
     else console.error(`warning: cannot load icon ${urlRefs[i]}: ${res.reason}`);
   });
   const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
-  const svg = renderSvg(lay, tl, { title: doc.title, icons });
+  const svg = renderSvg(lay, tl, { title: doc.title, icons, notes });
   const target = out ?? (fromStdin ? "-" : input.replace(/\.[^./\\]+$/, "") + ".svg");
   const summary = `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
   const video = /\.(gif|mp4)$/i.exec(target)?.[1].toLowerCase() as "gif" | "mp4" | undefined;

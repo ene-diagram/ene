@@ -19,3 +19,8 @@ test("branch arm gets a frame labeled with the arm", () => {
   const { l } = seq("a -> b\nbranch hit\n b --> a\nelse miss\n b -> c\n c --> a\nend", [1]);
   expect(l.frames).toEqual([expect.objectContaining({ label: "miss" })]);
 });
+test("opt frames are labeled opt; skipped opt has no frame", () => {
+  expect(seq("a -> b\nopt cached\n b --> a\nend").l.frames!.map((f) => f.label)).toEqual(["opt cached"]);
+  expect(seq("a -> b\nopt\n b --> a\nend").l.frames!.map((f) => f.label)).toEqual(["opt"]);
+  expect(seq("a -> b\nopt cached\n b --> a\nend", [1]).l.frames).toEqual([]);
+});
