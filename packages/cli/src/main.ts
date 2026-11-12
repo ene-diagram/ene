@@ -1,12 +1,13 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { buildTimeline, checkIcons, diagnosticToJson, formatAll, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
+import { buildTimeline, checkIcons, diagnosticToJson, formatAll, formatSource, isIconUrl, parse, resolveIcon, validateIconPack, type IconPack, type Lang, type ResolvedIcon } from "@ene/core";
 import { layout, layoutSequence } from "@ene/layout";
 import { ICON_DEFAULTS, fetchIcon, iconFromUntrustedSvg, renderSvg, type IconLoadResult } from "@ene/svg";
 
 const USAGE = `usage: ene <input.ene|-> [-o out.svg|-] [--lang en|ko] [--choice 0,1] [--icons pack.json ...]
                  [--no-network] [--allow-host host ...]
        ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
+       ene fmt <input.ene ...> [--check | --write]
        ene icons <svg-dir> --prefix <name> [-o pack.json]`;
 
 /** "Arch_AWS-Lambda_48.svg" → "aws-lambda" */
@@ -87,8 +88,35 @@ function checkCommand(argv: string[]): number {
   return diagnostics.some((d) => d.severity === "error") ? 1 : 0;
 }
 
+/** `ene fmt`: print formatted source, or --write in place, or --check (exit 1 if any file would change) */
+function fmtCommand(argv: string[]): number {
+  let mode: "print" | "check" | "write" = "print";
+  const files: string[] = [];
+  for (const a of argv) {
+    if (a === "--check") mode = "check";
+    else if (a === "--write" || a === "-w") mode = "write";
+    else if (a.startsWith("-")) { console.error(USAGE); return 2; }
+    else files.push(a);
+  }
+  if (!files.length || (mode === "print" && files.length > 1)) { console.error(USAGE); return 2; }
+  let changed = 0;
+  for (const f of files) {
+    let src: string;
+    try { src = readFileSync(f, "utf8"); }
+    catch (e) { console.error(`error: cannot read ${f} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`); return 1; }
+    const out = formatSource(src);
+    if (mode === "print") { process.stdout.write(out); continue; }
+    if (out === src) continue;
+    changed++;
+    if (mode === "check") console.error(`not formatted: ${f}`);
+    else { writeFileSync(f, out); console.log(`formatted ${f}`); }
+  }
+  return mode === "check" && changed ? 1 : 0;
+}
+
 export async function main(argv: string[]): Promise<number> {
   if (argv[0] === "icons") return iconsCommand(argv.slice(1));
+  if (argv[0] === "fmt") return fmtCommand(argv.slice(1));
   if (argv[0] === "check") return checkCommand(argv.slice(1));
   const packFiles: string[] = [];
   const net: NetPolicy = { network: true };

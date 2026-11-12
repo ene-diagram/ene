@@ -137,3 +137,13 @@ test("keyword without a value gets E307", () => {
   expect(r.status).toBe(1); expect(r.stderr).toContain("`loop` needs a value"); expect(r.stderr).toContain("`wait` needs a value");
   expect(r.stderr).not.toContain('""');
 });
+
+test("fmt prints, --check exits 1 on unformatted files, --write fixes them", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "f.ene");
+  writeFileSync(f, "a->b:hi\nbranch x\nb-->a\nend");
+  expect(runCli(["fmt", f]).stdout).toBe("a -> b : hi\nbranch x\n  b --> a\nend\n");
+  const c = runCli(["fmt", "--check", f]); expect(c.status).toBe(1); expect(c.stderr).toContain("not formatted");
+  expect(runCli(["fmt", "--write", f]).status).toBe(0);
+  expect(readFileSync(f, "utf8")).toBe("a -> b : hi\nbranch x\n  b --> a\nend\n");
+  expect(runCli(["fmt", "--check", f]).status).toBe(0);
+});

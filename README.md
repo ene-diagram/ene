@@ -176,6 +176,14 @@ ene check flow.ene --json
 # [{"code":"E401","severity":"error","line":3,"col":5,"length":5,"message":"unknown node \"cahce\"","hint":"did you mean \"cache\"?","suggestion":"cache"}]
 ```
 
+Format sources canonically (comments are kept; a rewrite that would change the meaning is skipped):
+
+```bash
+ene fmt flow.ene            # print
+ene fmt --write *.ene       # in place
+ene fmt --check *.ene       # exit 1 if any file is not formatted (CI)
+```
+
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
 ### Browser assets
