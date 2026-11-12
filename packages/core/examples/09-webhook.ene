@@ -1,11 +1,11 @@
 title 웹훅 수신과 재전송
 stripe[결제사] -> hook[웹훅 수신기] : payment.succeeded
 hook -> queue[큐] : 적재
-hook -> stripe : 200
+hook --> stripe : 200
 queue -> handler[처리기] : 이벤트
 handler -x partner[파트너 API] : 500
 wait 0.5
 handler -> queue : 재전송 예약
 queue -> handler : 이벤트 (재시도)
 handler -> partner : 전달
-partner -> handler : 200
+partner --> handler : 200

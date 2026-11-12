@@ -1,7 +1,9 @@
 title 파일 업로드와 썸네일
 user[사용자] -> api[API] : 업로드 URL 요청
-api -> user : presigned URL
+api --> user : presigned URL
 user -> s3[S3] : PUT 이미지 @2s
 s3 -> lambda[썸네일 람다] : ObjectCreated
-lambda -> s3 : 작은 썸네일 & lambda -> s3 : 큰 썸네일 & lambda -> db[DB] : 메타데이터 저장
+lambda -> s3 : 작은 썸네일
+& lambda -> s3 : 큰 썸네일
+& lambda -> db[DB] : 메타데이터 저장
 db -> api : 완료 알림

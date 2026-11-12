@@ -6,5 +6,5 @@ order -> pg : 승인 요청 (재시도 1)
 pg -x order : 503
 wait 2
 order -> pg : 승인 요청 (재시도 2)
-pg -> order : 승인 완료
+pg --> order : 승인 완료
 order -> ledger[원장] : 결제 기록
