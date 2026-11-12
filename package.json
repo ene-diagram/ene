@@ -9,7 +9,9 @@
     "demo": "node scripts/demo.mjs",
     "skill:install": "node scripts/install-skill.mjs",
     "changeset": "changeset",
-    "release": "pnpm build && changeset publish"
+    "release": "pnpm build && changeset publish",
+    "lint": "biome check .",
+    "format": "biome format --write ."
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.7",
