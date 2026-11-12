@@ -4,11 +4,11 @@
   "description": "Animated SVG renderer for ene diagrams",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/slop-makers/ene.git",
+    "url": "git+https://github.com/ene-diagram/ene.git",
     "directory": "packages/svg"
   },
-  "homepage": "https://github.com/slop-makers/ene#readme",
-  "bugs": "https://github.com/slop-makers/ene/issues",
+  "homepage": "https://github.com/ene-diagram/ene#readme",
+  "bugs": "https://github.com/ene-diagram/ene/issues",
   "engines": {
     "node": ">=20"
   },

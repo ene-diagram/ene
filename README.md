@@ -133,7 +133,7 @@ ene is not published to npm yet; use it from source.
 **Requirements:** Node.js 20 or newer, pnpm 10 (`corepack enable` picks the pinned version from `package.json`).
 
 ```bash
-git clone https://github.com/slop-makers/ene.git
+git clone https://github.com/ene-diagram/ene.git
 cd ene
 pnpm install
 pnpm build          # compiles all packages and the browser bundle

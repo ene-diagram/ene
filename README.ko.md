@@ -133,7 +133,7 @@ ene 는 아직 npm 에 배포되지 않았어요. 소스에서 빌드해 써요.
 **필요한 것:** Node.js 20 이상, pnpm 10(`corepack enable` 을 켜면 `package.json` 에 고정된 버전을 써요).
 
 ```bash
-git clone https://github.com/slop-makers/ene.git
+git clone https://github.com/ene-diagram/ene.git
 cd ene
 pnpm install
 pnpm build          # 모든 패키지와 브라우저 번들을 빌드해요
