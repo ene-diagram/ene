@@ -258,6 +258,7 @@ An icon is either a pack name (`logos:redis`, from packs you register) or an SVG
 | `loop 3` … `end` | repeat |
 | `group vpc[VPC] : a b` | container box |
 | `id[Label]{icon: …, shape: db, color: #f59e0b}` | node label and style |
+| `id[Label]{…}` on its own line | declare a node without an edge |
 | `diagram sequence` | draw as a sequence diagram |
 
 One line is one step, played top to bottom. The complete reference, with common mistakes, is in [SYNTAX.md](SYNTAX.md) (also served as `llms.txt` for AI tools).

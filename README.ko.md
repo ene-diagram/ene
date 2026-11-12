@@ -258,6 +258,7 @@ ene flow.ene -o miss.svg --choice 1
 | `loop 3` … `end` | 반복 |
 | `group vpc[VPC] : a b` | 묶음 상자 |
 | `id[라벨]{icon: …, shape: db, color: #f59e0b}` | 노드 라벨과 모양 |
+| `id[라벨]{…}` 만 있는 줄 | 엣지 없이 노드 선언 |
 | `diagram sequence` | 시퀀스 다이어그램으로 그리기 |
 
 한 줄이 한 단계이고, 위에서 아래로 재생됩니다. 흔한 실수까지 담은 전체 문법은 [SYNTAX.md](SYNTAX.md) 에 있어요(AI 도구용 `llms.txt` 와 같은 내용이에요).
