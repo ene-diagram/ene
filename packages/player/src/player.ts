@@ -69,7 +69,10 @@ function loadUrlIcon(url: string): Promise<IconLoadResult> {
       const m = url.match(/^data:image\/svg\+xml(;base64)?,(.*)$/s);
       try { p = Promise.resolve(m ? iconFromUntrustedSvg(m[1] ? atob(m[2]) : decodeURIComponent(m[2])) : { ok: false, reason: "only data:image/svg+xml URLs are supported" }); }
       catch { p = Promise.resolve({ ok: false, reason: "malformed data URL" }); }
-    } else p = fetchIcon(new URL(url, document.baseURI).href, iconFetchOpts);
+    } else {
+      try { p = fetchIcon(new URL(url, document.baseURI).href, iconFetchOpts); }
+      catch { p = Promise.resolve({ ok: false, reason: "invalid URL" }); }
+    }
     // Failed loads are not cached, so a later render can retry
     urlIcons.set(url, p.then((r) => { if (!r.ok) urlIcons.delete(url); return r; }));
   }
