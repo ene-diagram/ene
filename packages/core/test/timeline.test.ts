@@ -15,7 +15,7 @@ test("loop expands and reuses edge index", () => {
   expect(t.steps.map(s => s.edges[0].edgeIndex)).toEqual([0, 0]);
 });
 test("branch choice changes steps but not allEdges", () => {
-  const src = "a -> b\nbranch hit\n b -> a\nbranch miss\n b -> c\n c -> a\nend";
+  const src = "a -> b\nbranch hit\n b -> a\nelse miss\n b -> c\n c -> a\nend";
   const t0 = buildTimeline(parse(src).doc), t1 = buildTimeline(parse(src).doc, { choices: [1] });
   expect(t0.steps).toHaveLength(2); expect(t1.steps).toHaveLength(3);
   expect(t0.allEdges).toEqual(t1.allEdges); expect(t0.allEdges).toHaveLength(4);
@@ -24,3 +24,9 @@ test("branch choice changes steps but not allEdges", () => {
 });
 test("out-of-range choice falls back to first arm", () =>
   expect(buildTimeline(parse("branch a\n x -> y\nend").doc, { choices: [5] }).steps).toHaveLength(1));
+
+test("nested branches are numbered in source order", () => {
+  const t = buildTimeline(parse("branch A\n a -> b\nelse B\n branch C\n  a -> c\n else D\n  a -> d\n end\nend").doc, { choices: [1, 1] });
+  expect(t.branches.map(b => b.arms)).toEqual([["A", "B"], ["C", "D"]]);
+  expect(t.steps[0].edges[0].to).toBe("d"); expect(t.steps[0].branchPath).toEqual([0, 1, 1, 1]);
+});

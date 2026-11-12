@@ -2,7 +2,7 @@ title CDN 캐시
 browser[브라우저] -> edge[CDN 엣지] : GET /app.js
 branch 엣지 hit
   edge --> browser : 200 (cached)
-branch 엣지 miss
+else 엣지 miss
   edge -> origin[오리진] : GET /app.js
   origin --> edge : 200 + Cache-Control
   edge --> browser : 200

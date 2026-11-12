@@ -34,7 +34,7 @@ test.each([[["x.ene", "-o"]], [["x.ene", "--lang"]], [["x.ene", "--lang", "fr"]]
   });
 test("out-of-range choice warns", () => {
   const d = mkdtempSync(join(tmpdir(), "ene-")); const f = join(d, "b.ene");
-  writeFileSync(f, "branch a\n x -> y\nbranch b\n x -> z\nend\ny -> z");
+  writeFileSync(f, "branch a\n x -> y\nelse b\n x -> z\nend\ny -> z");
   const r = runCli([f, "--choice", "9"]); expect(r.status).toBe(0); expect(r.stderr).toContain("choice 9");
 });
 const logos = new URL("../../../node_modules/@iconify-json/logos/icons.json", import.meta.url).pathname;

@@ -99,15 +99,16 @@ class Parser {
       into.push(stmt);
       return void this.stack.push({ kind: "loop", stmt, line: l });
     }
+    if (word === "else") {
+      const top = this.stack[this.stack.length - 1];
+      if (top?.kind !== "branch") return this.report("E205", l, 0, 4);
+      this.checkArm(top);
+      top.stmt.arms.push({ label: rest, body: [], span: whole });
+      top.armLine = l;
+      return;
+    }
     if (word === "branch") {
       const arm = { label: rest, body: [] as Stmt[], span: whole };
-      const top = this.stack[this.stack.length - 1];
-      if (top?.kind === "branch") {
-        this.checkArm(top);
-        top.stmt.arms.push(arm);
-        top.armLine = l;
-        return;
-      }
       const stmt: Stmt = { type: "branch", arms: [arm], span: whole };
       into.push(stmt);
       return void this.stack.push({ kind: "branch", stmt, line: l, armLine: l });

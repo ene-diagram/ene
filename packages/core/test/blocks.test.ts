@@ -1,6 +1,6 @@
 import { parse } from "../src/parse";
 test("branch with two arms", () => {
-  const b = parse("a -> b\nbranch hit\n b -> a\nbranch miss\n b -> c\n c -> a\nend").doc.body[1];
+  const b = parse("a -> b\nbranch hit\n b -> a\nelse miss\n b -> c\n c -> a\nend").doc.body[1];
   expect(b.type).toBe("branch");
   expect(b.type === "branch" && b.arms.map(a => [a.label, a.body.length])).toEqual([["hit", 1], ["miss", 2]]);
 });
@@ -19,6 +19,15 @@ test("bad numbers", () =>
   expect(parse("wait -1\nloop 0\na -> b @fast\nend\nspeed 0").diagnostics.map(d => d.code))
     .toEqual(["E301", "E302", "E303", "E304"]));
 test("empty branch arm", () =>
-  expect(parse("a -> b\nbranch x\nbranch y\n a -> b\nend").diagnostics.map(d => d.code)).toEqual(["E201"]));
+  expect(parse("a -> b\nbranch x\nelse y\n a -> b\nend").diagnostics.map(d => d.code)).toEqual(["E201"]));
 test("unclosed blocks are reported in line order", () =>
   expect(parse("loop 2\nbranch x\n a -> b\n loop 3\n  a -> c").diagnostics.filter(d => d.code === "E203").map(d => d.span.line)).toEqual([1, 2, 4]));
+
+test("nested branch inside an arm", () => {
+  const b = parse("branch hit\n a -> b\nelse miss\n branch db up\n  a -> c\n else db down\n  a -x c\n end\nend").doc.body[0];
+  expect(b.type === "branch" && b.arms[1].body[0].type).toBe("branch");
+});
+test("else outside a branch is E205", () => {
+  expect(parse("a -> b\nelse x").diagnostics[0].code).toBe("E205");
+  expect(parse("loop 2\n a -> b\nelse x\nend").diagnostics[0].code).toBe("E205");
+});

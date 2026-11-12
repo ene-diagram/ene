@@ -1,6 +1,6 @@
 export const CODES = [
   "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109",
-  "E201", "E203", "E204",
+  "E201", "E203", "E204", "E205",
   "E301", "E302", "E303", "E304",
   "E401", "E402", "E403",
   "W101", "W102", "W103", "W104",
@@ -37,7 +37,7 @@ export function suggest(word: string, candidates: Iterable<string>): string | un
   return best;
 }
 
-export const KEYWORDS = ["title", "speed", "wait", "loop", "branch", "end", "pin", "rank"];
+export const KEYWORDS = ["title", "speed", "wait", "loop", "branch", "else", "end", "pin", "rank"];
 
 export type Lang = "en" | "ko";
 interface Msg { message: string; hint: string }
@@ -57,6 +57,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E201: { message: 'branch arm "{arm}" has no steps', hint: "add at least one edge under this `branch` line" },
     E203: { message: "`{block}` block is never closed", hint: "add `end` after the last step of this block" },
     E204: { message: "`end` without an open block", hint: "remove this line or open a block with `branch` or `loop`" },
+    E205: { message: "`else` without an open `branch`", hint: "start the branch with `branch <label>` and add arms with `else <label>`" },
     E301: { message: 'wait time "{value}" is not a number of seconds', hint: "use a non-negative number, e.g. `wait 0.5`" },
     E302: { message: 'loop count "{value}" must be a whole number of 1 or more', hint: "e.g. `loop 3`" },
     E303: { message: 'duration "@{value}" is not valid', hint: "write seconds with an `s`, e.g. `@2s` or `@0.5s`" },
@@ -82,6 +83,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E201: { message: '분기 갈래 "{arm}" 에 단계가 없어요', hint: "이 `branch` 줄 아래에 엣지를 하나 이상 써 주세요" },
     E203: { message: "`{block}` 블록이 닫히지 않았어요", hint: "블록의 마지막 단계 뒤에 `end` 를 써 주세요" },
     E204: { message: "열린 블록 없이 `end` 가 나왔어요", hint: "이 줄을 지우거나 `branch`·`loop` 로 블록을 열어 주세요" },
+    E205: { message: "열린 `branch` 없이 `else` 가 나왔어요", hint: "`branch <라벨>` 로 분기를 열고 `else <라벨>` 로 갈래를 더해 주세요" },
     E301: { message: '대기 시간 "{value}" 가 초 단위 숫자가 아니에요', hint: "0 이상 숫자를 써 주세요. 예: `wait 0.5`" },
     E302: { message: '반복 횟수 "{value}" 는 1 이상 정수여야 해요', hint: "예: `loop 3`" },
     E303: { message: '시간 "@{value}" 형식이 맞지 않아요', hint: "초 뒤에 `s` 를 붙여 주세요. 예: `@2s`, `@0.5s`" },
