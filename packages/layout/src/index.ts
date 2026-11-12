@@ -8,20 +8,20 @@ export interface LGroup { id: string; label: string; color?: string; depth: numb
 export interface LFrame { label: string; x: number; y: number; w: number; h: number }
 export interface Layout {
   nodes: LNode[]; edges: LEdge[]; groups: LGroup[]; width: number; height: number;
-  /** 시퀀스 전용: 생명선, 분기 갈래 틀 */
+  /** Sequence only: lifelines and branch arm frames */
   lifelines?: { id: string; x: number; y1: number; y2: number }[];
   frames?: LFrame[];
 }
 
-/** 단계의 k번째 엣지 경로. 시퀀스는 단계마다 따로, 흐름도는 고유 엣지 하나를 같이 쓴다 */
+/** Path of the k-th edge of a step. Sequence uses one per step; flow shares one per unique edge */
 export function edgeFor(l: Layout, step: number, k: number, edgeIndex: number): LEdge | undefined {
   return l.edges.find((e) => e.step === step && e.k === k) ?? l.edges.find((e) => e.index === edgeIndex && e.step === undefined);
 }
 
 const S_ROW = 52, S_TOP = 24, S_GAP = 60;
 /**
- * 시퀀스 다이어그램 배치: 참여자는 선언 순서대로 위쪽 한 줄, 단계마다 한 행.
- * 분기 선택에 따라 행이 달라지므로 타임라인마다 다시 배치한다 (참여자 위치는 그대로).
+ * Sequence diagram layout: participants in declaration order on one top row, one row per step.
+ * Rows depend on branch choices, so re-lay out per timeline (participant positions stay the same).
  */
 export function layoutSequence(doc: Document, tl: Timeline): Layout {
   let x = PAD;
@@ -38,7 +38,7 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
     const pairCount = new Map<string, number>();
     s.edges.forEach((e, k) => {
       const a = cx.get(e.from)!, b = cx.get(e.to)!;
-      // 같은 행에서 같은 두 참여자 사이의 화살표는 위아래로 나눈다
+      // Arrows between the same two participants in the same row are split above/below
       const pk = [e.from, e.to].sort().join("\u0000"), nth = pairCount.get(pk) ?? 0;
       pairCount.set(pk, nth + 1);
       const y = rowY(i) + nth * 14;
@@ -50,7 +50,7 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
       edges.push({ index: e.edgeIndex, step: s.index, k, d: `M${a + dir * 4},${y} L${b - dir * 4},${y}`, mid: { x: (a + b) / 2, y } });
     });
   });
-  // 분기 갈래 틀: 같은 [분기, 갈래] 를 가진 연속 행
+  // Branch arm frames: consecutive rows sharing the same [branch, arm]
   const frames: LFrame[] = [];
   const minX = PAD - 12, maxX = x - S_GAP + 12;
   for (let depth = 0; ; depth++) {
@@ -77,23 +77,23 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
 const G_PAD = 18, G_TOP = 34;
 
 export interface LayoutOptions {
-  /** 미리 만든 ELK 인스턴스. 없으면 elkjs 를 그때 불러온다 (브라우저 플레이어는 별도 파일로 주입) */
+  /** Pre-built ELK instance. If absent, elkjs is loaded on demand (the browser player injects it from a separate file) */
   elk?: Pick<ElkApi, "layout">;
 }
 
 async function defaultElk(): Promise<Pick<ElkApi, "layout">> {
   const m = await import("elkjs/lib/elk.bundled.js");
-  // elkjs 는 CJS — 환경에 따라 default 가 한 겹 더 감싸질 수 있다
+  // elkjs is CJS — depending on the environment, default may be wrapped one level deeper
   const Ctor = ((m as { default?: unknown }).default ?? m) as { default?: unknown };
   return new ((Ctor.default ?? Ctor) as new () => ElkApi)();
 }
 
 export const NODE_H = 52;
-/** 아이콘(24px) + 여백이 차지하는 가로 공간 */
+/** Horizontal space taken by the icon (24px) plus padding */
 export const ICON_SPACE = 34;
 const GAP_NODE = 50, GAP_LAYER = 110, PAD = 40, SPREAD = 30;
 
-/** 라벨 표시폭 추정: 한글·전각 15px, 그 외 8.5px */
+/** Label display width estimate: Hangul/full-width 15px, others 8.5px */
 export function textWidth(s: string): number {
   let w = 0;
   for (const c of s) w += /[ᄀ-ᇿ　-鿿가-힯＀-￯]/.test(c) ? 15 : 8.5;
@@ -107,7 +107,7 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
   }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
-  // ELK 에는 쌍마다 처음 나온 방향의 엣지 하나만 준다
+  // Give ELK only the first-seen edge direction for each pair
   const seen = new Set<string>();
   const elkEdges: { id: string; sources: string[]; targets: string[] }[] = [];
   tl.allEdges.forEach((e, i) => {
@@ -118,9 +118,9 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
     elkEdges.push({ id: `e${i}`, sources: [e.from], targets: [e.to] });
   });
   const elk = opts.elk ?? (await defaultElk());
-  // 그룹은 ELK 의 계층 노드로 넘긴다 (멤버는 자식)
+  // Groups are passed to ELK as hierarchical nodes (members are children)
   type ElkN = { id: string; width?: number; height?: number; children?: ElkN[]; layoutOptions?: Record<string, string>; x?: number; y?: number };
-  const direct = new Map<string, string>(); // 노드 → 가장 안쪽 그룹
+  const direct = new Map<string, string>(); // node → innermost group
   for (const g of doc.groups) for (const m of g.members) direct.set(m, g.id);
   const elkNode = (n: LNode): ElkN => ({ id: n.id, width: n.w, height: n.h });
   const elkGroup = (gid: string): ElkN => ({
@@ -156,13 +156,13 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
   for (const c of g.children ?? []) walk(c, 0, 0);
 
   const fixed = new Set<string>();
-  // rank: 그룹의 x 를 가장 왼쪽에 맞춘다
+  // rank: align the group's x to the leftmost
   for (const r of doc.ranks) {
     const group = r.ids.map((id) => byId.get(id)!).filter(Boolean);
     const x = Math.min(...group.map((n) => n.x));
     group.forEach((n) => (n.x = x));
   }
-  // pin: 층(열) x 와 행 높이 격자
+  // pin: grid of layer (column) x and row heights
   if (doc.pins.length) {
     const cols = [...new Set(nodes.map((n) => Math.round(n.x)))].sort((a, b) => a - b);
     const colStep = Math.max(...nodes.map((n) => n.w)) + GAP_LAYER;
@@ -177,7 +177,7 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
   }
   resolveOverlaps(nodes, fixed);
   let groups = groupBoxes(doc, byId);
-  // 멤버가 아닌 노드가 그룹 상자에 걸치면 상자 아래로 내린다
+  // A non-member node overlapping a group box is moved below the box
   for (let iter = 0; iter < 60 && groups.length; iter++) {
     let moved = false;
     for (const gb of groups) {
@@ -186,7 +186,7 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
         if (members.has(n.id)) continue;
         if (!(n.x < gb.x + gb.w && gb.x < n.x + n.w && n.y < gb.y + gb.h && gb.y < n.y + n.h)) continue;
         if (!fixed.has(n.id)) { n.y = gb.y + gb.h + GAP_NODE / 2; moved = true; continue; }
-        // 고정된 노드는 움직일 수 없으니 그룹 전체를 그 아래로 내린다
+        // A pinned node cannot move, so move the whole group below it
         const dy = n.y + n.h + GAP_NODE / 2 - gb.y;
         for (const id of members) { const m = byId.get(id)!; if (!fixed.has(id)) m.y += dy; }
         moved = true;
@@ -197,11 +197,11 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
     groups = groupBoxes(doc, byId);
   }
 
-  // 원점 정리
+  // Normalize origin
   const nx0 = Math.min(...nodes.map((n) => n.x), ...groups.map((b) => b.x)), ny0 = Math.min(...nodes.map((n) => n.y), ...groups.map((b) => b.y));
   nodes.forEach((n) => { n.x = Math.round(n.x - nx0 + PAD); n.y = Math.round(n.y - ny0 + PAD); });
 
-  // 곡선의 제어점까지 포함한 경계로 캔버스를 잡는다 (경로는 상대 위치로만 정해지므로 옮긴 뒤 다시 그린다)
+  // Size the canvas to bounds including curve control points (paths depend only on relative positions, so redraw after shifting)
   let edges = routeEdges(tl, byId);
   const pts = () => edges.flatMap((e) => {
     const n = (e.d.match(/[-\d.]+/g) ?? []).map(Number);
@@ -209,7 +209,7 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
   });
   groups = groupBoxes(doc, byId);
   let minX = Math.min(...nodes.map((n) => n.x), ...groups.map((b) => b.x), ...pts().map((p) => p.x));
-  let minY = Math.min(...nodes.map((n) => n.y), ...groups.map((b) => b.y), ...pts().map((p) => p.y - 20)); // 라벨 높이 여유
+  let minY = Math.min(...nodes.map((n) => n.y), ...groups.map((b) => b.y), ...pts().map((p) => p.y - 20)); // room for label height
   if (minX < PAD || minY < PAD) {
     const dx = Math.max(0, Math.ceil(PAD - minX)), dy = Math.max(0, Math.ceil(PAD - minY));
     nodes.forEach((n) => { n.x += dx; n.y += dy; });
@@ -232,7 +232,7 @@ function membersDeep(doc: Document, gid: string): Set<string> {
   return out;
 }
 
-/** 그룹 상자 = 멤버(와 안쪽 그룹) 경계 + 여백. 안쪽부터 계산한다 */
+/** Group box = bounds of members (and inner groups) plus padding. Computed innermost first */
 function groupBoxes(doc: Document, byId: Map<string, LNode>): LGroup[] {
   const depth = (id: string): number => { const g = doc.groups.find((x) => x.id === id); return g?.parent ? depth(g.parent) + 1 : 0; };
   const boxes = new Map<string, LGroup>();
@@ -250,7 +250,7 @@ function groupBoxes(doc: Document, byId: Map<string, LNode>): LGroup[] {
   return doc.groups.map((g) => boxes.get(g.id)!).filter(Boolean);
 }
 
-/** 겹치는 노드는 고정되지 않은 쪽을 아래로 민다 */
+/** For overlapping nodes, push the unpinned one down */
 function resolveOverlaps(nodes: LNode[], fixed: Set<string>) {
   for (let iter = 0; iter < 200; iter++) {
     let moved = false;
@@ -289,8 +289,8 @@ function routeEdges(tl: Timeline, byId: Map<string, LNode>): LEdge[] {
       const cx = (ac.x + bc.x) / 2 + nx * o * 2, cy = (ac.y + bc.y) / 2 + ny * o * 2;
       return { s: clip(a, cx, cy), c: { x: cx, y: cy }, t: clip(b, cx, cy) };
     };
-    // 다른 노드를 뚫으면 묶음 전체를 한쪽으로 더 휘게 한다
-    // 엣지가 많으면 간격을 좁혀 묶음이 과하게 부풀지 않게 한다
+    // If it crosses another node, bend the whole bundle further to one side
+    // With many edges, narrow the spacing so the bundle doesn't bulge too much
     const spread = idx.length <= 4 ? SPREAD : Math.max(12, 72 / (idx.length - 1));
     const base = idx.map((_, k) => (k - (idx.length - 1) / 2) * spread);
     let shift: number | undefined;
@@ -298,7 +298,7 @@ function routeEdges(tl: Timeline, byId: Map<string, LNode>): LEdge[] {
       if (idx.every((i, k) => !crosses(curve(i, base[k] + cand), others))) { shift = cand; break; }
     }
     if (shift === undefined) {
-      // 곡선으로 못 피하면 위/아래로 돌아가는 꺾은선
+      // If a curve can't avoid it, use a polyline going over/under
       const bus = idx.map((i, k) => detour(tl.allEdges[i], byId, others, k) ?? gridRoute(tl.allEdges[i], byId, others, k));
       if (bus.every(Boolean)) { idx.forEach((i, k) => out.push({ index: i, ...bus[k]! })); continue; }
       shift = 0;
@@ -327,19 +327,19 @@ function polyCrosses(pts: Pt[], nodes: LNode[]): boolean {
 }
 
 /**
- * 마지막 대안: 격자(10px) 위 A* 로 장애물을 피하는 직각 경로. 꺾임에 비용을 줘서 단순한 길을 고른다.
- * k 번째 엣지는 다른 엣지와 겹치지 않게 경로를 조금씩 비켜 놓는다.
+ * Last resort: an orthogonal path avoiding obstacles via A* on a 10px grid. Bends are penalized to prefer simple routes.
+ * The k-th edge is offset slightly so it doesn't overlap other edges.
  */
 function gridRoute(e: { from: string; to: string }, byId: Map<string, LNode>, others: LNode[], k: number): { d: string; mid: Pt } | undefined {
   const a = byId.get(e.from)!, b = byId.get(e.to)!, all = [a, b, ...others];
   const pad = 80;
   const x0 = Math.min(...all.map((n) => n.x)) - pad, y0 = Math.min(...all.map((n) => n.y)) - pad;
   const spanX = Math.max(...all.map((n) => n.x + n.w)) + pad - x0, spanY = Math.max(...all.map((n) => n.y + n.h)) + pad - y0;
-  // 격자 칸 수를 25만 개 안으로 (큰 그림은 칸을 키운다)
+  // Keep the grid under 250k cells (enlarge cells for large drawings)
   const C = Math.max(10, Math.ceil(Math.sqrt((spanX * spanY) / 250_000)));
   const W = Math.ceil(spanX / C), H = Math.ceil(spanY / C);
   const blocked = new Uint8Array(W * H);
-  // 장애물 사각형을 칸에 직접 찍는다: O(노드 + 칸)
+  // Stamp obstacle rectangles directly onto cells: O(nodes + cells)
   for (const n of others) {
     const gx0 = Math.max(0, Math.floor((n.x - MARGIN - x0) / C)), gx1 = Math.min(W - 1, Math.ceil((n.x + n.w + MARGIN - x0) / C));
     const gy0 = Math.max(0, Math.floor((n.y - MARGIN - y0) / C)), gy1 = Math.min(H - 1, Math.ceil((n.y + n.h + MARGIN - y0) / C));
@@ -348,7 +348,7 @@ function gridRoute(e: { from: string; to: string }, byId: Map<string, LNode>, ot
   const cell = (n: LNode) => [Math.round((n.x + n.w / 2 - x0) / C), Math.round((n.y + n.h / 2 - y0) / C)];
   const [sx, sy] = cell(a), [tx, ty] = cell(b);
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  // 상태 = 칸 * 4 + 들어온 방향
+  // state = cell * 4 + incoming direction
   const N = W * H * 4, g = new Float64Array(N).fill(Infinity), prev = new Int32Array(N).fill(-1);
   const open: [number, number][] = [];
   const push = (st: number, f: number) => { open.push([f, st]); let i = open.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (open[p][0] <= open[i][0]) break; [open[p], open[i]] = [open[i], open[p]]; i = p; } };
@@ -370,11 +370,11 @@ function gridRoute(e: { from: string; to: string }, byId: Map<string, LNode>, ot
   const cells: Pt[] = [];
   for (let st = goal; st >= 0; st = prev[st]) { const c = st >> 2; cells.push({ x: x0 + (c % W) * C, y: y0 + ((c / W) | 0) * C }); }
   cells.reverse();
-  // 노드 밖으로 나온 첫 점 ~ 대상 노드에 들어가기 직전 점
+  // From the first point outside the node to the point just before entering the target node
   const out = (p: Pt, n: LNode) => !(p.x >= n.x && p.x <= n.x + n.w && p.y >= n.y && p.y <= n.y + n.h);
   let i0 = cells.findIndex((p) => out(p, a)), i1 = cells.length - 1 - [...cells].reverse().findIndex((p) => out(p, b));
   if (i0 < 0 || i1 < i0) return undefined;
-  // 끝점은 노드 테두리 위로: 직각 경로이므로 나가는 방향의 테두리 좌표로 맞춘다
+  // Endpoints go onto the node border: the path is orthogonal, so snap to the border coordinate in the exit direction
   const border = (inner: Pt, outer: Pt, n: LNode): Pt =>
     inner.x === outer.x
       ? { x: outer.x, y: outer.y < inner.y ? n.y : n.y + n.h }
@@ -385,12 +385,12 @@ function gridRoute(e: { from: string; to: string }, byId: Map<string, LNode>, ot
   const inner = cells.slice(i0, i1 + 1);
   let pts = [start, ...inner.map((p) => ({ x: p.x + off, y: p.y + off })), end];
   if (off && polyCrosses(pts, others)) pts = [start, ...inner, end];
-  if (off) { // 첫·끝 구간도 직각이 되도록 테두리 점을 옆으로 민다
+  if (off) { // shift the border point sideways so the first/last segments are orthogonal too
     pts[0] = inner[0].x === start.x ? { x: start.x + off, y: start.y } : { x: start.x, y: start.y + off };
     const L = pts.length - 1, li = inner[inner.length - 1];
     pts[L] = li.x === end.x ? { x: end.x + off, y: end.y } : { x: end.x, y: end.y + off };
   }
-  // 일직선 위 점 제거
+  // Remove collinear points
   pts = pts.filter((p, j) => j === 0 || j === pts.length - 1 ||
     !((pts[j - 1].x === p.x && p.x === pts[j + 1].x) || (pts[j - 1].y === p.y && p.y === pts[j + 1].y)));
   const segs = pts.slice(1).map((p, j) => Math.hypot(p.x - pts[j].x, p.y - pts[j].y));
@@ -402,7 +402,7 @@ function gridRoute(e: { from: string; to: string }, byId: Map<string, LNode>, ot
   return { d: `M${pts.map((p) => `${r(p.x)},${r(p.y)}`).join(" L")}`, mid: { x: r(mid.x), y: r(mid.y) } };
 }
 
-/** 노드 위(또는 아래)로 나가 가로로 지나간 뒤 대상 노드로 들어가는 꺾은선 */
+/** Polyline that exits above (or below) the node, runs horizontally, then enters the target node */
 function detour(e: { from: string; to: string }, byId: Map<string, LNode>, others: LNode[], k: number): { d: string; mid: Pt } | undefined {
   const a = byId.get(e.from)!, b = byId.get(e.to)!;
   const lo = Math.min(a.x, b.x), hi = Math.max(a.x + a.w, b.x + b.w);
@@ -436,7 +436,7 @@ function selfLoop(i: number, n: LNode, k: number): LEdge {
 
 const center = (n: LNode) => ({ x: n.x + n.w / 2, y: n.y + n.h / 2 });
 const r = (v: number) => Math.round(v * 10) / 10;
-/** 노드 중심에서 (tx,ty) 방향으로 나가는 선이 박스 경계와 만나는 점 */
+/** Point where a line from the node center toward (tx,ty) meets the box boundary */
 function clip(n: LNode, tx: number, ty: number) {
   const c = center(n), ux = tx - c.x, uy = ty - c.y;
   const s = Math.min(Math.abs(n.w / 2 / (ux || 1e-9)), Math.abs(n.h / 2 / (uy || 1e-9)));

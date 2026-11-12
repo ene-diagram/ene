@@ -1,7 +1,7 @@
 import type { Document, Edge, Stmt, Timeline, TimelineStep } from "./types.js";
 
 export interface TimelineOptions {
-  /** choices[i] = 소스 등장 순서 i번째 branch 에서 고를 갈래 (기본 0, 범위 밖이면 0) */
+  /** choices[i] = arm to pick at the i-th branch in source order (default 0; 0 if out of range) */
   choices?: number[];
 }
 
@@ -11,7 +11,7 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
   const branchIndex = new Map<Stmt, number>();
   const branches: Timeline["branches"] = [];
 
-  // 1차: 모든 갈래·loop 를 포함해 고유 엣지와 분기 번호를 소스 순서로 모은다
+  // Pass 1: collect unique edges and branch numbers in source order, including all arms and loops
   const collect = (body: Stmt[]) => {
     for (const s of body) {
       if (s.type === "step") for (const e of s.edges) { edgeIndex.set(e, allEdges.length); allEdges.push(e); }
@@ -25,7 +25,7 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
   };
   collect(doc.body);
 
-  // 2차: 선택된 경로를 따라 시각을 계산한다
+  // Pass 2: compute times along the chosen path
   const steps: TimelineStep[] = [];
   let t = 0;
   const walk = (body: Stmt[], path: number[]) => {

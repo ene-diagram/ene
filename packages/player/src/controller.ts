@@ -12,11 +12,11 @@ export interface Controller {
   toggle(): void;
   restart(): void;
   setRate(r: number): void;
-  /** dt 초만큼 진행 (재생 중일 때만, rate 배) */
+  /** Advance by dt seconds (only while playing, scaled by rate) */
   tick(dt: number): void;
   next(): void;
   prev(): void;
-  /** time 시점에 시작된 마지막 단계 (단계가 없으면 -1) */
+  /** Last step started at time (-1 if there are no steps) */
   currentStep(): number;
 }
 
@@ -49,7 +49,7 @@ export function createController(tl: Timeline, opts: ControllerOptions = {}): Co
       const i = c.currentStep();
       if (i < 0) return void (c.time = 0);
       const cur = c.time >= tl.total ? tl.total : starts[i];
-      // 현재 단계 시작에서 조금 지났으면 그 단계 처음으로, 아니면 이전 단계로
+      // If slightly past the current step's start, go to its start; otherwise go to the previous step
       if (c.time - cur > 0.3) c.time = cur;
       else c.time = starts.filter((s) => s < cur - 1e-9).pop() ?? 0;
     },

@@ -1,11 +1,11 @@
 export interface Line {
-  /** 원본 줄 번호 (1부터) */
+  /** Original line number (1-based) */
   no: number;
-  /** 들여쓰기·주석·후행 공백을 뗀 본문 */
+  /** Body with indentation, comment and trailing whitespace stripped */
   text: string;
-  /** 앞 공백(스페이스·탭) 개수 */
+  /** Number of leading whitespace chars (spaces/tabs) */
   indent: number;
-  /** cols[i] = text 의 i번째 코드 포인트가 원본에서 있던 열 (1부터) */
+  /** cols[i] = column (1-based) in the original of the i-th code point of text */
   cols: number[];
 }
 
@@ -17,8 +17,8 @@ export function scan(source: string): Line[] {
     const chars = [...raw];
     let start = 0;
     while (start < chars.length && isSpace(chars[start])) start++;
-    // 주석: 줄 맨 앞(들여쓰기 뒤) 또는 공백 바로 뒤의 '#'.
-    // 단, 라벨 안(`[...]` 안, 첫 `:` 뒤, `title` 뒤)의 '#' 은 글자다.
+    // Comment: a '#' at line start (after indentation) or right after whitespace.
+    // But a '#' inside a label (inside `[...]`, after the first `:`, after `title`) is a literal character.
     let end = chars.length;
     const isTitle = chars.slice(start, start + 6).join("") === "title ";
     let depth = 0, inLabel = false;

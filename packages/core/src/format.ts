@@ -6,7 +6,7 @@ export function formatDiagnostic(source: string, d: Diagnostic, lang: Lang = "en
   const raw = source.split(/\r\n|\r|\n/)[d.span.line - 1] ?? "";
   const g = String(d.span.line).length;
   const pad = " ".repeat(g);
-  // 원문의 탭은 그대로 두어 ^ 정렬을 맞춘다
+  // Keep tabs in the source as-is so the ^ stays aligned
   const lead = [...raw].slice(0, d.span.col - 1).map((c) => (c === "\t" ? "\t" : " ")).join("");
   const hint = d.args.suggestion ? fill(DID_YOU_MEAN[lang], d.args) : fill(m.hint, d.args);
   return [

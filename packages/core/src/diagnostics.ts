@@ -7,7 +7,7 @@ export const CODES = [
 ] as const;
 export type Code = (typeof CODES)[number];
 
-/** 제한 Damerau-Levenshtein(OSA) 거리 */
+/** Restricted Damerau-Levenshtein (OSA) distance */
 export function distance(a: string, b: string): number {
   const s = [...a], t = [...b];
   const d: number[][] = Array.from({ length: s.length + 1 }, (_, i) => [i, ...Array(t.length).fill(0)]);
@@ -22,8 +22,8 @@ export function distance(a: string, b: string): number {
 }
 
 /**
- * 가장 가까운 후보 (동률이면 먼저 나온 것).
- * 허용 거리 = clamp(floor(길이/3), 1, 2), 3글자 미만은 제안하지 않음 — 짧은 id 끼리의 오탐 방지
+ * Closest candidate (the first one on ties).
+ * Allowed distance = clamp(floor(length/3), 1, 2); nothing is suggested under 3 characters, to avoid false positives between short ids
  */
 export function suggest(word: string, candidates: Iterable<string>): string | undefined {
   const len = [...word].length;
@@ -42,7 +42,7 @@ export const KEYWORDS = ["title", "speed", "wait", "loop", "branch", "else", "en
 export type Lang = "en" | "ko";
 interface Msg { message: string; hint: string }
 
-/** 자리표시: {name} {word} {value} {char} {suggestion} {block} {arm} {first} {second} {other} {cell} */
+/** Placeholders: {name} {word} {value} {char} {suggestion} {block} {arm} {first} {second} {other} {cell} */
 export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
   en: {
     E101: { message: "no steps to play", hint: "write at least one edge, e.g. `user -> api : request`" },

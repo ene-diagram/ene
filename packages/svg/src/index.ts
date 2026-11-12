@@ -2,10 +2,10 @@ import type { Timeline } from "@ene/core";
 import type { ResolvedIcon } from "@ene/core";
 import { edgeFor, type LEdge, type LFrame, type LGroup, type LNode, type Layout } from "@ene/layout";
 
-/** 경로 id: 흐름도는 고유 엣지마다, 시퀀스는 단계·순번마다 */
+/** Path id: per unique edge for flow, per step and index for sequence */
 export const pathId = (e: LEdge) => (e.step === undefined ? `e${e.index}` : `s${e.step}_${e.k}`);
 
-/** 시퀀스 생명선과 분기 틀 */
+/** Sequence lifelines and branch frames */
 export function sequenceMarkup(l: Layout): string {
   const lines = (l.lifelines ?? []).map((v) => `<line x1="${v.x}" y1="${v.y1}" x2="${v.x}" y2="${v.y2}" class="life"/>`).join("");
   const frames = (l.frames ?? []).map((f: LFrame) =>
@@ -18,7 +18,7 @@ export interface SvgOptions { title?: string; icons?: Map<string, ResolvedIcon> 
 
 const ICON = 24, ICON_PAD = 14;
 
-/** 노드 모양 (박스·알약·원통·큐·원) — fill/stroke 는 인자로 */
+/** Node shapes (box, pill, cylinder, queue, circle) — fill/stroke are passed in */
 function shapeMarkup(n: LNode, attrs: string): string {
   const { x, y, w, h } = n;
   switch (n.shape) {
@@ -37,7 +37,7 @@ function shapeMarkup(n: LNode, attrs: string): string {
   }
 }
 
-/** 노드 하나(모양 + 색 + 아이콘 + 라벨) 마크업. 플레이어도 같은 것을 쓴다 */
+/** Markup for one node (shape + color + icon + label). The player uses the same one */
 export function nodeMarkup(n: LNode, icons: Map<string, ResolvedIcon> = new Map()): string {
   const icon = n.icon ? icons.get(n.icon) : undefined;
   const cy = n.y + n.h / 2;
@@ -51,7 +51,7 @@ export function nodeMarkup(n: LNode, icons: Map<string, ResolvedIcon> = new Map(
   return `<g>${body}${iconSvg}<text x="${lx}" y="${cy}" class="nl">${esc(n.label)}</text></g>`;
 }
 
-/** 그룹 상자 (점선 테두리 + 왼쪽 위 라벨) */
+/** Group box (dashed border + top-left label) */
 export function groupMarkup(g: LGroup): string {
   const c = g.color ? esc(g.color) : "var(--line)";
   return `<g><rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="14" class="grp" fill="${c}" fill-opacity="0.05" stroke="${c}" stroke-width="1.5" stroke-dasharray="6 4"/>` +
@@ -60,7 +60,7 @@ export function groupMarkup(g: LGroup): string {
 
 declare const btoa: (s: string) => string;
 declare const TextEncoder: { new (): { encode(s: string): Uint8Array } };
-/** 외부 SVG 문서를 아이콘으로: viewBox 크기를 읽고 data URI 이미지로 감싼다 (스크립트 실행 차단) */
+/** External SVG document as an icon: read the viewBox size and wrap it as a data URI image (blocks script execution) */
 export function iconFromSvgText(text: string): ResolvedIcon {
   const vb = text.match(/viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/);
   const width = vb ? Number(vb[1]) : 24, height = vb ? Number(vb[2]) : 24;
@@ -75,7 +75,7 @@ const TITLE_H = 44, HOLD = 1.5, FADE = 0.3;
 export const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** 화살촉: 선 색을 그대로 따른다 (context-stroke) */
+/** Arrowhead: follows the line color (context-stroke) */
 export const ARROW_DEFS = `<defs><marker id="ene-ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="context-stroke"/></marker></defs>`;
 
 export const STYLE = `
@@ -101,7 +101,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
   const nodeById = new Map(l.nodes.map((n) => [n.id, n]));
   const offY = opts.title ? TITLE_H : 0;
 
-  // 같은 엣지가 다시 쓰이면 이전 라벨을 그때 숨긴다
+  // When the same edge is reused, hide the previous label then
   const uses = new Map<number, number[]>();
   tl.steps.forEach((s) => s.edges.forEach((e) => uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start])));
 
@@ -114,7 +114,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
       if (!le) continue;
       const t0 = s.start, t1 = s.start + e.duration * 0.85;
       const end = total - FADE;
-      // 시퀀스는 행마다 따로라 라벨을 끝까지 둔다
+      // Sequence has separate rows, so keep the label to the end
       const nextUse = le.step !== undefined ? end : (uses.get(e.edgeIndex) ?? []).find((t) => t > t0) ?? end;
       const on = `0;${kt(t0)};${kt(t0)};${kt(end)};1`;
       hl += `<path d="${le.d}" class="hl ${e.kind}" marker-end="url(#ene-ah)" opacity="0">${anim("opacity", "0;0;1;1;0", on)}</path>`;

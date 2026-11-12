@@ -1,7 +1,7 @@
 import { suggest } from "./diagnostics.js";
 import type { Diagnostic, Document } from "./types.js";
 
-/** Iconify JSON 형식의 일부 (https://iconify.design/docs/types/iconify-json.html) */
+/** Subset of the Iconify JSON format (https://iconify.design/docs/types/iconify-json.html) */
 export interface IconPack {
   prefix: string;
   icons: Record<string, { body: string; width?: number; height?: number }>;
@@ -11,7 +11,7 @@ export interface IconPack {
 }
 export interface ResolvedIcon { body: string; width: number; height: number }
 
-/** `http(s):`, `data:`, `/`, `./`, `../` 로 시작하면 팩이 아니라 SVG 주소 */
+/** `http(s):`, `data:`, `/`, `./`, `../` means an SVG address, not a pack name */
 export const isIconUrl = (ref: string) => /^(https?:|data:|\.{0,2}\/)/.test(ref);
 
 export function resolveIcon(ref: string, packs: IconPack[]): ResolvedIcon | undefined {
@@ -27,7 +27,7 @@ export function resolveIcon(ref: string, packs: IconPack[]): ResolvedIcon | unde
   return { body: icon.body, width: icon.width ?? pack.width ?? 16, height: icon.height ?? pack.height ?? 16 };
 }
 
-/** 등록된 팩에서 찾을 수 없는 아이콘마다 W104 (URL 아이콘은 검사하지 않음) */
+/** W104 for each icon not found in the registered packs (URL icons are not checked) */
 export function checkIcons(doc: Document, packs: IconPack[]): Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const n of doc.nodes.values()) {

@@ -33,7 +33,7 @@ class Parser {
 
   run(): ParseResult {
     for (const line of scan(this.source)) this.line(line);
-    // 닫히지 않은 블록은 바깥(위쪽 줄)부터 보고한다
+    // Report unclosed blocks starting from the outermost (topmost line)
     for (const f of this.stack.splice(0)) {
       if (f.kind === "branch") this.checkArm(f);
       this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind });
@@ -46,7 +46,7 @@ class Parser {
     return { doc: this.doc, diagnostics: this.diags };
   }
 
-  // ---- 진단 ----
+  // ---- diagnostics ----
   span(l: Line, from: number, to: number): Span {
     const col = l.cols[from] ?? (l.cols[l.cols.length - 1] ?? 0) + 1;
     return { line: l.no, col, length: Math.max(1, to - from) };
@@ -59,7 +59,7 @@ class Parser {
     this.diags.push({ code, severity: code.startsWith("W") ? "warning" : "error", span: this.span(l, from, to), args });
   }
 
-  // ---- 문장 ----
+  // ---- statements ----
   get body(): Stmt[] {
     const f = this.stack[this.stack.length - 1];
     if (!f) return this.doc.body;
@@ -149,7 +149,7 @@ class Parser {
     return { type: "step", edges, span: this.span(l, 0, t.length) };
   }
 
-  /** pos 부터 엣지 하나. next 는 다음 ` & ` 뒤 위치 또는 t.length */
+  /** One edge starting at pos. next is the position after the next ` & `, or t.length */
   edge(l: Line, t: string[], pos: number): { edge: Edge; next: number } | undefined {
     const begin = pos = skip(t, pos);
     const a = this.ref(l, t, pos);
@@ -178,7 +178,7 @@ class Parser {
     if (!b) return void this.report("E107", l, pos, pos + 1, { char: t[pos] });
     pos = b.end;
 
-    // 남은 부분을 다음 엣지(` & ref ->`) 앞에서 자른다
+    // Cut the remainder before the next edge (` & ref ->`)
     let end = t.length, next = t.length;
     for (let i = pos; i + 2 < t.length; i++) {
       if (t[i] === " " && t[i + 1] === "&" && t[i + 2] === " " && NEXT_EDGE.test(t.slice(i + 3).join(""))) {
@@ -211,7 +211,7 @@ class Parser {
     return { edge, next };
   }
 
-  /** undefined = id 없음, null = 오류 보고함 */
+  /** undefined = no id, null = error reported */
   ref(l: Line, t: string[], pos: number): Ref | undefined | null {
     if (isArrow(t, pos)) return undefined;
     let i = pos;
@@ -231,7 +231,7 @@ class Parser {
     return r;
   }
 
-  /** `{key: value, ...}` 노드 속성. 지금은 icon 만 */
+  /** `{key: value, ...}` node properties. Only icon for now */
   attrs(l: Line, t: string[], r: Ref): Ref | null {
     const open = r.end, close = t.indexOf("}", open);
     if (close < 0) { this.report("E109", l, open, open + 1); return null; }
@@ -277,7 +277,7 @@ class Parser {
     this.hints.push({ kind, ids: [ids[0]], line: l, col: Number(coord[1]), row: Number(coord[2]) });
   }
 
-  /** 한 번만 쓰인 id 가 먼저 선언된 id 와 비슷하면 W101 */
+  /** W101 if an id used only once resembles an earlier declared id */
   typos() {
     const ids = [...this.nodes.keys()];
     ids.forEach((id, i) => {
@@ -288,9 +288,9 @@ class Parser {
     });
   }
 
-  /** group <id>[라벨]{color: ..} [in <부모>] : <멤버> ... */
+  /** group <id>[label]{color: ..} [in <parent>] : <members> ... */
   group(l: Line, t: string[]) {
-    // 괄호 밖의 첫 ':' 가 멤버 목록의 시작
+    // The first ':' outside brackets starts the member list
     let colon = -1;
     for (let i = 0, depth = 0; i < t.length; i++) {
       if (t[i] === "[" || t[i] === "{") depth++;
@@ -325,18 +325,18 @@ class Parser {
   }
 
   resolveGroups() {
-    // 중복 id 는 먼저 걸러 낸다
+    // Filter out duplicate ids first
     const byId = new Map<string, (typeof this.pendingGroups)[number]>();
     for (const pg of this.pendingGroups) {
       if (byId.has(pg.g.id)) { this.report("E405", pg.line, 0, [...pg.line.text].length, { name: pg.g.id }); continue; }
       byId.set(pg.g.id, pg);
     }
-    // 부모가 먼저 오도록 순서를 맞춘다 (선언 순서와 무관)
+    // Order so parents come first (independent of declaration order)
     const ordered: (typeof this.pendingGroups)[number][] = [];
-    const state = new Map<string, number>(); // 1 방문 중, 2 완료
+    const state = new Map<string, number>(); // 1 visiting, 2 done
     const visit = (pg: (typeof this.pendingGroups)[number]) => {
       if (state.get(pg.g.id) === 2) return;
-      if (state.get(pg.g.id) === 1) return; // 순환 — 아래에서 E406/E404 로 걸림
+      if (state.get(pg.g.id) === 1) return; // cycle — caught below as E406/E404
       state.set(pg.g.id, 1);
       const parent = pg.g.parent ? byId.get(pg.g.parent) : undefined;
       if (parent) visit(parent);
@@ -372,7 +372,7 @@ class Parser {
       for (const id of seen) { memberOf.set(id, g.id); g.members.push(id); }
       ok.add(g.id);
     }
-    // 결과는 원래 선언 순서로
+    // Results go back to the original declaration order
     this.doc.groups = this.pendingGroups.map((pg) => pg.g).filter((g, i, arr) => ok.has(g.id) && arr.findIndex((x) => x.id === g.id) === i);
   }
 
@@ -414,8 +414,8 @@ class Parser {
 }
 
 /**
- * i 위치의 화살표. `-->` 응답, `->` 정상, `-x` 실패.
- * `-x` 는 앞이 공백·줄 시작이고 뒤가 공백·줄 끝일 때만 (id 안의 `-x` 와 구분)
+ * Arrow at position i. `-->` reply, `->` normal, `-x` failure.
+ * `-x` only when preceded by whitespace/line start and followed by whitespace/line end (to distinguish from `-x` inside an id)
  */
 const arrowAt = (t: string[], i: number): { kind: EdgeKind; len: number } | undefined => {
   if (t[i] !== "-") return;

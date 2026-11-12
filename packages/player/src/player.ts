@@ -5,10 +5,10 @@ import { createController, type Controller } from "./controller.js";
 
 export interface PlayerOptions { lang?: Lang; autoplay?: boolean; loop?: boolean }
 
-// ---- ELK 지연 로딩: ene.js 옆의 ene-elk.js 를 처음 필요할 때 한 번만 불러온다 ----
+// ---- ELK lazy loading: load ene-elk.js next to ene.js once, on first need ----
 let elkUrl: string | undefined;
 let elkPromise: Promise<ElkApi> | undefined;
-/** ene-elk.js 위치 지정 (기본: ene.js 와 같은 폴더) */
+/** Set the location of ene-elk.js (default: same folder as ene.js) */
 export function setElkUrl(url: string): void { elkUrl = url; }
 function loadElk(): Promise<ElkApi> {
   const w = window as unknown as { ELK?: new () => ElkApi };
@@ -43,7 +43,7 @@ const packSources: IconPackSource[] = [];
 let packsPromise: Promise<IconPack[]> | undefined;
 const urlIcons = new Map<string, Promise<ResolvedIcon | undefined>>();
 
-/** 아이콘 팩 등록 (Iconify JSON). loader 는 아이콘이 처음 필요할 때 한 번만 불린다 */
+/** Register icon packs (Iconify JSON). The loader is called once, when an icon is first needed */
 export function registerIconPacks(sources: IconPackSource[]): void {
   packSources.push(...sources);
   packsPromise = undefined;
@@ -75,7 +75,7 @@ const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<strin
   return e;
 };
 
-/** 대상 요소 안에 플레이어를 만든다. 진단 오류가 있으면 오류 메시지를 보여 준다 */
+/** Create a player inside the target element. Shows error messages if there are diagnostic errors */
 export async function render(el: HTMLElement, source: string, opts: PlayerOptions = {}): Promise<Player | undefined> {
   injectCss();
   const lang = opts.lang ?? (navigator.language.startsWith("ko") ? "ko" : "en");
@@ -138,7 +138,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   svg.appendChild(dyn);
   root.appendChild(svg);
 
-  // ---- 컨트롤 ----
+  // ---- controls ----
   const bar = document.createElement("div");
   bar.className = "ene-bar";
   const btn = (label: string, title: string, fn: () => void) => {
@@ -180,7 +180,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     draw();
   });
 
-  // ---- 동적 요소 ----
+  // ---- dynamic elements ----
   let ctl: Controller;
   let items: ReturnType<typeof buildItems>;
   function buildItems(t: Timeline, l: Layout) {
@@ -236,7 +236,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
 
   function rebuild() {
     tl = buildTimeline(doc, { choices });
-    // 시퀀스는 분기에 따라 행이 바뀌므로 다시 배치한다
+    // Sequence rows change with branches, so re-lay out
     if (doc.kind === "sequence" && ctl) { lay = layoutSequence(doc, tl); drawStatic(); }
     const wasPlaying = ctl ? ctl.playing : (opts.autoplay ?? true) && !reduce;
     ctl = createController(tl, { loop: opts.loop ?? true });
@@ -264,7 +264,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   };
 }
 
-/** 페이지의 `<pre class="ene">` 를 모두 플레이어로 바꾼다 */
+/** Replace every `<pre class="ene">` on the page with a player */
 export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): Promise<void> {
   const els = Array.from(document.querySelectorAll<HTMLElement>(selector));
   for (const pre of els) {

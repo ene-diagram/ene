@@ -1,4 +1,4 @@
-export interface Span { line: number; col: number; length: number } // 1부터, 코드 포인트 기준
+export interface Span { line: number; col: number; length: number } // 1-based, in code points
 export type Shape = "box" | "round" | "db" | "queue" | "circle";
 export const SHAPES: Shape[] = ["box", "round", "db", "queue", "circle"];
 export interface NodeDecl { id: string; label: string; icon?: string; shape?: Shape; color?: string; span: Span }
