@@ -22,10 +22,22 @@ without errors, and every "mistake" block produces the code shown — both are c
 | `api{color: #f59e0b}` | color: `#rgb`, `#rrggbb`, `#rrggbbaa` or a CSS color name |
 | `api{icon: logos:redis}` | icon from a registered pack (`prefix:name`) or an SVG address (`https://…`, `./x.svg`) |
 | `api[API]{icon: logos:nodejs, shape: round}` | label and attributes together; attributes are comma-separated |
+| `api[Order API]` on its own line | declares the node without an edge (needs a `[label]` or `{attrs}`; a bare `api` is an error) |
 
 ```ene
 user[User]{shape: circle} -> api[Order API]{icon: logos:nodejs, color: #3e63dd} : POST /order
 api -> db[Orders DB]{shape: db} : INSERT
+```
+
+Declaring nodes first keeps every later line short and makes edits single-line. It also fixes the left-to-right
+order of participants in `diagram sequence`:
+
+```ene
+user[User]{shape: circle}
+api[Order API]{icon: logos:nodejs}
+db[Orders DB]{shape: db}
+user -> api : POST /order
+api -> db : INSERT
 ```
 
 ## Edges (one step)
@@ -107,6 +119,58 @@ pin db 3,1
 rank api db
 ```
 
+## Rules that depend on position
+
+A few characters mean different things depending on where they are. ene warns when a line could be read the other way.
+
+| Input | How it is read | Diagnostic |
+|---|---|---|
+| `a -x b` | failure arrow — only with a space on both sides of `-x` | |
+| `a-x b`, `a -xb` | `-x` glued to an id is part of the id | `E113` |
+| `a -> b # note` | `# note` is a comment (no label on the line yet) | |
+| `a -> b : hit # note` | after the `:` the `#` is label text | `W105` |
+| `a -> b : GET /items #1` | `#` not surrounded by spaces is plain label text | |
+| `title Flow # draft` | everything after `title` is the title | `W105` |
+| `a -> b : slow @2s` | `@2s` at the very end is the duration | |
+| `a -> b : @2s slow` | anywhere else `@2s` is label text | `W110` |
+| `a -> b : x & c -> d` | ` & ` followed by an edge starts a parallel edge; otherwise `&` is label text | |
+| `end`, `branch`, `title` … at line start | always the keyword, never a node id (fine after an arrow: `a -> end`) | `E115`, `W109` |
+
+Input that is accepted but ignored also warns: a second `title` / `speed` / `diagram` (`W107`), attributes that
+differ from the node's first use (`W106`), a second `pin` for the same node (`W112`), text after `end` (`W108`),
+and `pin` / `rank` / `group` in `diagram sequence` (`W111`).
+
+```ene W105
+a -> b : cache hit # fast path
+```
+
+```ene W110
+a -> b : @2s slow query
+```
+
+```ene W106
+a{shape: db} -> b
+b -> a{shape: queue}
+```
+
+```ene W107
+speed 1
+a -> b
+speed 2
+```
+
+```ene W109
+branch -> retry
+  a -> b
+end
+```
+
+```ene W111
+diagram sequence
+a -> b
+pin a 0,0
+```
+
 ## Common mistakes
 
 Each block is a wrong input and the diagnostic code it produces.
@@ -126,8 +190,20 @@ a ->
 
 `-x` glued to the id (ids may contain `-`, so `a-x` is one id):
 
-```ene E102
+```ene E113
 a-x b
+```
+
+A node named like a keyword at the start of a line:
+
+```ene E115
+end -> api : done
+```
+
+Attribute without a value:
+
+```ene E114
+a{icon: } -> b
 ```
 
 Chained arrows — one edge per `->`; write `a -> b & b -> c` or two lines:

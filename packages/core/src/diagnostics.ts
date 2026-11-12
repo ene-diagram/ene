@@ -1,9 +1,9 @@
 export const CODES = [
-  "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109", "E110", "E111", "E112",
+  "E101", "E102", "E103", "E104", "E105", "E106", "E107", "E108", "E109", "E110", "E111", "E112", "E113", "E114", "E115",
   "E201", "E203", "E204", "E205", "E206",
   "E301", "E302", "E303", "E304", "E305", "E306", "E307",
   "E401", "E402", "E403", "E404", "E405", "E406", "E407",
-  "W101", "W102", "W103", "W104",
+  "W101", "W102", "W103", "W104", "W105", "W106", "W107", "W108", "W109", "W110", "W111", "W112",
 ] as const;
 export type Code = (typeof CODES)[number];
 
@@ -42,7 +42,7 @@ export const KEYWORDS = ["title", "speed", "wait", "loop", "branch", "else", "en
 export type Lang = "en" | "ko";
 interface Msg { message: string; hint: string }
 
-/** Placeholders: {name} {word} {value} {char} {suggestion} {block} {arm} {first} {second} {other} {cell} {limit} */
+/** Placeholders: {name} {word} {value} {char} {suggestion} {block} {arm} {first} {second} {other} {cell} {limit} {keyword} {example} {attr} */
 export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
   en: {
     E101: { message: "no steps to play", hint: "write at least one edge, e.g. `user -> api : request`" },
@@ -57,6 +57,9 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E110: { message: 'unknown shape "{value}"', hint: "use one of box, round, db, queue, circle" },
     E111: { message: 'color "{value}" is not valid', hint: "use a CSS color name like `orange` or hex like `#f59e0b`" },
     E112: { message: 'unknown diagram kind "{value}"', hint: "use `diagram flow` (default) or `diagram sequence`" },
+    E113: { message: "`-x` needs a space on both sides", hint: "write `a -x b`; without the spaces `-x` is read as part of a node id" },
+    E114: { message: 'attribute "{name}" needs a value', hint: "write `{name}: value`, e.g. `api{icon: logos:redis, shape: db, color: #f59e0b}`" },
+    E115: { message: "`{keyword}` at the start of a line is a keyword, not a node", hint: "rename the node (e.g. `{keyword}_node[{keyword}]`); a keyword can only be a node id after an arrow" },
     E201: { message: 'branch arm "{arm}" has no steps', hint: "add at least one edge under this `branch` line" },
     E203: { message: "`{block}` block is never closed", hint: "add `end` after the last step of this block" },
     E204: { message: "`end` without an open block", hint: "remove this line or open a block with `branch` or `loop`" },
@@ -69,7 +72,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E305: { message: "the diagram expands to more than {limit} steps", hint: "reduce `loop` counts or nesting" },
     E306: { message: "the diagram plays for more than {limit} seconds", hint: "shorten `wait`, `speed`, `@…s` or `loop` counts" },
     E307: { message: "`{keyword}` needs a value", hint: "e.g. `{example}`" },
-    E401: { message: 'unknown node "{name}"', hint: "use a node that appears in an edge" },
+    E401: { message: 'unknown node "{name}"', hint: "use a node that appears in an edge or is declared on its own line" },
     E402: { message: 'pin position "{value}" is not valid', hint: "write column,row from 0, e.g. `pin db 3,1`" },
     E403: { message: '"{name}" is pinned to cell {cell}, already taken by "{other}"', hint: "pick a different column,row" },
     E404: { message: '"{name}" cannot join group "{group}"', hint: "a node belongs to one group; a nested group (`in`) can only take members of its parent" },
@@ -80,6 +83,14 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     W102: { message: 'node "{name}" was labeled "{first}" before, now "{second}"', hint: "the first label is kept; remove one of them" },
     W103: { message: 'edge goes from "{name}" to itself', hint: "self-loops are drawn but usually mean a typo" },
     W104: { message: 'icon "{name}" was not found in the registered icon packs', hint: "register a pack that has it (ene.registerIconPacks / --icons) or use an SVG URL" },
+    W105: { message: "this `#` is part of the label, not a comment", hint: "a comment cannot follow a label or title; move it to its own line, or ignore this if the `#` should be shown" },
+    W106: { message: 'node "{name}" already has {attr} "{first}"; "{second}" is ignored', hint: "the first value is kept; set attributes where the node first appears" },
+    W107: { message: "`{keyword}` is set more than once", hint: "it applies to the whole diagram and the last one wins; keep one" },
+    W108: { message: 'text after `end` is ignored: "{word}"', hint: "`end` closes the nearest `branch` or `loop` and takes nothing after it" },
+    W109: { message: "this line is a `{keyword}` label, not an edge", hint: "a line starting with `{keyword}` is always the keyword; rename the node if you meant an edge from a node called `{keyword}`" },
+    W110: { message: "`@{value}` here is part of the label, not a duration", hint: "a duration goes last on the edge, e.g. `a -> b : label @{value}`" },
+    W111: { message: "`{keyword}` has no effect in `diagram sequence`", hint: "pin, rank and group only apply to `diagram flow`; remove the line or switch the diagram kind" },
+    W112: { message: 'node "{name}" is pinned more than once', hint: "the last `pin` is used; keep one" },
   },
   ko: {
     E101: { message: "재생할 단계가 없어요", hint: "엣지를 하나 이상 써 주세요. 예: `user -> api : 요청`" },
@@ -94,6 +105,9 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E110: { message: '"{value}" 는 알 수 없는 모양이에요', hint: "box, round, db, queue, circle 중에서 골라 주세요" },
     E111: { message: '색 "{value}" 형식이 맞지 않아요', hint: "`orange` 같은 CSS 색 이름이나 `#f59e0b` 같은 16진수로 써 주세요" },
     E112: { message: '"{value}" 는 알 수 없는 다이어그램 종류예요', hint: "`diagram flow`(기본) 또는 `diagram sequence` 를 써 주세요" },
+    E113: { message: "`-x` 는 양쪽에 공백이 있어야 해요", hint: "`a -x b` 처럼 써 주세요. 공백이 없으면 `-x` 를 노드 id 의 일부로 읽어요" },
+    E114: { message: '속성 "{name}" 에 값이 없어요', hint: "`{name}: 값` 으로 써 주세요. 예: `api{icon: logos:redis, shape: db, color: #f59e0b}`" },
+    E115: { message: "줄 맨 앞의 `{keyword}` 는 노드가 아니라 키워드예요", hint: "노드 이름을 바꿔 주세요(예: `{keyword}_node[{keyword}]`). 키워드는 화살표 뒤에서만 노드 id 로 쓸 수 있어요" },
     E201: { message: '분기 갈래 "{arm}" 에 단계가 없어요', hint: "이 `branch` 줄 아래에 엣지를 하나 이상 써 주세요" },
     E203: { message: "`{block}` 블록이 닫히지 않았어요", hint: "블록의 마지막 단계 뒤에 `end` 를 써 주세요" },
     E204: { message: "열린 블록 없이 `end` 가 나왔어요", hint: "이 줄을 지우거나 `branch`·`loop` 로 블록을 열어 주세요" },
@@ -106,7 +120,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E305: { message: "펼치면 단계가 {limit}개를 넘어요", hint: "`loop` 횟수나 중첩을 줄여 주세요" },
     E306: { message: "재생 시간이 {limit}초를 넘어요", hint: "`wait`·`speed`·`@…s`·`loop` 횟수를 줄여 주세요" },
     E307: { message: "`{keyword}` 뒤에 값이 없어요", hint: "예: `{example}`" },
-    E401: { message: '"{name}" 라는 노드가 없어요', hint: "엣지에 나오는 노드를 써 주세요" },
+    E401: { message: '"{name}" 라는 노드가 없어요', hint: "엣지에 나오거나 한 줄로 선언한 노드를 써 주세요" },
     E402: { message: 'pin 위치 "{value}" 형식이 맞지 않아요', hint: "0부터 시작하는 열,행으로 써 주세요. 예: `pin db 3,1`" },
     E403: { message: '"{name}" 를 {cell} 칸에 고정하려 했지만 이미 "{other}" 가 있어요', hint: "다른 열,행을 골라 주세요" },
     E404: { message: '"{name}" 는 그룹 "{group}" 에 들어갈 수 없어요', hint: "노드는 그룹 하나에만 속해요. 안쪽 그룹(`in`)은 바깥 그룹의 멤버만 담을 수 있어요" },
@@ -117,6 +131,14 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     W102: { message: '"{name}" 노드 라벨이 처음엔 "{first}", 지금은 "{second}" 예요', hint: "처음 라벨을 써요. 하나를 지워 주세요" },
     W103: { message: '"{name}" 에서 자기 자신으로 가는 엣지예요', hint: "그려지긴 하지만 대개 오타예요" },
     W104: { message: '등록된 아이콘 팩에서 "{name}" 아이콘을 찾지 못했어요', hint: "그 아이콘이 있는 팩을 등록하거나(ene.registerIconPacks / --icons) SVG URL 을 써 주세요" },
+    W105: { message: "이 `#` 는 주석이 아니라 라벨의 일부예요", hint: "라벨이나 title 뒤에는 주석을 쓸 수 없어요. 주석을 다른 줄로 옮기거나, `#` 를 보여주려는 거라면 무시해도 돼요" },
+    W106: { message: '"{name}" 노드에 이미 {attr} "{first}" 가 있어서 "{second}" 는 무시돼요', hint: "처음 값을 써요. 속성은 노드가 처음 나오는 곳에 써 주세요" },
+    W107: { message: "`{keyword}` 가 두 번 이상 나왔어요", hint: "그림 전체에 적용되고 마지막 값을 써요. 하나만 남겨 주세요" },
+    W108: { message: '`end` 뒤의 "{word}" 는 무시돼요', hint: "`end` 는 가장 가까운 `branch`·`loop` 를 닫고, 뒤에 아무것도 받지 않아요" },
+    W109: { message: "이 줄은 엣지가 아니라 `{keyword}` 의 라벨이에요", hint: "`{keyword}` 로 시작하는 줄은 항상 키워드예요. `{keyword}` 라는 노드에서 나가는 엣지라면 노드 이름을 바꿔 주세요" },
+    W110: { message: "여기 있는 `@{value}` 는 시간이 아니라 라벨의 일부예요", hint: "시간은 엣지 맨 끝에 써요. 예: `a -> b : 라벨 @{value}`" },
+    W111: { message: "`{keyword}` 는 `diagram sequence` 에서 효과가 없어요", hint: "pin, rank, group 은 `diagram flow` 에서만 적용돼요. 줄을 지우거나 다이어그램 종류를 바꿔 주세요" },
+    W112: { message: '"{name}" 노드가 두 번 이상 pin 됐어요', hint: "마지막 `pin` 을 써요. 하나만 남겨 주세요" },
   },
 };
 

@@ -27,6 +27,10 @@ const isColor = (v: string) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})
 
 interface Ref { id: string; label?: string; icon?: string; shape?: Shape; color?: string; start: number; end: number }
 
+/** `#` that reads like a comment (whitespace on both sides) and `@2s` that reads like a duration, inside a label */
+const LABEL_HASH = /(?:^|\s)(#)(?:\s|$)/;
+const LABEL_DURATION = /(?:^|\s)@(\d+(?:\.\d+)?s)(?:\s|$)/;
+
 export function parse(source: string): ParseResult {
   return new Parser(source).run();
 }
@@ -42,6 +46,8 @@ class Parser {
   private hints: { kind: "pin" | "rank"; ids: { id: string; from: number; to: number }[]; line: Line; col?: number; row?: number }[] = [];
   private nodes = new Map<string, NodeDecl>();
   private labeled = new Set<string>();
+  private settings = new Set<string>();
+  private layoutLines: { keyword: string; line: Line }[] = [];
   private diags: Diagnostic[] = [];
   private doc: Document;
 
@@ -58,6 +64,8 @@ class Parser {
     }
     this.resolveHints();
     this.resolveGroups();
+    // W111: layout hints and groups are dropped by the sequence layout
+    if (this.doc.kind === "sequence") for (const { keyword, line } of this.layoutLines) this.report("W111", line, 0, keyword.length, { keyword });
     this.typos();
     if (!this.diags.some((d) => d.severity === "error")) this.budget();
     if (this.doc.body.length === 0 && !this.diags.some((d) => d.severity === "error"))
@@ -120,7 +128,19 @@ class Parser {
     const t = [...l.text];
     const word = l.text.split(/\s/, 1)[0];
     const rest = l.text.slice(word.length).trim();
-    if (word === "title") return void (this.doc.title = rest);
+    // A keyword followed by an arrow is almost always a node named like the keyword
+    if (KEYWORDS.includes(word) && arrowAt([...rest], 0)) {
+      if (word !== "title" && word !== "branch" && word !== "else") return this.report("E115", l, 0, word.length, { keyword: word });
+      this.report("W109", l, 0, word.length, { keyword: word });
+    }
+    if (word === "title" || word === "diagram" || word === "speed") {
+      if (this.settings.has(word)) this.report("W107", l, 0, word.length, { keyword: word });
+      this.settings.add(word);
+    }
+    if (word === "title") {
+      this.labelHash(l, t, word.length, t.length);
+      return void (this.doc.title = rest);
+    }
     if (word === "diagram") {
       if (rest !== "flow" && rest !== "sequence") return this.report("E112", l, 8, t.length, { value: rest });
       return void (this.doc.kind = rest);
@@ -133,9 +153,11 @@ class Parser {
       return void (this.doc.speed = n);
     }
     const whole = this.span(l, 0, t.length);
+    if (word === "pin" || word === "rank" || word === "group") this.layoutLines.push({ keyword: word, line: l });
     if (word === "pin" || word === "rank") return this.hint(l, t, word);
     if (word === "group") return this.group(l, t);
     if (word === "end") {
+      if (rest) { const at = skip(t, 3); this.report("W108", l, at, t.length, { word: rest }); }
       const f = this.stack.pop();
       if (!f) return this.report("E204", l, 0, 3);
       if (f.kind === "branch") this.checkArm(f);
@@ -159,11 +181,13 @@ class Parser {
       const top = this.stack[this.stack.length - 1];
       if (top?.kind !== "branch") return this.report("E205", l, 0, 4);
       this.checkArm(top);
+      this.labelHash(l, t, word.length, t.length);
       top.stmt.arms.push({ label: rest, body: [], span: whole });
       top.armLine = l;
       return;
     }
     if (word === "branch") {
+      this.labelHash(l, t, word.length, t.length);
       const arm = { label: rest, body: [] as Stmt[], span: whole };
       const stmt: Stmt = { type: "branch", arms: [arm], span: whole };
       into.push(stmt);
@@ -177,8 +201,31 @@ class Parser {
       if (cont?.type === "step") prev.edges.push(...cont.edges);
       return;
     }
+    if (this.nodeLine(l, t)) return;
     const step = this.step(l, t);
     if (step) into.push(step);
+  }
+
+  /** W105: a `#` with whitespace around it inside a label or title is kept as text */
+  labelHash(l: Line, t: string[], from: number, to: number) {
+    const m = t.slice(from, to).join("").match(LABEL_HASH);
+    if (!m) return;
+    const at = from + [...t.slice(from, to).join("").slice(0, m.index! + m[0].indexOf("#"))].length;
+    this.report("W105", l, at, at + 1);
+  }
+
+  /**
+   * A line that is only `id[Label]` / `id{attrs}` declares a node without an edge.
+   * A bare `id` is not a declaration, so a mistyped keyword still reports E102.
+   */
+  nodeLine(l: Line, t: string[]): boolean {
+    if (!/^[\p{L}\p{N}_-]+[[{]/u.test(l.text)) return false;
+    const r = this.ref(l, t, 0);
+    if (r === null) return true; // ref() reported the error
+    if (!r || skip(t, r.end) < t.length) return false;
+    this.declare(l, r);
+    this.uses.set(r.id, [...(this.uses.get(r.id) ?? []), { line: l, from: r.start, to: r.end }]);
+    return true;
   }
 
   step(l: Line, t: string[], from = 0): Stmt | undefined {
@@ -216,6 +263,11 @@ class Parser {
     pos = skip(t, pos);
     const arrow = arrowAt(t, pos);
     if (!arrow) {
+      // `a-x b` (glued to the source) or `a -xb` (glued to the target)
+      if (a.label === undefined && a.id.length > 2 && a.id.endsWith("-x") && a.end === a.start + [...a.id].length && pos > a.end && pos < t.length && ID_CHAR.test(t[pos]))
+        return void this.report("E113", l, a.end - 2, a.end);
+      if (t[pos] === "-" && t[pos + 1] === "x" && pos > a.end)
+        return void this.report("E113", l, pos, pos + 2);
       const w = t.slice(begin).join("").split(/\s/, 1)[0];
       return void this.report("E102", l, begin, begin + [...w].length, { word: w });
     }
@@ -246,7 +298,16 @@ class Parser {
     }
     let label = "";
     const tt = tail.trim();
-    if (tt.startsWith(":")) label = tt.slice(1).trim();
+    if (tt.startsWith(":")) {
+      label = tt.slice(1).trim();
+      const labelFrom = skip(t, pos) + 1, labelTo = labelFrom + [...tt.slice(1)].length;
+      this.labelHash(l, t, labelFrom, labelTo);
+      const lm = label.match(LABEL_DURATION);
+      if (lm) {
+        const off = [...tt.slice(1)].length - [...tt.slice(1).trimStart()].length + [...label.slice(0, lm.index! + lm[0].indexOf("@"))].length;
+        this.report("W110", l, labelFrom + off, labelFrom + off + 1 + [...lm[1]].length, { value: lm[1] });
+      }
+    }
     else if (tt) {
       const at = skip(t, pos);
       return void this.report("E102", l, at, at + [...tt].length, { word: tt });
@@ -291,7 +352,11 @@ class Parser {
       const key = (c < 0 ? part : part.slice(0, c)).trim();
       const value = c < 0 ? "" : part.slice(c + 1).trim();
       const vAt = at + (c < 0 ? 0 : [...part.slice(0, c + 1)].length + ([...part.slice(c + 1)].length - [...part.slice(c + 1).trimStart()].length));
-      if (key === "icon" && value) r.icon = value;
+      if ((key === "icon" || key === "shape" || key === "color") && !value) {
+        const k0 = at + Math.max(0, [...part].findIndex((ch) => ch.trim()));
+        this.report("E114", l, k0, k0 + [...key].length, { name: key }); return null;
+      }
+      if (key === "icon") r.icon = value;
       else if (key === "shape") {
         if (!SHAPES.includes(value as Shape)) { this.report("E110", l, vAt, vAt + Math.max(1, [...value].length), { value }); return null; }
         r.shape = value as Shape;
@@ -455,6 +520,7 @@ class Parser {
         continue;
       }
       cells.set(key, id);
+      if (this.doc.pins.some((p) => p.id === id)) this.report("W112", h.line, h.ids[0].from, h.ids[0].to, { name: id });
       this.doc.pins.push({ id, col: h.col!, row: h.row!, span });
     }
   }
@@ -462,7 +528,10 @@ class Parser {
   declare(l: Line, r: Ref) {
     const span = this.span(l, r.start, r.end);
     const prev = this.nodes.get(r.id);
-    if (prev) for (const k of ["icon", "shape", "color"] as const) if (r[k] && !prev[k]) (prev as unknown as Record<string, unknown>)[k] = r[k];
+    if (prev) for (const k of ["icon", "shape", "color"] as const) {
+      if (r[k] && !prev[k]) (prev as unknown as Record<string, unknown>)[k] = r[k];
+      else if (r[k] && prev[k] !== r[k]) this.report("W106", l, r.start, r.end, { name: r.id, attr: k, first: prev[k]!, second: r[k]! });
+    }
     if (!prev) {
       this.nodes.set(r.id, { id: r.id, label: r.label ?? r.id, span,
         ...(r.icon ? { icon: r.icon } : {}), ...(r.shape ? { shape: r.shape } : {}), ...(r.color ? { color: r.color } : {}) });
