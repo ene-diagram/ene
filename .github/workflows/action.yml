@@ -21,7 +21,8 @@ jobs:
           mode: check
           version: "0.1.0"  # exact: fixtures were rendered by this release
       - name: Make a fixture stale
-        run: echo "api -> db : read" >> action/test/fixtures/flow.ene
+        run: |
+          echo "api -> db : read" >> action/test/fixtures/flow.ene
       - name: Check fails on a stale SVG
         id: stale
         continue-on-error: true
