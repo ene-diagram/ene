@@ -186,6 +186,18 @@ ene fmt --check *.ene       # 정리 안 된 파일이 있으면 종료 코드 1
 
 만들어진 SVG 는 스크립트 없이 스스로 반복 재생되고, 다크 모드와 모션 줄이기 설정을 따릅니다.
 
+### Claude 와 함께
+
+저장소에 Claude 스킬(`skills/ene`)이 들어 있어요. 설명이나 코드를 보고 `.ene` 파일을 쓰고, `ene check --json` 이 깨끗해질 때까지 고친 뒤, 정리하고 SVG 로 그려요.
+
+```bash
+pnpm build
+pnpm skill:install                      # ~/.claude/skills/ene 에 연결해요
+pnpm skill:install path/to/project/.claude/skills   # 또는 프로젝트 하나에만
+```
+
+그다음 Claude Code 에 "결제 흐름을 ene 다이어그램으로 그려줘" 처럼 요청하세요.
+
 ### 브라우저용 파일
 
 `pnpm build` 는 `packages/player/dist/` 에 파일 두 개를 만들어요. 둘 다 같은 폴더에 배포하세요:

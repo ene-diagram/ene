@@ -25,4 +25,5 @@ test("every keyword and shape is documented", () => {
 test("llms.txt copies stay in sync with SYNTAX.md", () => {
   expect(readFileSync(`${root}llms.txt`, "utf8")).toBe(doc);
   expect(readFileSync(`${root}site/llms.txt`, "utf8")).toBe(doc);
+  expect(readFileSync(`${root}skills/ene/SYNTAX.md`, "utf8")).toBe(doc);
 });
