@@ -170,7 +170,7 @@ api --> user : 200
 <script src="ene.js"></script>
 ```
 
-Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Space</kbd> to play or pause, <kbd>←</kbd> <kbd>→</kbd> to step.
+Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Space</kbd> to play or pause, <kbd>←</kbd> <kbd>→</kbd> to step, <kbd>+</kbd> <kbd>-</kbd> <kbd>0</kbd> to zoom. Drag the bar under the diagram to move to any moment.
 
 ### As an image
 
@@ -343,10 +343,14 @@ const player = await ene.render(element, source, {
 player.setChoices([0]);   // pick arm 0 of the first branch
 player.choices;           // [0]
 player.toSvg();           // the self-playing SVG for the current choices, as `ene -o x.svg` writes it
+player.goto(3);           // pause at step 3 (1 = the first step); `player.step` reads the current one
+player.setZoom(2);        // 1 (whole diagram) to 4; `player.zoom` reads it
 player.destroy();         // stop playback and clear the element
 ```
 
 `render()` resolves to `undefined` when the source has errors (an error box is shown instead).
+
+**Seek, zoom and step links.** The bar under the diagram follows playback and can be dragged to any time. `−` / `+` (or <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + wheel, or a trackpad pinch) zoom up to 4×; drag the diagram to pan while zoomed in. `zoom: false` (or `eneConfig.zoom`) removes the zoom controls. To open a diagram paused at a step, pass `step: 3` to `ene.render`, write `<pre class="ene" data-step="3">`, or link to the page with `#ene-step=3` (first diagram) or `#ene-step=2.3` (second diagram, scrolled into view). The controller also has `seek(seconds)` and `goto(index)`.
 
 **Focus.** On large diagrams the moving dot is easy to lose, so the player dims every node and edge that is not part of the step playing now (nothing moves or resizes). When the last step ends, the whole diagram shows again. `focus: "auto"` (default) turns it on from 12 nodes; `focus: true` / `false` forces it. Page-wide: `eneConfig.focus`; per diagram: `<pre class="ene" data-focus="on">` (`on`, `off`, `auto`). The fade is skipped under `prefers-reduced-motion`. Exported SVGs are not dimmed.
 

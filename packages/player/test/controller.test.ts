@@ -52,3 +52,29 @@ test("restart and toggle", () => {
   c.restart();
   expect(c.time).toBe(0);
 });
+test("seek clamps to the timeline and keeps the playback state", () => {
+  const c = createController(tl);
+  c.play();
+  c.seek(1.5);
+  expect(c.time).toBe(1.5);
+  expect(c.playing).toBe(true);
+  expect(c.currentStep()).toBe(1);
+  c.seek(99);
+  expect(c.time).toBe(3);
+  c.seek(-1);
+  expect(c.time).toBe(0);
+  c.seek(Number.NaN);
+  expect(c.time).toBe(0);
+});
+test("goto jumps to the start of a step, clamped", () => {
+  const c = createController(tl);
+  c.goto(2);
+  expect(c.time).toBe(2);
+  c.goto(99);
+  expect(c.time).toBe(2);
+  c.goto(-3);
+  expect(c.time).toBe(0);
+  const empty = createController({ steps: [], total: 0, branches: [], allEdges: [] });
+  empty.goto(1);
+  expect(empty.time).toBe(0);
+});

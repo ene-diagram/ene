@@ -49,7 +49,15 @@ export interface PlayerOptions {
   focus?: boolean | "auto";
   /** Colour theme; overrides the document's `theme` setting */
   theme?: ThemeName;
+  /** Open paused at this step (1 = the first step, as the player shows it). Out-of-range values are clamped */
+  step?: number;
+  /** Zoom buttons, Ctrl/⌘ + wheel zoom and drag to pan (default true) */
+  zoom?: boolean;
 }
+
+/** Largest zoom factor */
+export const MAX_ZOOM = 4;
+const ZOOM_STEP = 1.5;
 
 /** Node count from which `focus: "auto"` dims inactive parts */
 export const FOCUS_AUTO_NODES = 12;
@@ -83,6 +91,14 @@ export interface Player {
   /** Current branch choices (a copy) */
   readonly choices: number[];
   setChoices(choices: number[]): void;
+  /** Step that is playing: 1 = the first step, 0 when the diagram has no steps */
+  readonly step: number;
+  /** Pause at the start of a step (1 = the first step; clamped) */
+  goto(step: number): void;
+  /** Zoom factor, 1 (whole diagram) to MAX_ZOOM */
+  readonly zoom: number;
+  /** Zoom to a factor (clamped to 1..MAX_ZOOM) around the centre of the view */
+  setZoom(zoom: number): void;
   /** The self-playing animated SVG (as `ene -o x.svg` writes it) for the current branch choices */
   toSvg(): string;
   destroy(): void;
@@ -98,6 +114,9 @@ const PLAYER_CSS = `
 .ene-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:#3a4048}
 .ene-bar button,.ene-bar select{font:inherit;padding:4px 10px;border:1px solid #c1c8d2;border-radius:6px;background:#fff;color:#1c2024;cursor:pointer}
 .ene-bar button:hover{background:#f1f3f5}
+.ene-bar button:disabled{opacity:.45;cursor:default}
+.ene-seek{width:0;min-width:100%;margin:0;accent-color:#3e63dd;cursor:pointer}
+.ene-player svg.ene-zoomed{cursor:grab;touch-action:none}.ene-player svg.ene-panning{cursor:grabbing}
 .ene-opt{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
 .ene-note{font-size:14px;line-height:1.5;color:#3a4048;min-height:1.5em;width:0;min-width:100%}
 .ene-step{margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
@@ -188,6 +207,7 @@ function injectCss() {
   cssInjected = true;
 }
 
+const round = (v: number) => Math.round(v * 100) / 100;
 const svgEl = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}) => {
   const e = document.createElementNS(NS, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
@@ -271,8 +291,34 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     staticEdges: { e: Layout["edges"][number]; el: SVGPathElement }[] = [];
   const focus = opts.focus === undefined || opts.focus === "auto" ? doc.nodes.size >= FOCUS_AUTO_NODES : opts.focus;
   if (focus) root.classList.add("ene-focus");
+  // ---- zoom and pan: the view box shows a part of the diagram; the element keeps its size ----
+  const view = { zoom: 1, x: 0, y: 0 };
+  let onZoom = () => {};
+  function applyView() {
+    const W = lay.width,
+      H = lay.height + offY;
+    const w = W / view.zoom,
+      h = H / view.zoom;
+    view.x = Math.min(W - w, Math.max(0, view.x));
+    view.y = Math.min(H - h, Math.max(0, view.y));
+    svg.setAttribute("viewBox", `${round(view.x)} ${round(view.y)} ${round(w)} ${round(h)}`);
+    svg.classList.toggle("ene-zoomed", view.zoom > 1);
+    onZoom();
+  }
+  /** Zoom to `z`, keeping the point at fraction (fx, fy) of the view where it is */
+  function zoomTo(z: number, fx = 0.5, fy = 0.5) {
+    const next = Math.min(MAX_ZOOM, Math.max(1, Number.isFinite(z) ? z : 1));
+    const W = lay.width,
+      H = lay.height + offY;
+    const px = view.x + (W / view.zoom) * fx,
+      py = view.y + (H / view.zoom) * fy;
+    view.zoom = next;
+    view.x = px - (W / next) * fx;
+    view.y = py - (H / next) * fy;
+    applyView();
+  }
   function drawStatic() {
-    svg.setAttribute("viewBox", `0 0 ${lay.width} ${lay.height + offY}`);
+    applyView();
     svg.setAttribute("width", String(lay.width));
     svg.setAttribute("height", String(lay.height + offY));
     staticG.innerHTML =
@@ -300,6 +346,21 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   // Only diagrams with notes get the caption; its height is kept so the layout does not jump between steps
   if (hasNotes(doc.body)) root.appendChild(noteEl);
 
+  const ko = lang === "ko";
+  // ---- seek bar: drag to any time; it follows playback ----
+  const seek = document.createElement("input");
+  seek.type = "range";
+  seek.className = "ene-seek";
+  seek.min = "0";
+  seek.step = "0.01";
+  seek.setAttribute("aria-label", ko ? "재생 위치" : "Position");
+  seek.addEventListener("input", () => {
+    ctl.pause();
+    ctl.seek(Number(seek.value));
+    draw();
+  });
+  root.appendChild(seek);
+
   // ---- controls ----
   const bar = document.createElement("div");
   bar.className = "ene-bar";
@@ -317,7 +378,6 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     bar.appendChild(b);
     return b;
   };
-  const ko = lang === "ko";
   btn("⏮", ko ? "처음으로" : "Restart", () => ctl.restart());
   btn("◀", ko ? "이전 단계" : "Previous step", () => {
     ctl.pause();
@@ -374,6 +434,54 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     sel.addEventListener("change", () => pick(bi, Number(sel.value)));
     bar.appendChild(sel);
   });
+  if (opts.zoom !== false) {
+    const out = btn("−", ko ? "축소" : "Zoom out", () => zoomTo(view.zoom / ZOOM_STEP));
+    const inn = btn("+", ko ? "확대" : "Zoom in", () => zoomTo(view.zoom * ZOOM_STEP));
+    onZoom = () => {
+      out.disabled = view.zoom <= 1;
+      inn.disabled = view.zoom >= MAX_ZOOM;
+    };
+    onZoom();
+    // Ctrl/⌘ + wheel (and trackpad pinch) zooms at the pointer; a plain wheel still scrolls the page
+    svg.addEventListener(
+      "wheel",
+      (ev) => {
+        if (!ev.ctrlKey && !ev.metaKey) return;
+        ev.preventDefault();
+        const r = svg.getBoundingClientRect();
+        const fx = r.width ? (ev.clientX - r.left) / r.width : 0.5,
+          fy = r.height ? (ev.clientY - r.top) / r.height : 0.5;
+        zoomTo(view.zoom * Math.exp(-ev.deltaY / 200), fx, fy);
+      },
+      { passive: false },
+    );
+    // Drag to pan while zoomed in
+    let drag: { id: number; x: number; y: number } | undefined;
+    svg.addEventListener("pointerdown", (ev) => {
+      if (view.zoom <= 1 || ev.button !== 0) return;
+      drag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+      svg.setPointerCapture?.(ev.pointerId);
+      svg.classList.add("ene-panning");
+    });
+    svg.addEventListener("pointermove", (ev) => {
+      if (!drag || ev.pointerId !== drag.id) return;
+      const r = svg.getBoundingClientRect();
+      if (r.width && r.height) {
+        view.x -= ((ev.clientX - drag.x) / r.width) * (lay.width / view.zoom);
+        view.y -= ((ev.clientY - drag.y) / r.height) * ((lay.height + offY) / view.zoom);
+      }
+      drag.x = ev.clientX;
+      drag.y = ev.clientY;
+      applyView();
+    });
+    const endDrag = (ev: PointerEvent) => {
+      if (!drag || ev.pointerId !== drag.id) return;
+      drag = undefined;
+      svg.classList.remove("ene-panning");
+    };
+    svg.addEventListener("pointerup", endDrag);
+    svg.addEventListener("pointercancel", endDrag);
+  }
   const stepText = document.createElement("span");
   stepText.className = "ene-step";
   stepText.setAttribute("aria-live", "polite");
@@ -383,8 +491,9 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
 
   root.addEventListener("keydown", (ev) => {
     // Form controls (the `opt` checkbox, menus) keep their own keys
-    const tag = (ev.target as HTMLElement | null)?.tagName;
-    if (tag === "INPUT" || tag === "SELECT") return;
+    const target = ev.target as HTMLElement | null;
+    // The seek bar is the exception: on it Space and the arrows work as everywhere else in the player
+    if (target?.tagName === "SELECT" || (target?.tagName === "INPUT" && target !== seek)) return;
     if (ev.key === " ") {
       ctl.toggle();
       ev.preventDefault();
@@ -396,13 +505,16 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       ctl.pause();
       ctl.prev();
       ev.preventDefault();
+    } else if (opts.zoom !== false && (ev.key === "+" || ev.key === "=" || ev.key === "-" || ev.key === "0")) {
+      zoomTo(ev.key === "0" ? 1 : ev.key === "-" ? view.zoom / ZOOM_STEP : view.zoom * ZOOM_STEP);
+      ev.preventDefault();
     } else return;
     draw();
     syncLoop();
   });
 
   // ---- dynamic elements ----
-  let ctl: Controller;
+  let ctl!: Controller;
   let items: ReturnType<typeof buildItems>;
   function buildItems(t: Timeline, l: Layout) {
     dyn.replaceChildren();
@@ -472,6 +584,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       }
     });
     playBtn.textContent = ctl.playing ? "⏸" : "▶";
+    seek.value = String(Math.min(t, tl.total));
     const si = ctl.currentStep();
     const step = tl.steps[si];
     stepText.textContent = step
@@ -490,6 +603,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     }
     const wasPlaying = ctl ? ctl.playing : (opts.autoplay ?? true) && !reduce;
     ctl = createController(tl, { loop: opts.loop ?? true });
+    seek.max = String(tl.total);
     // Resume the frame loop even when playback is started through the exposed controller
     const play = ctl.play.bind(ctl),
       toggle = ctl.toggle.bind(ctl);
@@ -525,6 +639,11 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     raf = requestAnimationFrame(frame);
   }
   rebuild();
+  if (opts.step !== undefined) {
+    ctl.pause();
+    ctl.goto(opts.step - 1);
+    draw();
+  }
   syncSels();
   syncLoop();
 
@@ -541,6 +660,21 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       rebuild();
       syncSels();
       syncLoop();
+    },
+    get step() {
+      return ctl.currentStep() + 1;
+    },
+    goto(step) {
+      if (!alive) return;
+      ctl.pause();
+      ctl.goto(step - 1);
+      draw();
+    },
+    get zoom() {
+      return view.zoom;
+    },
+    setZoom(zoom) {
+      if (alive) zoomTo(zoom);
     },
     toSvg() {
       return renderSvg(lay, tl, { title: doc.title, icons, theme, lang });
@@ -574,9 +708,25 @@ const hasNotes = (body: Body): boolean =>
  * Replace every `<pre class="ene">` on the page with a player.
  * Resolves to the created players (diagrams with errors are skipped) so callers can destroy them.
  */
+const stepOf = (v: string | undefined) =>
+  v !== undefined && /^\d+$/.test(v) && Number(v) >= 1 ? Number(v) : undefined;
+
+/**
+ * A link to a step of a diagram on the page: `#ene-step=7` (step 7 of the first diagram) or `#ene-step=2.7`
+ * (step 7 of the second diagram, which is also scrolled into view). Numbers start at 1.
+ */
+export function parseStepLink(hash: string): { diagram: number; step: number; explicit: boolean } | undefined {
+  const m = /(?:^#|&)ene-step=(?:(\d+)\.)?(\d+)(?:&|$)/.exec(hash);
+  if (!m) return undefined;
+  const diagram = m[1] === undefined ? 1 : Number(m[1]),
+    step = Number(m[2]);
+  return diagram >= 1 && step >= 1 ? { diagram, step, explicit: m[1] !== undefined } : undefined;
+}
+
 export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): Promise<Player[]> {
   const els = Array.from(document.querySelectorAll<HTMLElement>(selector));
   const players: Player[] = [];
+  const link = typeof location !== "undefined" ? parseStepLink(location.hash) : undefined;
   for (const pre of els) {
     const src = pre.textContent ?? "";
     const host = document.createElement("div");
@@ -585,8 +735,17 @@ export async function autoRun(selector = "pre.ene", opts: PlayerOptions = {}): P
     const f = pre.dataset.focus;
     const focus = f === "on" || f === "" ? true : f === "off" ? false : f === "auto" ? "auto" : opts.focus;
     const th = pre.dataset.theme;
-    const p = await render(host, src, { ...opts, focus, ...(th && isTheme(th) ? { theme: th } : {}) });
+    // <pre class="ene" data-step="3"> opens paused at step 3; a `#ene-step=` link (below) wins over it
+    const linked = link && link.diagram === els.indexOf(pre) + 1 ? link.step : undefined;
+    const step = linked ?? stepOf(pre.dataset.step);
+    const p = await render(host, src, {
+      ...opts,
+      focus,
+      ...(th && isTheme(th) ? { theme: th } : {}),
+      ...(step !== undefined ? { step } : {}),
+    });
     if (p) players.push(p);
+    if (p && linked !== undefined && link?.explicit) host.scrollIntoView?.({ block: "center" });
   }
   return players;
 }

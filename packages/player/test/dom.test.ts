@@ -20,7 +20,8 @@ describe("player DOM", () => {
     // happy-dom drops markup after <style> in svg.innerHTML, so check the title offset instead of the <text>
     expect(root.querySelector("svg > g")!.getAttribute("transform")).toBe("translate(0 44)");
     const labels = [...root.querySelectorAll(".ene-bar button")].map((b) => b.getAttribute("aria-label"));
-    expect(labels).toEqual(["Restart", "Previous step", "Play/Pause", "Next step"]);
+    expect(labels).toEqual(["Restart", "Previous step", "Play/Pause", "Next step", "Zoom out", "Zoom in"]);
+    expect(root.querySelector('input.ene-seek[aria-label="Position"]')).not.toBeNull();
     expect(root.querySelector('select[aria-label="Speed"]')).not.toBeNull();
     p.destroy();
   });

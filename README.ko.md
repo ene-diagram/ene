@@ -170,7 +170,7 @@ api --> user : 200
 <script src="ene.js"></script>
 ```
 
-페이지의 모든 `<pre class="ene">` 가 플레이어로 바뀝니다. 클릭한 뒤 <kbd>Space</kbd> 로 재생·정지, <kbd>←</kbd> <kbd>→</kbd> 로 한 단계씩 움직입니다.
+페이지의 모든 `<pre class="ene">` 가 플레이어로 바뀝니다. 클릭한 뒤 <kbd>Space</kbd> 로 재생·정지, <kbd>←</kbd> <kbd>→</kbd> 로 한 단계씩 움직이고, <kbd>+</kbd> <kbd>-</kbd> <kbd>0</kbd> 으로 확대·축소합니다. 다이어그램 아래 막대를 끌면 원하는 시점으로 갑니다.
 
 ### 이미지로
 
@@ -286,10 +286,14 @@ const player = await ene.render(element, source, {
 player.setChoices([0]);   // 첫 번째 branch 의 0번 갈래 선택
 player.choices;           // [0]
 player.toSvg();           // 지금 고른 갈래로 혼자 재생되는 SVG (`ene -o x.svg` 결과와 같아요)
+player.goto(3);           // 3번째 단계에서 멈춰요(1 = 첫 단계). 현재 단계는 `player.step`
+player.setZoom(2);        // 1(전체) ~ 4. 현재 배율은 `player.zoom`
 player.destroy();         // 재생을 멈추고 요소를 비워요
 ```
 
 소스에 오류가 있으면 `render()` 는 `undefined` 를 돌려주고 오류 상자를 보여줘요.
+
+**탐색, 확대, 단계 링크.** 다이어그램 아래 막대는 재생을 따라 움직이고, 끌어서 원하는 시점으로 갈 수 있어요. `−` / `+` 버튼(또는 <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + 휠, 트랙패드 핀치)으로 4배까지 확대하고, 확대한 상태에서는 다이어그램을 끌어서 옮겨요. `zoom: false`(또는 `eneConfig.zoom`)는 확대 컨트롤을 없애요. 특정 단계에서 멈춘 채로 열려면 `ene.render` 에 `step: 3` 을 주거나, `<pre class="ene" data-step="3">` 로 쓰거나, 페이지 주소에 `#ene-step=3`(첫 번째 다이어그램) 또는 `#ene-step=2.3`(두 번째 다이어그램, 그 위치로 스크롤)을 붙여요. 컨트롤러에는 `seek(초)` 와 `goto(인덱스)` 도 있어요.
 
 **포커스.** 큰 다이어그램에서는 움직이는 점을 놓치기 쉬워서, 플레이어가 지금 재생 중인 단계에 속하지 않은 노드와 엣지를 흐리게 보여줘요(위치나 크기는 그대로예요). 마지막 단계가 끝나면 전체가 다시 또렷해져요. `focus: "auto"`(기본)는 노드가 12개 이상일 때 켜지고, `focus: true` / `false` 로 강제할 수 있어요. 페이지 전체는 `eneConfig.focus`, 다이어그램 하나는 `<pre class="ene" data-focus="on">`(`on`, `off`, `auto`)으로 정해요. `prefers-reduced-motion` 이면 서서히 바뀌는 효과 없이 바로 바뀌어요. 내보낸 SVG 에는 적용되지 않아요.
 

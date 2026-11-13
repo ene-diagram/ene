@@ -19,6 +19,10 @@ export interface Controller {
   tick(dt: number): void;
   next(): void;
   prev(): void;
+  /** Jump to a time in seconds (clamped to 0..total); playback state is kept */
+  seek(time: number): void;
+  /** Jump to the start of a step (zero-based, clamped to the steps there are) */
+  goto(step: number): void;
   /** Last step started at time (-1 if there are no steps) */
   currentStep(): number;
 }
@@ -72,6 +76,13 @@ export function createController(tl: Timeline, opts: ControllerOptions = {}): Co
       // If slightly past the current step's start, go to its start; otherwise go to the previous step
       if (c.time - cur > 0.3) c.time = cur;
       else c.time = starts.filter((s) => s < cur - 1e-9).pop() ?? 0;
+    },
+    seek(time) {
+      c.time = Number.isFinite(time) ? Math.min(tl.total, Math.max(0, time)) : 0;
+    },
+    goto(step) {
+      if (!starts.length) c.time = 0;
+      else c.time = starts[Math.min(starts.length - 1, Math.max(0, Number.isFinite(step) ? Math.trunc(step) : 0))];
     },
     currentStep() {
       let i = -1;
