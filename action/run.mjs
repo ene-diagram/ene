@@ -123,7 +123,7 @@ export function main(env = process.env) {
   const mode = env.ENE_MODE || "check";
   if (mode !== "check" && mode !== "commit") { console.log(`::error::mode must be check or commit, got ${escData(mode)}`); return 1; }
   const choice = (env.ENE_CHOICE || "").trim();
-  if (choice && !/^\d+(,\d+)*$/.test(choice)) { console.log(`::error::choice must look like 0,1`); return 1; }
+  if (choice && !/^(all|\d+(,\d+)*)$/.test(choice)) { console.log(`::error::choice must look like 0,1 or all`); return 1; }
   const outputDir = (env.ENE_OUTPUT_DIR || "").trim();
   if (outputDir && (resolve(outputDir) + sep).indexOf(resolve(".") + sep) !== 0) { console.log(`::error::output-dir must be inside the workspace`); return 1; }
 

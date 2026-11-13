@@ -114,6 +114,7 @@ describe("main", () => {
   it("rejects bad inputs", () => {
     expect(run({ ENE_MODE: "push" })).toBe(1);
     expect(run({ ENE_CHOICE: "1;id" })).toBe(1);
+    expect(run({ ENE_CHOICE: "all;id" })).toBe(1);
     expect(run({ ENE_OUTPUT_DIR: "../x" })).toBe(1);
     expect(() => main({ ENE_FILES: "diagrams/*.ene", ENE_VERSION: "0.1 && id" })).toThrow(/invalid version/);
   });

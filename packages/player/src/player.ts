@@ -1,5 +1,6 @@
 import {
   buildTimeline,
+  enumeratePaths,
   checkIcons,
   formatAll,
   isIconUrl,
@@ -21,6 +22,8 @@ import {
   STYLE,
   esc,
   renderSvg,
+  renderSvgPaths,
+  svgParts,
   themeClass,
   themeCss,
   type ThemeName,
@@ -83,8 +86,12 @@ export interface Player {
   /** Current branch choices (a copy) */
   readonly choices: number[];
   setChoices(choices: number[]): void;
-  /** The self-playing animated SVG (as `ene -o x.svg` writes it) for the current branch choices */
-  toSvg(): string;
+  /**
+   * The self-playing animated SVG (as `ene -o x.svg` writes it) for the current branch choices.
+   * `{ paths: "all" }` plays every path in turn (as `--choice all`); with more than `MAX_PATHS` paths it
+   * falls back to the current choices.
+   */
+  toSvg(opts?: { paths?: "all" }): string;
   destroy(): void;
 }
 
@@ -542,8 +549,12 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       syncSels();
       syncLoop();
     },
-    toSvg() {
-      return renderSvg(lay, tl, { title: doc.title, icons, theme, lang });
+    toSvg(o) {
+      const svgOpts = { title: doc.title, icons, theme, lang };
+      const paths = o?.paths === "all" ? enumeratePaths(doc) : undefined;
+      if (paths && paths.length > 1)
+        return renderSvgPaths(svgParts(doc, paths, doc.kind === "sequence" ? undefined : lay), svgOpts);
+      return renderSvg(lay, tl, svgOpts);
     },
     destroy() {
       if (!alive) return;

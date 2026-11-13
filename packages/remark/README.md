@@ -41,7 +41,7 @@ remarkEne({
 });
 ```
 
-Per block, the fence meta can set `title="..."`, `choice=1,0`, and `live` or `static`.
+Per block, the fence meta can set `title="..."`, `choice=1,0` (or `choice=all` to play every branch path in turn), and `live` or `static`.
 
 **Errors.** A block with errors is replaced by a visible `<div class="ene-error">` that shows the diagnostics, and a message is added to the file (`vfile.messages`). With `failOnError: true` the build fails instead.
 
