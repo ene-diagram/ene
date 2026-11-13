@@ -172,6 +172,13 @@ describe("several paths in one file", () => {
     expect(svg).toContain(`height="${tall + 44 + 26 + 22 + 18}"`);
     expect(validKeyTimes(svg)).toBe(true);
   });
+  it("renders long loops with notes on many paths (no argument-count limit)", async () => {
+    const two = "branch yes\n  a -> b\nelse no\n  a -> b\nend\n";
+    const { doc } = parse(`loop 9000\n  a -> b\n  note again\nend\n${two.repeat(4)}`);
+    const parts = svgParts(doc, enumeratePaths(doc)!, { nodes: [], edges: [], groups: [], width: 300, height: 200 });
+    expect(parts).toHaveLength(16);
+    expect(() => renderSvgPaths(parts)).not.toThrow();
+  });
   it("reduced motion shows the first path only", async () => {
     const { svg } = await all(src);
     expect(svg).toContain(".alt{display:none}");

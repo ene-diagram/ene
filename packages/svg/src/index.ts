@@ -265,7 +265,8 @@ export function renderSvgPaths(parts: SvgPart[], opts: SvgOptions = {}): string 
   const wrapAll = parts.map((p) =>
     withNotes ? p.timeline.steps.filter((s) => s.note).map((s) => wrapNote(s.note!, W - NOTE_X * 2)) : [],
   );
-  const noteLines = Math.max(0, ...wrapAll.flat().map((w) => w.length));
+  // A reduce, not Math.max(...): long loops on many paths give more notes than a call can take as arguments
+  const noteLines = wrapAll.reduce((max, notes) => notes.reduce((m, w) => Math.max(m, w.length), max), 0);
   const noteH = noteLines ? NOTE_PAD + NOTE_LINE * noteLines : 0;
 
   let statics = "",
