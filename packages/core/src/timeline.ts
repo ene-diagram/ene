@@ -75,3 +75,67 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
   walk(doc.body, []);
   return { steps, total: Math.max(t, end), branches, allEdges };
 }
+
+/** One way through the document: the arm picked at each branch, and the labels of the branches it passes */
+export interface PathChoice {
+  /** choices[i] = arm of the i-th branch in source order (0 for branches this path never reaches) */
+  choices: number[];
+  /** Arm labels of the branches this path passes, in order (`opt`: its label, or `skip <label>`) */
+  labels: string[];
+}
+
+/** Most paths `enumeratePaths` returns */
+export const MAX_PATHS = 16;
+
+/**
+ * Every distinct path through the document's `branch` / `opt` blocks, in source order (first arms first).
+ * Branches inside an arm that is not taken do not multiply the result. Returns `undefined` when there are
+ * more than `limit` paths.
+ */
+export function enumeratePaths(doc: Document, limit = MAX_PATHS): PathChoice[] | undefined {
+  // Same numbering as buildTimeline: branches in source order, arms included
+  const branchIndex = new Map<Stmt, number>();
+  const number = (body: Stmt[]) => {
+    for (const s of body) {
+      if (s.type === "loop") number(s.body);
+      else if (s.type === "branch") {
+        branchIndex.set(s, branchIndex.size);
+        for (const a of s.arms) number(a.body);
+      }
+    }
+  };
+  number(doc.body);
+
+  type Partial = { picked: Map<number, number>; labels: string[] };
+  let over = false;
+  const expand = (body: Stmt[], from: Partial[]): Partial[] => {
+    let paths = from;
+    for (const s of body) {
+      if (over) return paths;
+      if (s.type === "loop") paths = expand(s.body, paths);
+      else if (s.type === "branch") {
+        const bi = branchIndex.get(s)!;
+        const next: Partial[] = [];
+        for (const p of paths)
+          for (const [ai, arm] of s.arms.entries()) {
+            const label = s.optional
+              ? ai === 0
+                ? arm.label || "opt"
+                : `skip ${s.arms[0].label}`.trim()
+              : arm.label || `#${ai + 1}`;
+            next.push(...expand(arm.body, [{ picked: new Map(p.picked).set(bi, ai), labels: [...p.labels, label] }]));
+            if (next.length > limit) over = true;
+            if (over) return next;
+          }
+        paths = next;
+      }
+    }
+    return paths;
+  };
+  const paths = expand(doc.body, [{ picked: new Map(), labels: [] }]);
+  if (over || paths.length > limit) return undefined;
+  return paths.map((p) => ({
+    choices: Array.from({ length: branchIndex.size }, (_, i) => p.picked.get(i) ?? 0),
+    labels: p.labels,
+  }));
+}

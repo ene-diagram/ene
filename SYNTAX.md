@@ -108,7 +108,7 @@ api --> user : 201
 | `opt label` … `end` | optional steps; the player shows a toggle, SVG export uses `--choice` (`0` = taken, `1` = skipped) |
 
 Blocks nest (up to 32 levels). Every arm needs at least one step; `opt` has one arm and no `else`.
-`--choice` counts `branch` and `opt` blocks together, in source order.
+`--choice` counts `branch` and `opt` blocks together, in source order. `--choice all` plays every path in turn in one file.
 
 ```ene
 api -> cache : get

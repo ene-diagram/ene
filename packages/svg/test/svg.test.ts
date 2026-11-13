@@ -1,6 +1,15 @@
-import { parse, buildTimeline } from "@ene-diagram/core";
+import { parse, buildTimeline, enumeratePaths } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
-import { renderSvg, themeCss, THEMES, THEME_VARS, type ThemeName } from "../src/index";
+import {
+  pathsSeconds,
+  renderSvg,
+  renderSvgPaths,
+  svgParts,
+  themeCss,
+  THEMES,
+  THEME_VARS,
+  type ThemeName,
+} from "../src/index";
 const make = async (src: string) => {
   const { doc } = parse(src);
   const tl = buildTimeline(doc);
@@ -103,4 +112,69 @@ test("desc marks failed calls in the chosen language", async () => {
   const lay = await layout(doc, tl);
   expect(renderSvg(lay, tl)).toMatch(/<desc>[^<]*a → b \(fail\)/);
   expect(renderSvg(lay, tl, { lang: "ko" })).toMatch(/<desc>[^<]*a → b \(실패\)/);
+});
+
+describe("several paths in one file", () => {
+  const src =
+    "title T\na -> b : get\nnote look it up\nbranch hit\n  b --> a : value\nelse miss\n  b -x a : nil\n  a -> c : load\nend\na -> d : done";
+  const all = async (source: string) => {
+    const { doc } = parse(source);
+    const paths = enumeratePaths(doc)!;
+    const flow = doc.kind === "sequence" ? undefined : await layout(doc, buildTimeline(doc));
+    const parts = svgParts(doc, paths, flow);
+    return { parts, svg: renderSvgPaths(parts, { title: doc.title }) };
+  };
+  const balanced = (svg: string) =>
+    (svg.match(/<[a-zA-Z]+(\s[^>]*)?(?<!\/)>/g) ?? []).length === (svg.match(/<\/[a-zA-Z]+>/g) ?? []).length;
+  /** keyTimes must start at 0, end at 1 and never decrease, or the browser drops the animation */
+  const validKeyTimes = (svg: string) =>
+    [...svg.matchAll(/keyTimes="([^"]+)"/g)].every((m) => {
+      const t = m[1].split(";").map(Number);
+      return t[0] === 0 && t[t.length - 1] === 1 && t.every((v, i) => i === 0 || v >= t[i - 1]);
+    });
+
+  it("one path renders exactly as renderSvg", async () => {
+    const { doc } = parse("a -> b : x\nb --> a");
+    const tl = buildTimeline(doc);
+    const l = await layout(doc, tl);
+    expect(renderSvgPaths([{ layout: l, timeline: tl, caption: "ignored" }])).toBe(renderSvg(l, tl));
+  });
+  it("plays each path in turn in one loop", async () => {
+    const { parts, svg } = await all(src);
+    expect(parts).toHaveLength(2);
+    const total = pathsSeconds(parts);
+    expect(new Set([...svg.matchAll(/dur="([\d.]+)s"/g)].map((m) => Number(m[1])))).toEqual(new Set([total]));
+    // 3 steps on the hit path, 4 on the miss path
+    expect(svg.match(/<animateMotion/g)).toHaveLength(7);
+    expect(svg).toContain("1/2 · hit");
+    expect(svg).toContain("2/2 · miss");
+    expect(svg).toMatch(/<desc>\[1\/2 hit\] 1\. a → b: get[^<]*\| \[2\/2 miss\] 1\. a → b: get/);
+    expect(balanced(svg)).toBe(true);
+    expect(validKeyTimes(svg)).toBe(true);
+  });
+  it("flow: edges are drawn once; steps restart their numbers on each path", async () => {
+    const { svg } = await all(src);
+    expect(svg.match(/class="edge"/g)).toHaveLength(5);
+    expect(svg.match(/>1\. get</g)).toHaveLength(2);
+    expect(svg).toContain(">3. done<");
+    expect(svg).toContain(">4. done<");
+  });
+  it("sequence: each path has its own rows with unique ids, lifelines are drawn once", async () => {
+    const { parts, svg } = await all(`diagram sequence\n${src}`);
+    expect(parts[0].layout).not.toBe(parts[1].layout);
+    const ids = [...svg.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain("p0s0_0");
+    expect(ids).toContain("p1s3_0");
+    for (const m of svg.matchAll(/<mpath href="#([^"]+)"/g)) expect(ids).toContain(m[1]);
+    expect(svg.match(/class="life"/g)).toHaveLength(4);
+    const tall = Math.max(...parts.map((p) => p.layout.height));
+    expect(svg).toContain(`height="${tall + 44 + 26 + 22 + 18}"`);
+    expect(validKeyTimes(svg)).toBe(true);
+  });
+  it("reduced motion shows the first path only", async () => {
+    const { svg } = await all(src);
+    expect(svg).toContain(".alt{display:none}");
+    expect(svg.match(/<g class="alt">/g)).toHaveLength(1);
+  });
 });
