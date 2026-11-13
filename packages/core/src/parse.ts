@@ -181,13 +181,14 @@ class Parser {
     if (this.started) return this.report("E504", l, 0, t.length);
     if (!this.opts.include) return this.report("E501", l, 0, t.length);
     const chain = this.lib?.chain ?? (this.opts.file !== undefined ? [this.opts.file] : []);
+    // One parse per file however often it is included, and a cap on include lines in total: without these a
+    // few files that include each other several times make the work grow exponentially. The cap comes before
+    // the reader is called, so it bounds file reads too
+    if (++this.shared.lines > INCLUDE_LINES)
+      return this.report("E505", l, at, t.length, { path: rest, limit: String(INCLUDE_DEPTH) });
     const r = this.opts.include(rest, this.lib?.file ?? this.opts.file);
     if ("error" in r) return this.report("E502", l, at, t.length, { path: rest, reason: r.error });
     if (chain.includes(r.file) || chain.length >= INCLUDE_DEPTH + (this.opts.file !== undefined ? 1 : 0))
-      return this.report("E505", l, at, t.length, { path: rest, limit: String(INCLUDE_DEPTH) });
-    // One parse per file however often it is included, and a cap on include lines in total: without these a
-    // few files that include each other several times make the work grow exponentially
-    if (++this.shared.lines > INCLUDE_LINES)
       return this.report("E505", l, at, t.length, { path: rest, limit: String(INCLUDE_DEPTH) });
     const here = this.span(l, 0, t.length);
     let sub = this.shared.done.get(r.file);
@@ -906,8 +907,16 @@ class Parser {
     const prev = this.adopt(r.id);
     if (prev)
       for (const k of ["icon", "shape", "color"] as const) {
-        if (r[k] && !prev[k]) (prev as unknown as Record<string, unknown>)[k] = r[k];
-        else if (r[k] && prev[k] !== r[k])
+        if (r[k] && !prev[k]) {
+          (prev as unknown as Record<string, unknown>)[k] = r[k];
+          // The icon is written here, so a problem with it (W104) belongs to this line, not to the file
+          // the node was first declared in
+          if (k === "icon") {
+            prev.span = span;
+            if (this.lib) prev.from = { file: this.lib.file, lineText: l.text };
+            else delete prev.from;
+          }
+        } else if (r[k] && prev[k] !== r[k])
           this.report("W106", l, r.start, r.end, { name: r.id, attr: k, first: prev[k]!, second: r[k]! });
       }
     if (!prev) {

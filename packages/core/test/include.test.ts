@@ -228,6 +228,16 @@ describe("include errors", () => {
     const r = run(src, files);
     expect(new Set(codes(r))).toEqual(new Set(["E505"]));
     expect(r.diagnostics).toHaveLength(100);
+    // Past the cap the reader is not called at all
+    let reads = 0;
+    const read = fs(files);
+    parse(src, {
+      include: (p, from) => {
+        reads++;
+        return read(p, from);
+      },
+    });
+    expect(reads).toBe(200);
   });
   test("E505: a file that includes itself, a loop through another file, the root, and too many levels", () => {
     expect(codes(run("include ./a.ene\nx -> y", { "/d/a.ene": "include ./a.ene\nx[X]" }))).toEqual(["E505"]);
@@ -275,6 +285,11 @@ describe("include errors", () => {
     const [w] = checkIcons(r.doc, []);
     expect(w).toMatchObject({ code: "W104", file: "/d/l.ene", span: { line: 5 }, at: { line: 2 } });
     expect(formatAll(src, [w])).toContain("5 | a[A]{icon: logos:nope}");
+    // The diagram adds the icon to an included node: the problem is on the diagram's line, with its quick fix
+    const local = run("include ./l.ene\nb -> a{icon: logos:nope}", { "/d/l.ene": "a[A]\nb[B]" });
+    expect(checkIcons(local.doc, [])[0]).toMatchObject({ code: "W104", span: { line: 2, col: 6 } });
+    expect(checkIcons(local.doc, [])[0].file).toBeUndefined();
+    expect(local.doc.nodes.get("a")?.label).toBe("A");
     // A node declared in the diagram itself is reported in the diagram, as before
     expect(checkIcons(parse("a{icon: logos:nope} -> b").doc, [])[0].file).toBeUndefined();
   });
