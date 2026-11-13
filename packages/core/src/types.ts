@@ -12,6 +12,8 @@ export interface NodeDecl {
   shape?: Shape;
   color?: string;
   span: Span;
+  /** Set when the declaration is in an included file: `span` is a place in that file */
+  from?: { file: string; lineText: string; at?: Span };
 }
 export interface Group {
   id: string;

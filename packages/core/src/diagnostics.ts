@@ -170,7 +170,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
       hint: "move it to the top of the file (after title / diagram / theme is fine)",
     },
     E505: {
-      message: 'includes are nested too deep or in a loop at "{path}"',
+      message: 'too many includes, nested too deep or in a loop at "{path}"',
       hint: "a file cannot include itself, directly or through other files; at most {limit} levels",
     },
     E116: {
@@ -328,7 +328,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
       hint: "파일 맨 위로 옮겨 주세요(title / diagram / theme 뒤는 괜찮아요)",
     },
     E505: {
-      message: '"{path}" 에서 include 가 너무 깊거나 서로를 포함해요',
+      message: '"{path}" 에서 include 가 너무 많거나, 너무 깊거나, 서로를 포함해요',
       hint: "파일은 자기 자신을 직접이든 다른 파일을 거쳐서든 포함할 수 없어요. 최대 {limit}단계예요",
     },
     E116: {

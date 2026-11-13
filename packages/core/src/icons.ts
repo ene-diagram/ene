@@ -46,6 +46,8 @@ export function checkIcons(doc: Document, packs: IconPack[]): Diagnostic[] {
       severity: "warning",
       span: n.span,
       args: sug ? { name: n.icon, suggestion: sug } : { name: n.icon },
+      // The icon is written in an included file: report it there, not on the same line number of the diagram
+      ...(n.from ? { file: n.from.file, lineText: n.from.lineText, ...(n.from.at ? { at: n.from.at } : {}) } : {}),
     });
   }
   return out;

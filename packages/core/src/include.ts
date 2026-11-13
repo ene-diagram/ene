@@ -30,7 +30,7 @@ export const INCLUDE_MAX_BYTES = 512 * 1024;
  */
 export function createIncluder(io: IncluderIo): Includer {
   const { path } = io;
-  const lexicalRoot = path.resolve(io.rootDir);
+  const given = path.resolve(io.rootDir);
   const max = io.maxLength ?? INCLUDE_MAX_BYTES;
   const outside = (root: string, file: string) => {
     const rel = path.relative(root, file);
@@ -39,13 +39,19 @@ export function createIncluder(io: IncluderIo): Includer {
   const failed = (e: unknown) => ({ error: (e as { code?: string }).code ?? "cannot read the file" });
   return (target, from) => {
     if (path.isAbsolute(target)) return { error: "absolute paths are not allowed" };
-    const base = from !== undefined && path.isAbsolute(from) ? path.dirname(from) : lexicalRoot;
-    const asWritten = path.resolve(base, target);
-    if (outside(lexicalRoot, asWritten)) return { error: "the file is outside the diagram's folder" };
-    // Again on the real paths: a symbolic link inside the folder must not lead out of it
-    let file: string, root: string;
+    // Everything is compared on real paths: the names this returns are real paths (so nested includes resolve
+    // from them), and a symbolic link inside the folder must not lead out of it
+    let root: string;
     try {
-      root = io.realPath(lexicalRoot);
+      root = io.realPath(given);
+    } catch (e) {
+      return failed(e);
+    }
+    const base = from !== undefined && path.isAbsolute(from) ? path.dirname(from) : root;
+    const asWritten = path.resolve(base, target);
+    if (outside(root, asWritten)) return { error: "the file is outside the diagram's folder" };
+    let file: string;
+    try {
       file = io.realPath(asWritten);
     } catch (e) {
       return failed(e);

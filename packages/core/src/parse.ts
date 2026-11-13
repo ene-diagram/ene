@@ -63,6 +63,8 @@ export interface ParseOptions {
 }
 /** Most levels of `include` inside `include` */
 export const INCLUDE_DEPTH = 8;
+/** Most `include` lines followed in one parse, over all files */
+export const INCLUDE_LINES = 200;
 
 export function parse(source: string, opts: ParseOptions = {}): ParseResult {
   return new Parser(source, opts).run();
@@ -122,6 +124,8 @@ class Parser {
     private opts: ParseOptions = {},
     /** Set when this source is an included file: its name and the files that led to it */
     private lib?: { file: string; chain: string[] },
+    /** State of the whole parse, shared with the parsers of included files */
+    private shared: { lines: number; done: Map<string, Library> } = { lines: 0, done: new Map() },
   ) {
     this.doc = { kind: "flow", speed: 1.2, nodes: this.nodes, body: [], pins: [], ranks: [], groups: [] };
   }
@@ -180,14 +184,24 @@ class Parser {
     if ("error" in r) return this.report("E502", l, at, t.length, { path: rest, reason: r.error });
     if (chain.includes(r.file) || chain.length >= INCLUDE_DEPTH + (this.opts.file !== undefined ? 1 : 0))
       return this.report("E505", l, at, t.length, { path: rest, limit: String(INCLUDE_DEPTH) });
-    const sub = new Parser(r.source, this.opts, { file: r.file, chain: [...chain, r.file] }).runLibrary();
-    // Each level re-points `at`, so the root ends up with its own `include` line
+    // One parse per file however often it is included, and a cap on include lines in total: without these a
+    // few files that include each other several times make the work grow exponentially
+    if (++this.shared.lines > INCLUDE_LINES)
+      return this.report("E505", l, at, t.length, { path: rest, limit: String(INCLUDE_DEPTH) });
     const here = this.span(l, 0, t.length);
-    this.diags.push(...sub.diagnostics.map((d) => ({ ...d, at: here })));
+    let sub = this.shared.done.get(r.file);
+    if (!sub) {
+      sub = new Parser(r.source, this.opts, { file: r.file, chain: [...chain, r.file] }, this.shared).runLibrary();
+      this.shared.done.set(r.file, sub);
+      // Each level re-points `at`, so the root ends up with its own `include` line. A file's problems are
+      // reported once, where it is first included
+      this.diags.push(...sub.diagnostics.map((d) => ({ ...d, at: here })));
+    }
     // The first declaration of an id wins, as inside one file
     for (const [id, n] of sub.nodes)
       if (!this.catalog.nodes.has(id)) {
-        this.catalog.nodes.set(id, n);
+        // Like diagnostics: remember which `include` line of this file the node came through
+        this.catalog.nodes.set(id, n.from ? { ...n, from: { ...n.from, at: here } } : n);
         if (sub.labeled.has(id)) this.catalog.labeled.add(id);
       }
     this.catalog.groups.push(...sub.groups);
@@ -900,6 +914,7 @@ class Parser {
         ...(r.icon ? { icon: r.icon } : {}),
         ...(r.shape ? { shape: r.shape } : {}),
         ...(r.color ? { color: r.color } : {}),
+        ...(this.lib ? { from: { file: this.lib.file, lineText: l.text } } : {}),
       });
       if (r.label !== undefined) this.labeled.add(r.id);
       return;

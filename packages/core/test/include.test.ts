@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { createIncluder, formatAll, diagnosticToJson, parse, type Includer } from "../src/index";
+import { checkIcons, createIncluder, formatAll, diagnosticToJson, parse, type Includer } from "../src/index";
 
 /** In-memory files, keyed by absolute path under /d */
 const fs = (files: Record<string, string>, links: Record<string, string> = {}): Includer =>
@@ -164,6 +164,13 @@ describe("include errors", () => {
       include: fs({ "/disk/d/real.ene": "a[Real]" }, { "/d": "/disk/d", "/d/real.ene": "/disk/d/real.ene" }),
     });
     expect(viaLink.diagnostics).toEqual([]);
+    // …and nested includes still resolve: names are real paths, and so is the folder they are checked against
+    const links = { "/d": "/disk/d", "/d/a.ene": "/disk/d/a.ene", "/d/b.ene": "/disk/d/b.ene" };
+    const nested = parse("include ./a.ene\na -> b", {
+      include: fs({ "/disk/d/a.ene": "include ./b.ene\na[A]", "/disk/d/b.ene": "b[B]" }, links),
+    });
+    expect(nested.diagnostics).toEqual([]);
+    expect(nested.doc.nodes.get("b")?.label).toBe("B");
   });
   test("a nested include cannot climb out through a subfolder", () => {
     const r = run("include ./sub/a.ene\na -> b", { "/d/sub/a.ene": "include ../../out.ene\na[A]", "/out.ene": "b[B]" });
@@ -182,6 +189,30 @@ describe("include errors", () => {
     expect(
       codes(run("include ./a.ene\nx -> y", { "/d/a.ene": "theme mono\ninclude ./b.ene\nx[X]", "/d/b.ene": "y[Y]" })),
     ).toEqual([]);
+  });
+  test("a file included many times is read into the result once; fan-out cannot blow up the work", () => {
+    let reads = 0;
+    const files: Record<string, string> = { "/d/f6.ene": "leaf[Leaf]\nbad ->" };
+    for (let i = 0; i < 6; i++) files[`/d/f${i}.ene`] = `${`include ./f${i + 1}.ene\n`.repeat(5)}n${i}[N${i}]`;
+    const read = fs(files);
+    const r = parse("include ./f0.ene\nn0 -> leaf", {
+      include: (p, from) => {
+        reads++;
+        return read(p, from);
+      },
+    });
+    // 5^6 lookups without the cache; with it each file's include lines are followed once
+    expect(reads).toBe(1 + 6 * 5);
+    expect(r.doc.nodes.get("leaf")?.label).toBe("Leaf");
+    // The broken line in the shared file is reported once, not once per path to it
+    expect(r.diagnostics.map((d) => d.code)).toEqual(["E503"]);
+  });
+  test("E505 when one parse follows too many include lines", () => {
+    const files = Object.fromEntries(Array.from({ length: 300 }, (_, i) => [`/d/n${i}.ene`, `x${i}[X]`]));
+    const src = `${Array.from({ length: 300 }, (_, i) => `include ./n${i}.ene`).join("\n")}\nx0 -> x1`;
+    const r = run(src, files);
+    expect(new Set(codes(r))).toEqual(new Set(["E505"]));
+    expect(r.diagnostics).toHaveLength(100);
   });
   test("E505: a file that includes itself, a loop through another file, the root, and too many levels", () => {
     expect(codes(run("include ./a.ene\nx -> y", { "/d/a.ene": "include ./a.ene\nx[X]" }))).toEqual(["E505"]);
@@ -222,6 +253,15 @@ describe("include errors", () => {
     expect(text).not.toContain("2 | include ./l.ene");
     expect(diagnosticToJson(r.diagnostics[0]).file).toBe("/d/l.ene");
     expect(diagnosticToJson(parse("a ->").diagnostics[0]).file).toBeUndefined();
+  });
+  test("an unknown icon on an included node is reported in that file (checkIcons)", () => {
+    const src = "title T\ninclude ./l.ene\n\n\na -> b";
+    const r = run(src, { "/d/l.ene": "# shared\n\n\nb[B]\na[A]{icon: logos:nope}" });
+    const [w] = checkIcons(r.doc, []);
+    expect(w).toMatchObject({ code: "W104", file: "/d/l.ene", span: { line: 5 }, at: { line: 2 } });
+    expect(formatAll(src, [w])).toContain("5 | a[A]{icon: logos:nope}");
+    // A node declared in the diagram itself is reported in the diagram, as before
+    expect(checkIcons(parse("a{icon: logos:nope} -> b").doc, [])[0].file).toBeUndefined();
   });
   test("`include` is a keyword at the start of a line, and an id after an arrow", () => {
     expect(parse("include -> b").diagnostics.map((d) => d.code)).toEqual(["E115"]);
