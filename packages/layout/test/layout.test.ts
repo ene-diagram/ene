@@ -212,3 +212,62 @@ test("opposite parallel edges in a sequence row do not overlap", async () => {
     m1 = edgeFor(l, 0, 1, 1)!.mid;
   expect(Math.abs(m0.y - m1.y)).toBeGreaterThanOrEqual(12);
 });
+
+describe("direction down", () => {
+  const lay = async (src: string) => {
+    const { doc } = parse(src);
+    return layout(doc, buildTimeline(doc));
+  };
+  const at = (l: Awaited<ReturnType<typeof lay>>, id: string) => l.nodes.find((n) => n.id === id)!;
+  const overlap = (l: Awaited<ReturnType<typeof lay>>) =>
+    l.nodes.some((a, i) =>
+      l.nodes.some((b, j) => i < j && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h),
+    );
+  const CHAIN = "a -> b\nb -> c\nc -> d";
+  it("layers run top to bottom instead of left to right", async () => {
+    const right = await lay(CHAIN),
+      down = await lay(`direction down\n${CHAIN}`);
+    for (const [p, q] of [
+      ["a", "b"],
+      ["b", "c"],
+      ["c", "d"],
+    ]) {
+      expect(at(right, q).x).toBeGreaterThan(at(right, p).x + at(right, p).w);
+      expect(at(down, q).y).toBeGreaterThan(at(down, p).y + at(down, p).h);
+      expect(at(down, q).x).toBe(at(down, p).x);
+    }
+    expect(down.height).toBeGreaterThan(down.width);
+    expect(right.width).toBeGreaterThan(right.height);
+  });
+  it("siblings share a row and do not overlap", async () => {
+    const l = await lay("direction down\na -> b & a -> c & a -> d\nb -> e & c -> e & d -> e");
+    expect(new Set(["b", "c", "d"].map((id) => at(l, id).y)).size).toBe(1);
+    expect(overlap(l)).toBe(false);
+  });
+  it("rank puts nodes in the same row", async () => {
+    const src = "a -> b\nb -> c\na -> d\nrank c d";
+    const down = await lay(`direction down\n${src}`);
+    expect(at(down, "c").y).toBe(at(down, "d").y);
+    expect(at(down, "c").x).not.toBe(at(down, "d").x);
+    const right = await lay(src);
+    expect(at(right, "c").x).toBe(at(right, "d").x);
+  });
+  it("pin col,row is a screen position: a larger row is lower, a larger column is further right", async () => {
+    const l = await lay(`direction down\n${CHAIN}\npin d 2,0\npin c 1,5`);
+    expect(at(l, "d").y).toBe(at(l, "a").y);
+    expect(at(l, "d").x).toBeGreaterThan(at(l, "c").x);
+    expect(at(l, "c").x).toBeGreaterThan(at(l, "a").x);
+    expect(at(l, "c").y).toBeGreaterThan(at(l, "b").y);
+    expect(overlap(l)).toBe(false);
+  });
+  it("groups still enclose their members, and everything stays on the canvas", async () => {
+    const l = await lay("direction down\nu -> a\na -> b\nb -> c\ngroup g[G] : a b");
+    const g = l.groups[0];
+    for (const id of ["a", "b"]) {
+      const n = at(l, id);
+      expect(n.x >= g.x && n.y >= g.y && n.x + n.w <= g.x + g.w && n.y + n.h <= g.y + g.h).toBe(true);
+    }
+    for (const n of l.nodes) expect(n.x >= 0 && n.y >= 0 && n.x + n.w <= l.width && n.y + n.h <= l.height).toBe(true);
+    expect(l.edges).toHaveLength(3);
+  });
+});

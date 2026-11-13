@@ -17,6 +17,7 @@ export const CODES = [
   "E116",
   "E117",
   "E118",
+  "E119",
   "E201",
   "E203",
   "E204",
@@ -102,6 +103,7 @@ export const KEYWORDS = [
   "note",
   "opt",
   "theme",
+  "direction",
 ];
 
 export type Lang = "en" | "ko";
@@ -116,7 +118,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E101: { message: "no steps to play", hint: "write at least one edge, e.g. `user -> api : request`" },
     E102: {
       message: 'unknown statement "{word}"',
-      hint: "an edge looks like `a -> b : label`; keywords are title, diagram, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group",
+      hint: "an edge looks like `a -> b : label`; keywords are title, diagram, direction, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group",
     },
     E103: { message: "missing target node after the arrow", hint: "add the node the data goes to, e.g. `a -> b`" },
     E104: { message: "missing source node before the arrow", hint: "add the node the data comes from, e.g. `a -> b`" },
@@ -147,6 +149,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
       hint: "rename the node (e.g. `{keyword}_node[{keyword}]`); a keyword can only be a node id after an arrow",
     },
     E118: { message: 'unknown theme "{value}"', hint: "use one of {themes}" },
+    E119: { message: 'unknown direction "{value}"', hint: "use `direction right` (default) or `direction down`" },
     E116: {
       message: "`note` has no step to attach to",
       hint: "a note explains the step right above it; put it after an edge in the same block",
@@ -240,7 +243,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     },
     W111: {
       message: "`{keyword}` has no effect in `diagram sequence`",
-      hint: "pin, rank and group only apply to `diagram flow`; remove the line or switch the diagram kind",
+      hint: "pin, rank, group and direction only apply to `diagram flow`; remove the line or switch the diagram kind",
     },
     W112: { message: 'node "{name}" is pinned more than once', hint: "the last `pin` is used; keep one" },
   },
@@ -248,7 +251,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E101: { message: "재생할 단계가 없어요", hint: "엣지를 하나 이상 써 주세요. 예: `user -> api : 요청`" },
     E102: {
       message: '"{word}" 을(를) 이해하지 못했어요',
-      hint: "엣지는 `a -> b : 라벨` 형태예요. 키워드: title, diagram, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group",
+      hint: "엣지는 `a -> b : 라벨` 형태예요. 키워드: title, diagram, direction, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group",
     },
     E103: { message: "화살표 뒤에 대상 노드가 없어요", hint: "데이터가 가는 노드를 써 주세요. 예: `a -> b`" },
     E104: { message: "화살표 앞에 출발 노드가 없어요", hint: "데이터가 나오는 노드를 써 주세요. 예: `a -> b`" },
@@ -285,6 +288,10 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
       hint: "노드 이름을 바꿔 주세요(예: `{keyword}_node[{keyword}]`). 키워드는 화살표 뒤에서만 노드 id 로 쓸 수 있어요",
     },
     E118: { message: '"{value}" 는 알 수 없는 테마예요', hint: "{themes} 중에서 골라 주세요" },
+    E119: {
+      message: '"{value}" 는 알 수 없는 방향이에요',
+      hint: "`direction right`(기본) 또는 `direction down` 을 써 주세요",
+    },
     E116: {
       message: "`note` 를 붙일 단계가 없어요",
       hint: "note 는 바로 위 단계를 설명해요. 같은 블록 안에서 엣지 뒤에 써 주세요",
@@ -375,7 +382,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     },
     W111: {
       message: "`{keyword}` 는 `diagram sequence` 에서 효과가 없어요",
-      hint: "pin, rank, group 은 `diagram flow` 에서만 적용돼요. 줄을 지우거나 다이어그램 종류를 바꿔 주세요",
+      hint: "pin, rank, group, direction 은 `diagram flow` 에서만 적용돼요. 줄을 지우거나 다이어그램 종류를 바꿔 주세요",
     },
     W112: { message: '"{name}" 노드가 두 번 이상 pin 됐어요', hint: "마지막 `pin` 을 써요. 하나만 남겨 주세요" },
   },

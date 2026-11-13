@@ -1,7 +1,7 @@
 import { scan, type Line } from "./scan.js";
 import { KEYWORDS, suggest, type Code } from "./diagnostics.js";
 import { THEMES, isTheme } from "./themes.js";
-import { SHAPES, type Shape } from "./types.js";
+import { DIRECTIONS, SHAPES, type Direction, type Shape } from "./types.js";
 import type { Diagnostic, Document, Edge, EdgeKind, Group, NodeDecl, ParseResult, Span, Stmt } from "./types.js";
 
 const ID_CHAR = /[\p{L}\p{N}_-]/u;
@@ -179,7 +179,7 @@ class Parser {
         return this.report("E115", l, 0, word.length, { keyword: word });
       this.report("W109", l, 0, word.length, { keyword: word });
     }
-    if (word === "title" || word === "diagram" || word === "speed" || word === "theme") {
+    if (word === "title" || word === "diagram" || word === "speed" || word === "theme" || word === "direction") {
       if (this.settings.has(word)) this.report("W107", l, 0, word.length, { keyword: word });
       this.settings.add(word);
     }
@@ -198,6 +198,7 @@ class Parser {
       wait: "wait 0.5",
       loop: "loop 3",
       theme: "theme mono",
+      direction: "direction down",
       note: "note Cache is checked first",
     };
     if (!rest && word in EXAMPLES)
@@ -212,6 +213,16 @@ class Parser {
         });
       }
       this.doc.theme = rest;
+      return;
+    }
+    if (word === "direction") {
+      if (!DIRECTIONS.includes(rest as Direction)) {
+        const suggestion = suggest(rest, DIRECTIONS);
+        return this.report("E119", l, 10, t.length, { value: rest, ...(suggestion ? { suggestion } : {}) });
+      }
+      this.doc.direction = rest as Direction;
+      // W111 in `diagram sequence`, like the other layout lines
+      this.layoutLines.push({ keyword: word, line: l });
       return;
     }
     if (word === "note") {

@@ -125,7 +125,6 @@ test("dropped constructs warn with their line", () => {
       line: 1,
       message: "each link becomes one step in source order; a flowchart has no time axis, so review the order",
     },
-    { line: 1, message: "direction `TD` is ignored; ene lays out flows left to right" },
     { line: 2, message: "the rhombus shape has no ene equivalent; drawn as a box" },
     { line: 2, message: "`:::class` styles are dropped" },
     { line: 3, message: "styles and classes are dropped (and on 1 more line)" },

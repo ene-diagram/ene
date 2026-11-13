@@ -175,6 +175,8 @@ async function defaultElk(): Promise<Pick<ElkApi, "layout">> {
 export const NODE_H = 52;
 /** Horizontal space taken by the icon (24px) plus padding */
 export const ICON_SPACE = 34;
+/** Gap between neighbours in a row when the flow runs down */
+const GAP_ROW = 90;
 const GAP_NODE = 50,
   GAP_LAYER = 110,
   PAD = 40,
@@ -200,6 +202,7 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
     h: NODE_H,
   }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const down = doc.direction === "down";
 
   // Give ELK only the first-seen edge direction for each pair
   const seen = new Set<string>();
@@ -237,8 +240,9 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
     id: "root",
     layoutOptions: {
       "elk.algorithm": "layered",
-      "elk.direction": "RIGHT",
-      "elk.spacing.nodeNode": String(GAP_NODE),
+      "elk.direction": down ? "DOWN" : "RIGHT",
+      // Top to bottom: neighbours in a row need room for the labels of the vertical edges between them
+      "elk.spacing.nodeNode": String(down ? GAP_ROW : GAP_NODE),
       "elk.layered.spacing.nodeNodeBetweenLayers": String(GAP_LAYER),
       "elk.spacing.componentComponent": String(GAP_NODE),
       "elk.hierarchyHandling": "INCLUDE_CHILDREN",
@@ -262,16 +266,36 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
   for (const c of g.children ?? []) walk(c, 0, 0);
 
   const fixed = new Set<string>();
-  // rank: align the group's x to the leftmost
+  // rank: put the nodes in the same layer — a column (aligned to the leftmost), or a row when the flow runs down
   for (const r of doc.ranks) {
     const group = r.ids.map((id) => byId.get(id)!).filter(Boolean);
+    if (down) {
+      const y = Math.min(...group.map((n) => n.y));
+      group.forEach((n) => {
+        n.y = y;
+      });
+      continue;
+    }
     const x = Math.min(...group.map((n) => n.x));
     group.forEach((n) => {
       n.x = x;
     });
   }
-  // pin: grid of layer (column) x and row heights
-  if (doc.pins.length) {
+  // pin col,row is a place on the screen in both directions. Down: rows are the layers, columns are evenly spaced
+  if (doc.pins.length && down) {
+    const rows = [...new Set(nodes.map((n) => Math.round(n.y)))].sort((a, b) => a - b);
+    const rowStep = NODE_H + GAP_LAYER;
+    const rowY = (k: number) => (k < rows.length ? rows[k] : rows[rows.length - 1] + (k - rows.length + 1) * rowStep);
+    const left = Math.min(...nodes.map((n) => n.x));
+    const colStep = Math.max(...nodes.map((n) => n.w)) + GAP_ROW;
+    for (const p of doc.pins) {
+      const n = byId.get(p.id);
+      if (!n) continue;
+      n.x = left + p.col * colStep;
+      n.y = rowY(p.row);
+      fixed.add(n.id);
+    }
+  } else if (doc.pins.length) {
     const cols = [...new Set(nodes.map((n) => Math.round(n.x)))].sort((a, b) => a - b);
     const colStep = Math.max(...nodes.map((n) => n.w)) + GAP_LAYER;
     const colX = (c: number) => (c < cols.length ? cols[c] : cols[cols.length - 1] + (c - cols.length + 1) * colStep);
@@ -284,7 +308,7 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
       fixed.add(n.id);
     }
   }
-  resolveOverlaps(nodes, fixed);
+  resolveOverlaps(nodes, fixed, down);
   let groups = groupBoxes(doc, byId);
   // A non-member node overlapping a group box is moved below the box
   for (let iter = 0; iter < 60 && groups.length; iter++) {
@@ -309,7 +333,7 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
       }
     }
     if (!moved) break;
-    resolveOverlaps(nodes, fixed);
+    resolveOverlaps(nodes, fixed, down);
     groups = groupBoxes(doc, byId);
   }
 
@@ -405,19 +429,27 @@ function groupBoxes(doc: Document, byId: Map<string, LNode>): LGroup[] {
 }
 
 /** For overlapping nodes, push the unpinned one down */
-function resolveOverlaps(nodes: LNode[], fixed: Set<string>) {
+/**
+ * Push overlapping nodes apart along the axis inside a layer: down the column, or (when the flow runs down)
+ * right along the row, so nodes that `rank` or `pin` put in one layer stay in it.
+ */
+function resolveOverlaps(nodes: LNode[], fixed: Set<string>, down = false) {
+  const half = (down ? GAP_ROW : GAP_NODE) / 2;
   for (let iter = 0; iter < 200; iter++) {
     let moved = false;
-    const sorted = [...nodes].sort((a, b) => a.y - b.y || a.x - b.x);
+    const sorted = [...nodes].sort((a, b) => (down ? a.x - b.x || a.y - b.y : a.y - b.y || a.x - b.x));
     for (let i = 0; i < sorted.length; i++)
       for (let j = i + 1; j < sorted.length; j++) {
         const a = sorted[i],
           b = sorted[j];
-        if (!(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h + GAP_NODE / 2 && b.y < a.y + a.h + GAP_NODE / 2))
-          continue;
+        const hit = down
+          ? a.y < b.y + b.h && b.y < a.y + a.h && a.x < b.x + b.w + half && b.x < a.x + a.w + half
+          : a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h + half && b.y < a.y + a.h + half;
+        if (!hit) continue;
         const mover = fixed.has(b.id) && !fixed.has(a.id) ? a : b;
         const anchor = mover === a ? b : a;
-        mover.y = anchor.y + anchor.h + GAP_NODE;
+        if (down) mover.x = anchor.x + anchor.w + GAP_ROW;
+        else mover.y = anchor.y + anchor.h + GAP_NODE;
         moved = true;
       }
     if (!moved) return;

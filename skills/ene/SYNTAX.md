@@ -87,6 +87,7 @@ note Only on a miss.
 | `title Order flow` | title shown above the diagram |
 | `speed 1.2` | default seconds per step (default `1.2`, must be > 0) |
 | `diagram flow` | layout: `flow` (default) or `sequence` |
+| `direction down` | which way a flow diagram runs: `right` (default, left to right) or `down` (top to bottom) |
 | `theme mono` | colours: `default`, `mono` (greys, for print) or `high-contrast`; each has a light and a dark variant |
 
 ```ene
@@ -140,7 +141,7 @@ api --> user : 201
 | Construct | Meaning |
 |---|---|
 | `pin db 3,1` | place a node at column,row (from 0) in flow layout |
-| `rank api worker` | align nodes in the same column |
+| `rank api worker` | put nodes in the same layer: a column, or a row with `direction down` |
 | `group vpc[VPC]{color: #8b5cf6} : alb api` | box around nodes; members are ids separated by spaces |
 | `group pub[Public] in vpc : alb` | nested group: members must belong to the parent |
 
@@ -175,7 +176,7 @@ A few characters mean different things depending on where they are. ene warns wh
 
 Input that is accepted but ignored also warns: a second `title` / `speed` / `diagram` (`W107`), attributes that
 differ from the node's first use (`W106`), a second `pin` for the same node (`W112`), text after `end` (`W108`),
-and `pin` / `rank` / `group` in `diagram sequence` (`W111`).
+and `pin` / `rank` / `group` / `direction` in `diagram sequence` (`W111`).
 
 ```ene W105
 a -> b : cache hit # fast path
@@ -287,6 +288,13 @@ Unknown attribute (only `icon`, `shape`, `color`):
 
 ```ene E108
 a{size: 3} -> b
+```
+
+Unknown direction (only `right` and `down`):
+
+```ene E119
+direction up
+a -> b
 ```
 
 Unknown shape:

@@ -46,8 +46,13 @@ export interface Rank {
   ids: string[];
   span: Span;
 }
+/** Flow layout direction: layers go left to right (`right`, default) or top to bottom (`down`) */
+export type Direction = "right" | "down";
+export const DIRECTIONS: Direction[] = ["right", "down"];
 export interface Document {
   kind: "flow" | "sequence";
+  /** `direction <name>`: which way a flow diagram runs (unset = right) */
+  direction?: Direction;
   title?: string;
   /** `theme <name>`: one of THEMES (unset = default) */
   theme?: string;

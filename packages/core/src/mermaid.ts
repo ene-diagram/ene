@@ -585,7 +585,10 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   const head = lines[at];
   const dir = head.text.split(/\s+/)[1]?.replace(/;$/, "").toUpperCase();
   warn(head.no, "each link becomes one step in source order; a flowchart has no time axis, so review the order");
-  if (dir && dir !== "LR") warn(head.no, `direction \`${dir}\` is ignored; ene lays out flows left to right`);
+  // Top-to-bottom keeps its direction; ene has no right-to-left or bottom-to-top layout
+  const down = dir === "TD" || dir === "TB";
+  if (dir && dir !== "LR" && !down)
+    warn(head.no, `direction \`${dir}\` is ignored; ene lays out flows left to right or top to bottom`);
 
   // Subgraph ids first: an edge to a subgraph has no ene equivalent
   const subIds = new Set<string>();
@@ -792,6 +795,7 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
     "",
   ];
   if (title) out.push(`title ${title}`, "");
+  if (down) out.push("direction down", "");
   const label = (s: string) => s.replace(/\[/g, "(").replace(/\]/g, ")");
   for (const n of nodes.values()) {
     const l = label(n.label) || n.id;
