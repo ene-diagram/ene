@@ -181,6 +181,21 @@ export const STYLE = `
 /** Length of one loop of the exported animation: the timeline plus a hold on the final state */
 export const loopSeconds = (tl: Timeline) => Math.max(tl.total + HOLD, 0.1);
 
+// Timing rules shared by the SVG renderer and the browser player, so both animate the same way.
+/** The moving dot reaches the target at this fraction of the edge's duration */
+export const DOT_ARRIVAL = 0.85;
+/** When the dot of an edge starting at `start` arrives */
+export const arrivalTime = (start: number, duration: number) => start + duration * DOT_ARRIVAL;
+/** Start times of every step that uses each edge, by edge index */
+export function edgeUses(tl: Timeline): Map<number, number[]> {
+  const uses = new Map<number, number[]>();
+  for (const s of tl.steps) for (const e of s.edges) uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start]);
+  return uses;
+}
+/** When an edge's label hides: the next step that reuses the edge, else `fallback` */
+export const nextUseAfter = (uses: Map<number, number[]>, edgeIndex: number, t: number, fallback: number) =>
+  (uses.get(edgeIndex) ?? []).find((x) => x > t) ?? fallback;
+
 export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): string {
   const theme: ThemeName = opts.theme && isTheme(opts.theme) ? opts.theme : "default";
   const total = loopSeconds(tl);
@@ -191,12 +206,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
   const offY = opts.title ? TITLE_H : 0;
 
   // When the same edge is reused, hide the previous label then
-  const uses = new Map<number, number[]>();
-  tl.steps.forEach((s) => {
-    s.edges.forEach((e) => {
-      uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start]);
-    });
-  });
+  const uses = edgeUses(tl);
 
   let base = "",
     hl = "",
@@ -209,10 +219,10 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
       const le = edgeFor(l, s.index, k, e.edgeIndex);
       if (!le) continue;
       const t0 = s.start,
-        t1 = s.start + e.duration * 0.85;
+        t1 = arrivalTime(s.start, e.duration);
       const end = total - FADE;
       // Sequence has separate rows, so keep the label to the end
-      const nextUse = le.step !== undefined ? end : ((uses.get(e.edgeIndex) ?? []).find((t) => t > t0) ?? end);
+      const nextUse = le.step !== undefined ? end : nextUseAfter(uses, e.edgeIndex, t0, end);
       const on = `0;${kt(t0)};${kt(t0)};${kt(end)};1`;
       hl += `<path d="${le.d}" class="hl ${e.kind}" marker-end="url(#ene-ah)" opacity="0">${anim("opacity", "0;0;1;1;0", on)}</path>`;
       dots +=
