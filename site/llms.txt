@@ -86,7 +86,7 @@ note Only on a miss.
 |---|---|
 | `title Order flow` | title shown above the diagram |
 | `speed 1.2` | default seconds per step (default `1.2`, must be > 0) |
-| `diagram flow` | layout: `flow` (default) or `sequence` |
+| `diagram flow` | layout: `flow` (default) or `sequence`. A sequence diagram draws a bar on a participant from each request (`->`) until it answers the caller (`-->` or `-x`) |
 | `theme mono` | colours: `default`, `mono` (greys, for print) or `high-contrast`; each has a light and a dark variant |
 
 ```ene
