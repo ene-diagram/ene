@@ -278,3 +278,46 @@ test("--version prints the package version", () => {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
   expect(execFileSync("node", [bin, "--version"], { encoding: "utf8" }).trim()).toBe(pkg.version);
 });
+
+describe("include", () => {
+  const dir = () => {
+    const d = mkdtempSync(join(tmpdir(), "ene-inc-"));
+    writeFileSync(join(d, "system.ene"), "user[User]\napi[Order API]{shape: round}\ndb[Orders DB]{shape: db}\n");
+    return d;
+  };
+  test("renders with declarations from the file next to it; check reads it too", () => {
+    const d = dir();
+    const f = join(d, "flow.ene");
+    writeFileSync(f, "include ./system.ene\nuser -> api : POST\n");
+    const r = runCli([f, "-o", "-"]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain(">Order API<");
+    expect(r.stdout).not.toContain("Orders DB");
+    expect(runCli(["check", f]).status).toBe(0);
+  });
+  test("a problem in the included file is reported with that file and line", () => {
+    const d = dir();
+    writeFileSync(join(d, "system.ene"), "api[Order API]\napi -> db\n");
+    const f = join(d, "flow.ene");
+    writeFileSync(f, "include ./system.ene\nuser -> api\n");
+    const r = runCli(["check", f, "--json"]);
+    expect(r.status).toBe(1);
+    const [diag] = JSON.parse(r.stdout);
+    expect(diag).toMatchObject({ code: "E503", line: 2, file: join(d, "system.ene") });
+    expect(runCli([f, "-o", "-"]).stderr).toContain("system.ene, line 2");
+  });
+  test("cannot read outside the diagram's folder", () => {
+    const d = dir();
+    const f = join(d, "flow.ene");
+    writeFileSync(f, "include ../outside.ene\nuser -> api\n");
+    const r = runCli([f, "-o", "-"]);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("outside the diagram's folder");
+  });
+  test("stdin resolves from the working folder", () => {
+    const d = dir();
+    const r = spawnSync("node", [bin, "-"], { cwd: d, input: "include system.ene\nuser -> db\n", encoding: "utf8" });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain(">Orders DB<");
+  });
+});

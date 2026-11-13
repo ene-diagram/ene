@@ -36,6 +36,11 @@ export const CODES = [
   "E405",
   "E406",
   "E407",
+  "E501",
+  "E502",
+  "E503",
+  "E504",
+  "E505",
   "W101",
   "W102",
   "W103",
@@ -102,6 +107,7 @@ export const KEYWORDS = [
   "note",
   "opt",
   "theme",
+  "include",
 ];
 
 export type Lang = "en" | "ko";
@@ -116,7 +122,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E101: { message: "no steps to play", hint: "write at least one edge, e.g. `user -> api : request`" },
     E102: {
       message: 'unknown statement "{word}"',
-      hint: "an edge looks like `a -> b : label`; keywords are title, diagram, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group",
+      hint: "an edge looks like `a -> b : label`; keywords are title, diagram, speed, theme, include, wait, loop, branch, opt, else, end, note, pin, rank, group",
     },
     E103: { message: "missing target node after the arrow", hint: "add the node the data goes to, e.g. `a -> b`" },
     E104: { message: "missing source node before the arrow", hint: "add the node the data comes from, e.g. `a -> b`" },
@@ -147,6 +153,26 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
       hint: "rename the node (e.g. `{keyword}_node[{keyword}]`); a keyword can only be a node id after an arrow",
     },
     E118: { message: 'unknown theme "{value}"', hint: "use one of {themes}" },
+    E501: {
+      message: "`include` is not available here",
+      hint: "files can be included by the ene CLI and build plugins, not in the browser player; paste the declarations into this diagram",
+    },
+    E502: {
+      message: 'cannot include "{path}": {reason}',
+      hint: "the path is relative to the file that has the `include` line and must stay inside the diagram's folder",
+    },
+    E503: {
+      message: "an included file can only declare things",
+      hint: "allowed: node declarations (`api[Order API]{shape: db}`), group, pin, rank, theme, speed and include; put steps in the diagram itself",
+    },
+    E504: {
+      message: "`include` must come before nodes and steps",
+      hint: "move it to the top of the file (after title / diagram / theme is fine)",
+    },
+    E505: {
+      message: 'includes are nested too deep or in a loop at "{path}"',
+      hint: "a file cannot include itself, directly or through other files; at most {limit} levels",
+    },
     E116: {
       message: "`note` has no step to attach to",
       hint: "a note explains the step right above it; put it after an edge in the same block",
@@ -248,7 +274,7 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
     E101: { message: "재생할 단계가 없어요", hint: "엣지를 하나 이상 써 주세요. 예: `user -> api : 요청`" },
     E102: {
       message: '"{word}" 을(를) 이해하지 못했어요',
-      hint: "엣지는 `a -> b : 라벨` 형태예요. 키워드: title, diagram, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group",
+      hint: "엣지는 `a -> b : 라벨` 형태예요. 키워드: title, diagram, include, speed, theme, wait, loop, branch, opt, else, end, note, pin, rank, group",
     },
     E103: { message: "화살표 뒤에 대상 노드가 없어요", hint: "데이터가 가는 노드를 써 주세요. 예: `a -> b`" },
     E104: { message: "화살표 앞에 출발 노드가 없어요", hint: "데이터가 나오는 노드를 써 주세요. 예: `a -> b`" },
@@ -285,6 +311,26 @@ export const MESSAGES: Record<Lang, Record<Code, Msg>> = {
       hint: "노드 이름을 바꿔 주세요(예: `{keyword}_node[{keyword}]`). 키워드는 화살표 뒤에서만 노드 id 로 쓸 수 있어요",
     },
     E118: { message: '"{value}" 는 알 수 없는 테마예요', hint: "{themes} 중에서 골라 주세요" },
+    E501: {
+      message: "여기서는 `include` 를 쓸 수 없어요",
+      hint: "파일 포함은 ene CLI 와 빌드 플러그인에서만 돼요(브라우저 플레이어는 안 돼요). 선언을 이 다이어그램에 직접 적어 주세요",
+    },
+    E502: {
+      message: '"{path}" 를 포함할 수 없어요: {reason}',
+      hint: "경로는 `include` 줄이 있는 파일 기준이고, 다이어그램 폴더 밖으로 나갈 수 없어요",
+    },
+    E503: {
+      message: "포함되는 파일에는 선언만 쓸 수 있어요",
+      hint: "쓸 수 있는 것: 노드 선언(`api[Order API]{shape: db}`), group, pin, rank, theme, speed, include. 단계는 다이어그램 파일에 적어 주세요",
+    },
+    E504: {
+      message: "`include` 는 노드와 단계보다 앞에 와야 해요",
+      hint: "파일 맨 위로 옮겨 주세요(title / diagram / theme 뒤는 괜찮아요)",
+    },
+    E505: {
+      message: '"{path}" 에서 include 가 너무 깊거나 서로를 포함해요',
+      hint: "파일은 자기 자신을 직접이든 다른 파일을 거쳐서든 포함할 수 없어요. 최대 {limit}단계예요",
+    },
     E116: {
       message: "`note` 를 붙일 단계가 없어요",
       hint: "note 는 바로 위 단계를 설명해요. 같은 블록 안에서 엣지 뒤에 써 주세요",

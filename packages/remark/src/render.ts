@@ -6,6 +6,7 @@ import {
   parse,
   resolveIcon,
   type IconPack,
+  type Includer,
   type Lang,
   type ResolvedIcon,
 } from "@ene-diagram/core";
@@ -17,6 +18,11 @@ export interface RenderOptions {
   lang?: Lang;
   /** Branch arms to show in the static SVG, like the CLI's `--choice 0,1` */
   choice?: number[];
+  /**
+   * Reads `include`d files, for example `createIncluder` from `@ene-diagram/core` over `node:fs`. This package
+   * reads no files itself, so without it an `include` line is an error
+   */
+  include?: Includer;
   /** Overrides the diagram's `title` line */
   title?: string;
   /** Icon packs for `icon` names such as `aws:lambda` */
@@ -35,7 +41,7 @@ export type RenderResult =
 export async function renderEne(src: string, opts: RenderOptions = {}): Promise<RenderResult> {
   const lang = opts.lang ?? "en";
   const packs = opts.icons ?? [];
-  const { doc, diagnostics } = parse(src);
+  const { doc, diagnostics } = parse(src, opts.include ? { include: opts.include } : {});
   diagnostics.push(...checkIcons(doc, packs));
   diagnostics.sort((a, b) => a.span.line - b.span.line || a.span.col - b.span.col);
   const warnings: string[] = [];

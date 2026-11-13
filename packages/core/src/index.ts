@@ -1,6 +1,7 @@
 export const VERSION = "0.1.1";
 export * from "./types.js";
-export { parse, LIMITS } from "./parse.js";
+export { parse, LIMITS, INCLUDE_DEPTH, type Includer, type IncludeResult, type ParseOptions } from "./parse.js";
+export { createIncluder, INCLUDE_MAX_BYTES, type IncluderIo } from "./include.js";
 export { buildTimeline, type TimelineOptions } from "./timeline.js";
 export { formatDiagnostic, formatAll, diagnosticToJson, type DiagnosticJson } from "./format.js";
 export { THEMES, isTheme, type ThemeName } from "./themes.js";

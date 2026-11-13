@@ -64,6 +64,11 @@ export interface Diagnostic {
   severity: Severity;
   span: Span;
   args: Record<string, string>;
+  /** Set when the problem is in an included file: its name, and the text of the line (the span is in that file) */
+  file?: string;
+  lineText?: string;
+  /** With `file`: the `include` line in the source that was parsed, which is where an editor can show it */
+  at?: Span;
 }
 export interface ParseResult {
   doc: Document;

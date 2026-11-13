@@ -8,6 +8,7 @@ import {
   resolveIcon,
   validateIconPack,
   type IconPack,
+  type Includer,
   type Lang,
   type ResolvedIcon,
   type Timeline,
@@ -49,6 +50,11 @@ export interface PlayerOptions {
   focus?: boolean | "auto";
   /** Colour theme; overrides the document's `theme` setting */
   theme?: ThemeName;
+  /**
+   * Supplies the text of `include`d files. The player reads no files itself, so without this an `include`
+   * line is an error (`E501`)
+   */
+  include?: Includer;
 }
 
 /** Node count from which `focus: "auto"` dims inactive parts */
@@ -211,7 +217,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   hosts.set(el, { token });
   const stale = () => hosts.get(el)?.token !== token;
   const lang = opts.lang ?? (navigator.language.startsWith("ko") ? "ko" : "en");
-  const { doc, diagnostics } = parse(source);
+  const { doc, diagnostics } = parse(source, opts.include ? { include: opts.include } : {});
   el.replaceChildren();
   if (diagnostics.some((d) => d.severity === "error")) {
     const pre = document.createElement("pre");

@@ -31,6 +31,7 @@ remarkEne({
   choice: [0],         // default branch arms for static SVGs (like `ene --choice 0`)
   title: undefined,    // override every diagram's title
   icons: [pack],       // icon packs (Iconify JSON, see `ene icons`)
+  include: undefined,  // reads `include`d files; see below
   network: false,      // fetch https:// icons at build time (off by default)
   allowHosts: [],      // with network: only these hosts
   failOnError: false,  // true: fail the build on diagram errors
@@ -42,6 +43,20 @@ remarkEne({
 ```
 
 Per block, the fence meta can set `title="..."`, `choice=1,0`, and `live` or `static`.
+
+**Includes.** The plugin reads no files, so an `include` line needs a reader. In Node:
+
+```js
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { createIncluder } from "@ene-diagram/core";
+
+remarkEne({
+  include: createIncluder({ rootDir: "docs/diagrams", path, readFile: (p) => readFileSync(p, "utf8") }),
+});
+```
+
+Paths in every block are then relative to `rootDir` and cannot leave it.
 
 **Errors.** A block with errors is replaced by a visible `<div class="ene-error">` that shows the diagnostics, and a message is added to the file (`vfile.messages`). With `failOnError: true` the build fails instead.
 

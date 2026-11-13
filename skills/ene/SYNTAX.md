@@ -153,6 +153,38 @@ pin db 3,1
 rank api db
 ```
 
+## Shared declarations (`include`)
+
+| Construct | Meaning |
+|---|---|
+| `include ./system.ene` | take node declarations, groups, `pin`, `rank`, `theme` and `speed` from another file |
+
+Write the nodes of a system once and reuse them in every flow. The path is relative to the file that has the
+line and must stay inside the diagram's folder. `include` lines come first, before any node or step.
+
+```text
+# system.ene — declarations only, no steps
+user[User]{shape: circle}
+api[Order API]{icon: logos:nodejs}
+db[Orders DB]{shape: db}
+cache[Redis]{shape: db}
+group vpc[VPC] : api db cache
+```
+
+```text
+# checkout.ene
+include ./system.ene
+user -> api : POST /checkout
+api -> db : INSERT
+```
+
+- Only the nodes a diagram uses are drawn (`cache` is not in the checkout diagram above), and a group keeps only
+  those members.
+- What the diagram says itself wins: its own `theme` / `speed`, its own groups and pins.
+- An included file can include others (up to 8 levels). It cannot contain steps, blocks, `title` or `diagram` (`E503`).
+- `include` works in the CLI, the VS Code extension and build plugins that are given a file reader. The browser
+  player reads no files, so there it is `E501` unless the page passes an `include` function to `ene.render`.
+
 ## Rules that depend on position
 
 A few characters mean different things depending on where they are. ene warns when a line could be read the other way.
