@@ -1,2 +1,4 @@
+import { readFileSync } from "node:fs";
 import { VERSION } from "../src/index";
-test("exports version", () => expect(VERSION).toBe("0.0.0"));
+const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+test("VERSION matches package.json", () => expect(VERSION).toBe(pkg.version));
