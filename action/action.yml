@@ -1,0 +1,58 @@
+name: ene diagrams
+description: Render .ene diagrams to animated SVGs, check them, and commit the SVGs or fail when they are stale.
+branding:
+  icon: play-circle
+  color: blue
+inputs:
+  files:
+    description: Glob(s) of .ene files, one per line or comma-separated (matched against tracked and untracked, non-ignored files)
+    default: "**/*.ene"
+  output-dir:
+    description: Write SVGs here instead of next to each .ene file (the path below the glob's fixed prefix is kept)
+    default: ""
+  mode:
+    description: "`check`: fail if an SVG is missing or stale, or a diagram has errors. `commit`: render, then commit and push changed SVGs"
+    default: check
+  version:
+    description: "@ene-diagram/cli version or range from npm"
+    default: "0.1"
+  choice:
+    description: Branch arms for the SVGs, like `ene --choice 0,1`
+    default: ""
+  icons:
+    description: Icon pack JSON files (one per line or comma-separated), passed as `--icons`
+    default: ""
+  network:
+    description: Allow fetching https:// icons while rendering. Off by default (`--no-network`)
+    default: "false"
+  fmt-check:
+    description: Also run `ene fmt --check` and fail on unformatted files
+    default: "true"
+  commit-message:
+    description: Commit message in commit mode
+    default: "chore: regenerate ene diagrams"
+  cli-path:
+    description: Path to a local ene CLI (bin/ene.mjs) instead of installing from npm (used by this repo's own CI)
+    default: ""
+outputs:
+  changed:
+    description: Newline-separated SVG paths that were (or would be) changed
+    value: ${{ steps.run.outputs.changed }}
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      # Inputs are passed through the environment only, never interpolated into the script
+      env:
+        ENE_FILES: ${{ inputs.files }}
+        ENE_OUTPUT_DIR: ${{ inputs.output-dir }}
+        ENE_MODE: ${{ inputs.mode }}
+        ENE_VERSION: ${{ inputs.version }}
+        ENE_CHOICE: ${{ inputs.choice }}
+        ENE_ICONS: ${{ inputs.icons }}
+        ENE_NETWORK: ${{ inputs.network }}
+        ENE_FMT_CHECK: ${{ inputs.fmt-check }}
+        ENE_COMMIT_MESSAGE: ${{ inputs.commit-message }}
+        ENE_CLI_PATH: ${{ inputs.cli-path }}
+      run: node "$GITHUB_ACTION_PATH/run.mjs"

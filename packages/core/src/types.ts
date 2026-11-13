@@ -21,7 +21,7 @@ export interface Group {
   color?: string;
   span: Span;
 }
-export type EdgeKind = "ok" | "fail" | "reply"; // -> | -x | -->
+export type EdgeKind = "ok" | "fail" | "reply" | "async"; // -> | -x | --> | ~>
 export interface Edge {
   from: string;
   to: string;
@@ -31,9 +31,10 @@ export interface Edge {
   span: Span;
 }
 export type Stmt =
-  | { type: "step"; edges: Edge[]; span: Span }
+  | { type: "step"; edges: Edge[]; note?: string; span: Span }
   | { type: "wait"; seconds: number; span: Span }
-  | { type: "branch"; arms: { label: string; body: Stmt[]; span: Span }[]; span: Span }
+  /** `opt` is a branch with `optional: true` and two arms: the steps (arm 0) and an empty "skip" arm (arm 1) */
+  | { type: "branch"; arms: { label: string; body: Stmt[]; span: Span }[]; optional?: boolean; span: Span }
   | { type: "loop"; count: number; body: Stmt[]; span: Span };
 export interface Pin {
   id: string;
@@ -48,6 +49,8 @@ export interface Rank {
 export interface Document {
   kind: "flow" | "sequence";
   title?: string;
+  /** `theme <name>`: one of THEMES (unset = default) */
+  theme?: string;
   speed: number;
   nodes: Map<string, NodeDecl>;
   body: Stmt[];
@@ -82,10 +85,11 @@ export interface TimelineStep {
   duration: number;
   edges: TimelineEdge[];
   branchPath: number[];
+  note?: string;
 }
 export interface Timeline {
   steps: TimelineStep[];
   total: number;
-  branches: { label: string; arms: string[] }[];
+  branches: { label: string; arms: string[]; optional?: boolean }[];
   allEdges: Edge[];
 }

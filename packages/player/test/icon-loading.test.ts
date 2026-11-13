@@ -7,6 +7,7 @@ beforeAll(() => {
   SVGElement.prototype.getPointAtLength = () => ({ x: 0, y: 0 }) as DOMPoint;
 });
 beforeEach(() => {
+  // biome-ignore lint/complexity/useArrowFunction: Option must be callable with `new`
   vi.stubGlobal("Option", function (text = "", value = text) {
     const o = document.createElement("option");
     o.text = text;

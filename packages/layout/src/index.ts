@@ -132,8 +132,9 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
       while (j + 1 < tl.steps.length && tl.steps[j + 1].branchPath.slice(0, (depth + 1) * 2).join(",") === key) j++;
       const [bi, ai] = p.slice(depth * 2, depth * 2 + 2);
       const inset = depth * 8;
+      const br = tl.branches[bi];
       frames.push({
-        label: tl.branches[bi].arms[ai] || `#${ai + 1}`,
+        label: br.optional ? `opt ${br.arms[0]}`.trim() : br.arms[ai] || `#${ai + 1}`,
         x: minX + inset,
         y: rowY(i) - 34 + inset,
         w: maxX - minX - inset * 2,
@@ -326,8 +327,8 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
       return n.flatMap((_, i) => (i % 2 ? [] : [{ x: n[i], y: n[i + 1] }]));
     });
   groups = groupBoxes(doc, byId);
-  let minX = Math.min(...nodes.map((n) => n.x), ...groups.map((b) => b.x), ...pts().map((p) => p.x));
-  let minY = Math.min(...nodes.map((n) => n.y), ...groups.map((b) => b.y), ...pts().map((p) => p.y - 20)); // room for label height
+  const minX = Math.min(...nodes.map((n) => n.x), ...groups.map((b) => b.x), ...pts().map((p) => p.x));
+  const minY = Math.min(...nodes.map((n) => n.y), ...groups.map((b) => b.y), ...pts().map((p) => p.y - 20)); // room for label height
   if (minX < PAD || minY < PAD) {
     const dx = Math.max(0, Math.ceil(PAD - minX)),
       dy = Math.max(0, Math.ceil(PAD - minY));
@@ -606,7 +607,7 @@ function gridRoute(
   cells.reverse();
   // From the first point outside the node to the point just before entering the target node
   const out = (p: Pt, n: LNode) => !(p.x >= n.x && p.x <= n.x + n.w && p.y >= n.y && p.y <= n.y + n.h);
-  let i0 = cells.findIndex((p) => out(p, a)),
+  const i0 = cells.findIndex((p) => out(p, a)),
     i1 = cells.length - 1 - [...cells].reverse().findIndex((p) => out(p, b));
   if (i0 < 0 || i1 < i0) return undefined;
   // Endpoints go onto the node border: the path is orthogonal, so snap to the border coordinate in the exit direction

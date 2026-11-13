@@ -23,6 +23,7 @@ beforeAll(() => {
   proto.getPointAtLength ??= () => ({ x: 0, y: 0 });
   const g = globalThis as unknown as { Option?: unknown };
   if (typeof g.Option !== "function")
+    // biome-ignore lint/complexity/useArrowFunction: Option must be callable with `new`
     g.Option = function (text = "", value = text, defSel = false, sel = false) {
       const o = document.createElement("option");
       o.text = text;

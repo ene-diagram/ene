@@ -1,0 +1,3 @@
+title Fixture
+user -> api : GET /
+api --> user : 200

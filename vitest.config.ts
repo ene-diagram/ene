@@ -8,7 +8,9 @@ export default defineConfig({
       "@ene-diagram/svg": src("svg"),
       "@ene-diagram/player": src("player"),
       "@ene-diagram/video": src("video"),
+      "@ene-diagram/export": src("export"),
+      "@ene-diagram/remark": src("remark"),
     },
   },
-  test: { include: ["packages/*/test/**/*.test.ts"], globals: true },
+  test: { include: ["packages/*/test/**/*.test.ts", "action/test/**/*.test.ts"], globals: true },
 });

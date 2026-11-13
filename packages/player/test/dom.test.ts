@@ -48,6 +48,82 @@ describe("player DOM", () => {
     p.destroy();
   });
 
+  it("shows the note of the current step in a caption (flow and sequence)", async () => {
+    for (const head of ["", "diagram sequence\n"]) {
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      const p = (await render(el, `${head}a -> b : one\nnote why one\nb -> c : two\nc --> a : three\nnote why three`, {
+        autoplay: false,
+        lang: "en",
+      }))!;
+      const root = el.querySelector(".ene-player")!;
+      const note = () => root.querySelector(".ene-note")!.textContent;
+      expect(note()).toBe("why one");
+      key(root, "ArrowRight");
+      expect(note()).toBe("");
+      key(root, "ArrowRight");
+      expect(note()).toBe("why three");
+      p.destroy();
+    }
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const p = (await render(el, STEPS, { autoplay: false }))!;
+    expect(el.querySelector(".ene-note")).toBeNull();
+    p.destroy();
+  });
+
+  it("opt is a checkbox toggle that skips its steps", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const p = (await render(el, "a -> b : one\nopt cached\n  b --> a : two\nend\na -> c : three", {
+      autoplay: false,
+      lang: "en",
+    }))!;
+    const box = el.querySelector<HTMLInputElement>(".ene-opt input")!;
+    expect(el.querySelector(".ene-opt")!.textContent).toBe("cached");
+    expect(box.checked).toBe(true);
+    expect(p.controller.total).toBeCloseTo(3 * 1.2);
+    const ev = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    box.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    expect(p.controller.playing).toBe(false);
+    box.checked = false;
+    box.dispatchEvent(new Event("change"));
+    expect(p.controller.total).toBeCloseTo(2 * 1.2);
+    p.destroy();
+  });
+
+  it("opt reports and restores its choice, and menus after it keep their own index", async () => {
+    const src =
+      "a -> b : one\nopt cached\n  b --> a : two\nend\nbranch hit\n  a -> c : x\nelse miss\n  a -> d : y\nend";
+    const seen: number[][] = [];
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const p = (await render(el, src, { autoplay: false, lang: "en", onChoicesChange: (c) => seen.push(c) }))!;
+    const box = el.querySelector<HTMLInputElement>(".ene-opt input")!;
+    box.checked = false;
+    box.dispatchEvent(new Event("change"));
+    expect(seen.at(-1)).toEqual([1]);
+    const sel = el.querySelector<HTMLSelectElement>('select[aria-label="Branch 2"]')!;
+    sel.value = "1";
+    sel.dispatchEvent(new Event("change"));
+    expect(seen.at(-1)).toEqual([1, 1]);
+    p.setChoices([0, 1]);
+    expect(box.checked).toBe(true);
+    expect(sel.value).toBe("1");
+    p.destroy();
+
+    const el2 = document.createElement("div");
+    document.body.appendChild(el2);
+    const p2 = (await render(el2, src, { autoplay: false, lang: "en", choices: [1, 0] }))!;
+    expect(el2.querySelector<HTMLInputElement>(".ene-opt input")!.checked).toBe(false);
+    expect(el2.querySelector<HTMLSelectElement>('select[aria-label="Branch 2"]')!.value).toBe("0");
+    expect(p2.choices).toEqual([1, 0]);
+    p2.setChoices([2]); // out of range: the timeline plays arm 0, so the box shows checked
+    expect(el2.querySelector<HTMLInputElement>(".ene-opt input")!.checked).toBe(true);
+    p2.destroy();
+  });
+
   it("buttons drive the controller", async () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
@@ -78,6 +154,90 @@ describe("player DOM", () => {
     expect(p.controller.total).toBeGreaterThan(hitTotal);
     p.setChoices([0]);
     expect(p.controller.total).toBe(hitTotal);
+    p.destroy();
+  });
+
+  it("starts from given choices, reports menu changes, keeps the menu in sync and exports the chosen path", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const seen: number[][] = [];
+    const p = (await render(el, BRANCHY, {
+      autoplay: false,
+      lang: "en",
+      choices: [1],
+      onChoicesChange: (c) => seen.push(c),
+    }))!;
+    const sel = el.querySelector<HTMLSelectElement>('select[aria-label="Branch 1"]')!;
+    expect(sel.value).toBe("1");
+    expect(p.choices).toEqual([1]);
+    expect(p.toSvg()).toContain("3. row");
+    sel.value = "0";
+    sel.dispatchEvent(new Event("change"));
+    expect(seen).toEqual([[0]]);
+    expect(p.toSvg()).not.toContain("row");
+    p.setChoices([1]);
+    expect(sel.value).toBe("1");
+    expect(seen).toEqual([[0]]);
+    p.setChoices([-3]);
+    expect(p.choices).toEqual([0]);
+    p.destroy();
+  });
+
+  it("focus dims nodes and edges outside the playing step and clears at the end", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const p = (await render(el, "a -> b : one\nb -> c : two\nc -> d : three", {
+      autoplay: false,
+      lang: "en",
+      focus: true,
+    }))!;
+    const root = el.querySelector(".ene-player")!;
+    expect(root.classList.contains("ene-focus")).toBe(true);
+    const dimmed = () => [...root.querySelectorAll("g.ene-n")].map((g) => g.classList.contains("ene-dim"));
+    expect(dimmed()).toEqual([false, false, true, true]);
+    key(root, "ArrowRight");
+    expect(dimmed()).toEqual([true, false, false, true]);
+    expect([...root.querySelectorAll("path.edge")].map((e) => e.classList.contains("ene-dim"))).toEqual([
+      true,
+      false,
+      true,
+    ]);
+    const hl = root.querySelectorAll<SVGPathElement>("path.hl");
+    expect(hl[0].style.opacity).toBe("0.2");
+    expect(hl[1].style.opacity).toBe("1");
+    p.controller.time = p.controller.total;
+    key(root, "ArrowRight");
+    expect(dimmed()).toEqual([false, false, false, false]);
+    expect(hl[0].style.opacity).toBe("1");
+    p.destroy();
+  });
+
+  it("focus is off for small diagrams by default and can be forced off", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const big = Array.from({ length: 12 }, (_, i) => `n${i} -> n${i + 1}`).join("\n");
+    let p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;
+    expect(el.querySelector(".ene-focus")).toBeNull();
+    p = (await render(el, big, { autoplay: false, lang: "en" }))!;
+    expect(el.querySelector(".ene-focus")).not.toBeNull();
+    expect(el.querySelectorAll("g.ene-dim").length).toBe(11);
+    p = (await render(el, big, { autoplay: false, lang: "en", focus: false }))!;
+    expect(el.querySelector(".ene-focus")).toBeNull();
+    expect(el.querySelectorAll(".ene-dim").length).toBe(0);
+    p.destroy();
+  });
+
+  it("applies the document theme, and the theme option overrides it (also in toSvg)", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    let p = (await render(el, "theme mono\na -> b", { autoplay: false, lang: "en" }))!;
+    expect(el.querySelector("svg")!.getAttribute("class")).toBe("ene ene-theme-mono");
+    expect(p.toSvg()).toContain("ene-theme-mono");
+    // The page-level rule must not reach other SVGs on the page (zero-specificity, class-scoped)
+    expect(el.querySelector("svg style")?.textContent ?? "").not.toMatch(/(^|[}\s])svg\{/);
+    p = (await render(el, "theme mono\na -> b", { autoplay: false, lang: "en", theme: "high-contrast" }))!;
+    expect(el.querySelector("svg")!.getAttribute("class")).toBe("ene ene-theme-high-contrast");
+    expect(p.toSvg()).toContain("ene-theme-high-contrast");
     p.destroy();
   });
 

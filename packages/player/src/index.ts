@@ -5,6 +5,7 @@ export {
   registerIconPacks,
   setElkUrl,
   setIconLoading,
+  FOCUS_AUTO_NODES,
   type PlayerOptions,
   type Player,
   type IconPackSource,

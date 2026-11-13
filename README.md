@@ -128,12 +128,23 @@ More examples in [`packages/core/examples`](packages/core/examples).
 
 ## Getting started
 
-ene is not published to npm yet; use it from source.
-
-**Requirements:** Node.js 20 or newer, pnpm 10 (`corepack enable` picks the pinned version from `package.json`).
+**Requirements:** Node.js 20 or newer.
 
 ```bash
-git clone https://github.com/slop-makers/ene.git
+npm install -g @ene-diagram/cli
+
+printf 'user -> api : GET /\napi --> user : 200\n' > flow.ene
+ene flow.ene -o flow.svg
+```
+
+Or run it once without installing: `npx @ene-diagram/cli flow.ene -o flow.svg`.
+
+### From source
+
+Needs pnpm 10 as well (`corepack enable` picks the pinned version from `package.json`).
+
+```bash
+git clone https://github.com/ene-diagram/ene.git
 cd ene
 pnpm install
 pnpm build          # compiles all packages and the browser bundle
@@ -167,6 +178,7 @@ Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Sp
 ene flow.ene -o flow.svg
 cat flow.ene | ene - > flow.svg   # "-" reads stdin; output goes to stdout
 ene flow.ene -o -                # write the SVG to stdout
+ene flow.ene -o flow.svg --no-notes   # leave out the `note` captions
 ```
 
 For places that do not play animated SVG (Slack, Notion, slides, social posts), export a GIF or MP4. The format comes from the extension:
@@ -196,17 +208,101 @@ ene fmt --check *.ene       # exit 1 if any file is not formatted (CI)
 
 The SVG loops on its own — no script needed — and respects dark mode and reduced motion.
 
-### From a Mermaid sequence diagram
+### Use in a blog
 
-Already have a Mermaid `sequenceDiagram`? Convert it, or render it directly:
+**Hosts that allow a script** (your own site, a Tistory skin, self-hosted WordPress): load the player from a CDN. The major version is pinned, so fixes arrive without breaking changes:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js"></script>
+<pre class="ene">
+user -> api : POST /order
+api --> user : 201
+</pre>
+```
+
+`https://unpkg.com/@ene-diagram/player@0.1/dist/ene.js` works the same way. `ene.js` (~64 KB) loads `ene-elk.js` (~1.6 MB) from the same folder the first time it draws a flow diagram; pages with only `diagram sequence` diagrams never download it.
+
+**Markdown-only hosts** (no scripts): upload an image instead. Use the SVG (`ene flow.ene -o flow.svg`) where the host keeps SVG animation, otherwise a GIF (`-o flow.gif`).
+
+| Host | Route | Status |
+|---|---|---|
+| Self-built sites (Astro, Next, Hugo, Jekyll) | CDN script in the layout | the script works in any HTML page; framework plugins are tracked in #52 |
+| Tistory (skin HTML), self-hosted WordPress | CDN script | untested |
+| velog, Medium, dev.to, Brunch | GIF upload; SVG upload support unknown | untested |
+| Hosts that accept iframes | playground embed view (#47) | not available yet |
+
+Entries marked untested have not been checked on the host yet; reports are welcome.
+
+### From Mermaid
+
+Already have a Mermaid `sequenceDiagram`, `flowchart` or `graph`? Convert it, or render it directly:
 
 ```bash
 ene from-mermaid diagram.mmd > diagram.ene   # editable .ene source
-ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid sequence block in a Markdown file
+ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid block it can convert in a Markdown file
 ene diagram.mmd -o diagram.svg               # convert and render in one go
 ```
 
-Messages, participants, `alt`/`else`, `opt`, `loop` and `par` are converted. Notes become comments, and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number. Only `sequenceDiagram` is supported.
+Messages, participants, `alt`/`else`, `opt` (and `break`, as `opt`), `loop`, `par` and the async arrow `-)` (as `~>`) are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number.
+
+A `flowchart` / `graph` becomes a flow diagram: nodes keep their labels and the shapes ene has (`(( ))` circle, `( )` / `([ ])` round, `[( )]` db; others are drawn as boxes with a warning), each link becomes one step in source order (`|label|` and `-- label -->` become labels, dotted links become `-->`, `--x` becomes `-x`), and `subgraph` becomes `group` (nested ones use `in`). Styles, classes, click handlers and links to a subgraph are dropped with a warning. A flowchart has no time axis, so the output starts with a comment asking you to review the step order.
+
+### In VS Code
+
+[`packages/vscode`](packages/vscode) is a VS Code extension: highlighting, diagnostics with quick fixes, Format Document, a live side-by-side preview (with the branch menu) and SVG export. It is not on the Marketplace yet; build the `.vsix` as described in its [README](packages/vscode/README.md).
+
+### In docs sites (Astro, Next.js, Docusaurus, VitePress)
+
+`@ene-diagram/remark` turns ```` ```ene ```` blocks in Markdown/MDX into inline animated SVGs at build time (no client JS), or into players with `mode: "live"`. A markdown-it plugin is included for VitePress.
+
+```js
+import remarkEne from "@ene-diagram/remark";
+// astro.config.mjs
+export default defineConfig({ markdown: { remarkPlugins: [remarkEne] } });
+```
+
+Setup for each framework, options and error handling: [packages/remark](packages/remark/README.md).
+
+### In GitHub Actions
+
+The action in [`action/`](action/action.yml) renders `.ene` files to SVGs with the published `@ene-diagram/cli`. In `check` mode it fails a PR when a diagram has errors, is not formatted (`ene fmt --check`), or its SVG is missing or stale, with annotations on the offending lines. In `commit` mode it regenerates the SVGs and pushes a commit.
+
+```yaml
+# .github/workflows/diagrams.yml
+name: Diagrams
+on:
+  pull_request:
+    paths: ["**/*.ene"]
+  push:
+    branches: [main]
+    paths: ["**/*.ene"]
+jobs:
+  diagrams:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit mode only; check mode needs read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ene-diagram/ene/action@main
+        with:
+          files: docs/**/*.ene
+          mode: ${{ github.event_name == 'push' && 'commit' || 'check' }}
+          version: "0.1"
+```
+
+| Input | Default | |
+|---|---|---|
+| `files` | `**/*.ene` | globs, one per line or comma-separated (tracked and untracked, non-ignored files) |
+| `output-dir` | next to each file | write SVGs here; the path below the glob's fixed prefix is kept (`docs/**/*.ene` → `out/a/b.svg`) |
+| `mode` | `check` | `check` or `commit` |
+| `version` | `0.1` | `@ene-diagram/cli` version or range |
+| `choice` | | branch arms, like `--choice 0,1` |
+| `icons` | | icon pack JSON files (`--icons`) |
+| `network` | `false` | allow fetching `https://` icons; otherwise `--no-network` |
+| `fmt-check` | `true` | also run `ene fmt --check` |
+| `commit-message` | `chore: regenerate ene diagrams` | |
+
+The `changed` output lists the SVGs that were (or would be) rewritten. Commit mode pushes to the checked-out branch with `GITHUB_TOKEN`, which does not trigger another workflow run. It needs a checked-out branch: on `pull_request` runs the default checkout is a detached merge commit, so check out the PR branch with `actions/checkout` `ref: ${{ github.head_ref }}` (commit mode refuses a detached HEAD). It cannot push to pull requests from forks, so use `check` there. The workflow needs `permissions: contents: write`.
 
 ### With Claude
 
@@ -239,12 +335,35 @@ Then ask Claude Code for a diagram, e.g. "draw the checkout flow as an ene diagr
 Set `startOnLoad: false` in `eneConfig` to skip the automatic `pre.ene` scan and render yourself:
 
 ```js
-const player = await ene.render(element, source, { autoplay: false, loop: true });
-player.setChoices([1]);   // pick arm 1 of the first branch
-player.destroy();          // stop playback and clear the element
+const player = await ene.render(element, source, {
+  autoplay: false, loop: true,
+  choices: [1],                                  // start on arm 1 of the first branch
+  onChoicesChange: (c) => console.log(c),        // the viewer picked another arm
+});
+player.setChoices([0]);   // pick arm 0 of the first branch
+player.choices;           // [0]
+player.toSvg();           // the self-playing SVG for the current choices, as `ene -o x.svg` writes it
+player.destroy();         // stop playback and clear the element
 ```
 
 `render()` resolves to `undefined` when the source has errors (an error box is shown instead).
+
+**Focus.** On large diagrams the moving dot is easy to lose, so the player dims every node and edge that is not part of the step playing now (nothing moves or resizes). When the last step ends, the whole diagram shows again. `focus: "auto"` (default) turns it on from 12 nodes; `focus: true` / `false` forces it. Page-wide: `eneConfig.focus`; per diagram: `<pre class="ene" data-focus="on">` (`on`, `off`, `auto`). The fade is skipped under `prefers-reduced-motion`. Exported SVGs are not dimmed.
+
+### GIF and MP4 in the browser
+
+`pnpm build` also writes `packages/export/dist/ene-export.js` (~12 KB, no dependencies). It turns an exported SVG into a GIF, MP4 or WebM without a server, Chrome or ffmpeg:
+
+```html
+<script src="ene-export.js"></script>
+<script>
+  const { blob } = await eneExport.exportVideo(player.toSvg(), { format: "gif", fps: 15, scale: 1, theme: "light" });
+</script>
+```
+
+- `format`: `gif` (built-in encoder), `mp4` (H.264 through WebCodecs, where the browser has it) or `webm` (MediaRecorder; records in real time, so it takes as long as the animation). `eneExport.videoSupport()` tells which video formats work.
+- `theme`: `light` (default), `dark`, or `auto` (follows the viewer). `eneExport.themedSvg(svg, theme)` applies the same to a downloadable SVG.
+- Frames are computed from the SVG's animation values, not recorded from a running clock, so the GIF and MP4 match the SVG exactly. Limits: 1800 frames, 60 fps (50 for GIF), scale 4.
 
 ### Icon packs
 
@@ -260,13 +379,42 @@ For the CLI, pass `--icons pack.json` (repeatable). `ene icons <svg-dir> --prefi
 
 ### Branches in the player and in SVG
 
-The player shows one menu per `branch`, so the reader can replay another path. An exported SVG has no controls: it plays one path, chosen with `--choice` (one zero-based arm per branch, in order; default all `0`):
+The player shows one menu per `branch`, so the reader can replay another path. An exported SVG has no controls: it plays one path, chosen with `--choice` (one zero-based arm per `branch` or `opt`, in order; for `opt`, `0` = taken and `1` = skipped; default all `0`):
 
 ```bash
 ene flow.ene -o miss.svg --choice 1
 ```
 
 Exported SVGs animate with SMIL (no script). They loop, follow dark mode, and under `prefers-reduced-motion` show every step at once without moving dots. Some hosts that sanitize SVGs may strip the animation.
+
+### Themes
+
+`theme <name>` in the source, `--theme <name>` on the CLI (wins over the source) or `ene.render(el, src, { theme })` / `eneConfig.theme` / `<pre class="ene" data-theme="mono">` in the browser. Each theme has a light and a dark variant that follows `prefers-color-scheme`.
+
+| Theme | Use |
+|---|---|
+| `default` | the standard look |
+| `mono` | greys only, for print and documents (failures keep their ✕) |
+| `high-contrast` | black/white surfaces, colours with at least 7:1 contrast |
+
+Every colour is a CSS variable on the root `<svg class="ene ene-theme-<name>">`:
+
+| Variable | Used for |
+|---|---|
+| `--bg` | background |
+| `--node` | node fill |
+| `--line` | node borders, lifelines |
+| `--faint` | idle edges |
+| `--fg` / `--fg2` | node labels and title / edge labels |
+| `--ok` / `--fail` / `--reply` / `--async` | request, failure, response and async highlights and dots |
+
+A page that embeds the player can override them with any selector (the player's own rule has zero specificity). An exported SVG pasted inline sets them with a plain `svg` rule, so use something more specific; this works for both:
+
+```css
+:root svg.ene { --ok: #e11d48; --bg: transparent; }
+```
+
+An SVG loaded through `<img>` cannot be styled by the page; pick a theme when rendering instead.
 
 ### Icon loading and network access
 
@@ -285,21 +433,25 @@ An icon is either a pack name (`logos:redis`, from packs you register) or an SVG
 | `a -> b : label` | request |
 | `a --> b : label` | response (dashed) |
 | `a -x b : label` | failure |
+| `a ~> b : label` | async (fire-and-forget) |
 | `a -> b & a -> c` | at the same time |
 | `a -> b : label @2s` | this edge takes 2 seconds |
+| `note text` | caption for the step above |
 | `wait 0.5` | pause before the next step |
 | `branch …` / `else …` / `end` | alternative paths, chosen in the player |
+| `opt …` / `end` | optional steps, toggled in the player |
 | `loop 3` … `end` | repeat |
 | `group vpc[VPC] : a b` | container box |
 | `id[Label]{icon: …, shape: db, color: #f59e0b}` | node label and style |
 | `id[Label]{…}` on its own line | declare a node without an edge |
 | `diagram sequence` | draw as a sequence diagram |
+| `theme mono` | colour theme: `default`, `mono`, `high-contrast` |
 
 One line is one step, played top to bottom. The complete reference, with common mistakes, is in [SYNTAX.md](SYNTAX.md) (also served as `llms.txt` for AI tools).
 
 ## Release
 
-ene has not been released yet.
+0.1.0 is on npm under the [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) scope: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player` and the optional `video`.
 
 ## Related projects
 
