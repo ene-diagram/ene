@@ -1,11 +1,13 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import {
+  MAX_PATHS,
   THEMES,
   VERSION,
   buildTimeline,
   checkIcons,
   diagnosticToJson,
+  enumeratePaths,
   formatAll,
   formatSource,
   fromMermaid,
@@ -25,12 +27,15 @@ import {
   fetchIcon,
   iconFromUntrustedSvg,
   loopSeconds,
+  pathsSeconds,
   renderSvg,
+  renderSvgPaths,
+  svgParts,
   type IconLoadResult,
 } from "@ene-diagram/svg";
 
 const USAGE = `usage: ene --version
-       ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1]
+       ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1|all]
                  [--icons pack.json ...] [--no-network] [--allow-host host ...] [--fps n] [--scale n] [--no-notes]
                  [--theme default|mono|high-contrast]
        ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
@@ -301,7 +306,8 @@ export async function main(argv: string[]): Promise<number> {
   let fps: number | undefined,
     scale: number | undefined,
     theme: ThemeName | undefined,
-    notes = true;
+    notes = true,
+    allPaths = false;
   const bad = () => {
     console.error(USAGE);
     return 2;
@@ -320,8 +326,12 @@ export async function main(argv: string[]): Promise<number> {
       lang = v;
     } else if (a === "--choice") {
       const v = val();
-      if (!v || !/^\d+(,\d+)*$/.test(v)) return bad();
-      choices = v.split(",").map(Number);
+      if (v === "all") allPaths = true;
+      else if (!v || !/^\d+(,\d+)*$/.test(v)) return bad();
+      else {
+        allPaths = false;
+        choices = v.split(",").map(Number);
+      }
     } else if (a === "--icons") {
       const v = val();
       if (!v) return bad();
@@ -388,6 +398,14 @@ export async function main(argv: string[]): Promise<number> {
   diagnostics.push(...checkIcons(doc, packs));
   if (diagnostics.length) console.error(`${formatAll(src, diagnostics, lang)}\n`);
   if (diagnostics.some((d) => d.severity === "error")) return 1;
+  // --choice all: every path through the branches, one after another in the same file
+  const paths = allPaths ? enumeratePaths(doc) : [];
+  if (!paths) {
+    console.error(
+      `error: --choice all: this diagram has more than ${MAX_PATHS} paths; pick one with --choice (for example --choice 0,1)`,
+    );
+    return 1;
+  }
   const tl = buildTimeline(doc, { choices });
   choices.forEach((c, i) => {
     const b = tl.branches[i];
@@ -409,19 +427,22 @@ export async function main(argv: string[]): Promise<number> {
   });
   const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
   // --theme wins over the document's `theme` setting
-  const svg = renderSvg(lay, tl, {
-    title: doc.title,
-    icons,
-    notes,
-    theme: theme ?? (doc.theme as ThemeName | undefined),
-    lang,
-  });
+  const svgOpts = { title: doc.title, icons, notes, theme: theme ?? (doc.theme as ThemeName | undefined), lang };
+  const parts = paths.length > 1 ? svgParts(doc, paths, doc.kind === "sequence" ? undefined : lay) : undefined;
+  const svg = parts ? renderSvgPaths(parts, svgOpts) : renderSvg(lay, tl, svgOpts);
   const target = out ?? (fromStdin ? "-" : `${input.replace(/\.[^./\\]+$/, "")}.svg`);
-  const summary = `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
+  const summary = parts
+    ? `(${parts.length} paths, ${pathsSeconds(parts).toFixed(1)}s)`
+    : `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
   const video = /\.(gif|mp4)$/i.exec(target)?.[1].toLowerCase() as "gif" | "mp4" | undefined;
   if (!video && (fps !== undefined || scale !== undefined))
     console.error("warning: --fps and --scale only apply to .gif and .mp4 output");
-  if (video) return exportVideo(svg, { out: target, format: video, seconds: loopSeconds(tl), fps, scale }, summary);
+  if (video)
+    return exportVideo(
+      svg,
+      { out: target, format: video, seconds: parts ? pathsSeconds(parts) : loopSeconds(tl), fps, scale },
+      summary,
+    );
   if (target === "-") {
     process.stdout.write(svg);
     console.error(`✅ stdout ${summary}`);

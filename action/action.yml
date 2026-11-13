@@ -17,7 +17,7 @@ inputs:
     description: "@ene-diagram/cli version or range from npm"
     default: "0.1"
   choice:
-    description: Branch arms for the SVGs, like `ene --choice 0,1`
+    description: Branch arms for the SVGs, like `ene --choice 0,1`; `all` plays every path in turn
     default: ""
   icons:
     description: Icon pack JSON files (one per line or comma-separated), passed as `--icons`
