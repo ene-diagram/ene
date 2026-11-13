@@ -302,6 +302,10 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     view.x = Math.min(W - w, Math.max(0, view.x));
     view.y = Math.min(H - h, Math.max(0, view.y));
     svg.setAttribute("viewBox", `${round(view.x)} ${round(view.y)} ${round(w)} ${round(h)}`);
+    // `100%` would follow the view box, so the background gets the size of the whole diagram
+    const bg = svg.querySelector(":scope > rect.bg");
+    bg?.setAttribute("width", String(W));
+    bg?.setAttribute("height", String(H));
     svg.classList.toggle("ene-zoomed", view.zoom > 1);
     onZoom();
   }
