@@ -235,7 +235,9 @@ describe("from-mermaid", () => {
     expect(r.stdout).toBe(
       "diagram sequence\n\nA[Alice]\nB[B]\n\nA -> B : hello\nbranch ok\n  B --> A : hi\nelse down\n  B -x A : 503\nend\n",
     );
-    expect(r.stderr).toContain(`warning: ${f}:3: activation bars are not drawn (and on 1 more line)`);
+    expect(r.stderr).toContain(
+      `warning: ${f}:3: explicit activation is dropped; ene draws a bar from each request to its response (and on 1 more line)`,
+    );
   });
   test("reads stdin and writes -o; the result checks clean", () => {
     const d = mkdtempSync(join(tmpdir(), "ene-"));

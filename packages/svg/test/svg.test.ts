@@ -185,3 +185,31 @@ describe("several paths in one file", () => {
     expect(svg.match(/<g class="alt">/g)).toHaveLength(1);
   });
 });
+
+describe("sequence activation bars", () => {
+  const seqSvg = (src: string) => {
+    const { doc } = parse(`diagram sequence\n${src}`);
+    const tl = buildTimeline(doc);
+    return renderSvg(layoutSequence(doc, tl), tl);
+  };
+  it("draws one bar per answered request, under the arrows, appearing when the request arrives", () => {
+    const svg = seqSvg("speed 1\na -> b : q\nb --> a : r");
+    expect(svg.match(/class="act"/g)).toHaveLength(1);
+    expect(svg.indexOf('class="act"')).toBeLessThan(svg.indexOf('class="hl'));
+    // total loop = 2s + 1.5s hold; the dot arrives at 0.85s
+    const bar = svg.match(/<rect [^>]*class="act"[^>]*>(<animate [^>]*>)/)![1];
+    expect(bar).toContain(`keyTimes="0;${(0.85 / 3.5).toFixed(4)};${(0.85 / 3.5).toFixed(4)};`);
+    expect(svg).toContain(".hl,.lbl,.act{opacity:1 !important}");
+  });
+  it("flow diagrams and unanswered requests have none", async () => {
+    expect(seqSvg("a -> b\nb -> c")).not.toContain('class="act"');
+    expect(await make("a -> b\nb --> a")).not.toContain('class="act"');
+  });
+  it("several paths: each path has its own bars", () => {
+    const { doc } = parse(
+      "diagram sequence\na -> b\nbranch ok\n  b --> a\nelse slow\n  b -> c\n  c --> b\n  b --> a\nend",
+    );
+    const svg = renderSvgPaths(svgParts(doc, enumeratePaths(doc)!));
+    expect(svg.match(/class="act"/g)).toHaveLength(3);
+  });
+});

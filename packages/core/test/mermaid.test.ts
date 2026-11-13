@@ -133,7 +133,11 @@ test("unsupported constructs warn with the source line, grouped by kind", () => 
     "A->>+B: x\nactivate B\nNote right of B: think\nNote over A,B: both\ndeactivate B\nB-->>-A: y\nlink A: Dashboard @ https://x\nwhatever this is",
   );
   expect(r.warnings).toEqual([
-    { line: 2, message: "activation bars are not drawn (and on 3 more lines)" },
+    {
+      line: 2,
+      message:
+        "explicit activation is dropped; ene draws a bar from each request to its response (and on 3 more lines)",
+    },
     { line: 8, message: "participant links and properties are dropped" },
     { line: 9, message: "not converted: `whatever this is`" },
   ]);
@@ -160,7 +164,9 @@ test("`;` separates statements, but an entity keeps its own and comments are lef
   expect(body("%% a; b\nA->>B: x")).toBe("# a; b\nA -> B : x");
   const r = fromMermaid("sequenceDiagram; A->>B: hello; activate B");
   expect(r.source).toContain("A -> B : hello");
-  expect(r.warnings).toEqual([{ line: 1, message: "activation bars are not drawn" }]);
+  expect(r.warnings).toEqual([
+    { line: 1, message: "explicit activation is dropped; ene draws a bar from each request to its response" },
+  ]);
 });
 
 test("unclosed and stray blocks", () => {
@@ -178,7 +184,9 @@ test("a ```mermaid fence in Markdown is unwrapped, with line numbers from the fi
   const md = '# Doc\n\n```mermaid\npie\n "a": 1\n```\n\n```mermaid\nsequenceDiagram\n  A->>B: x\n  activate B\n```\n';
   const r = fromMermaid(md);
   expect(r.source).toContain("A -> B : x");
-  expect(r.warnings).toEqual([{ line: 11, message: "activation bars are not drawn" }]);
+  expect(r.warnings).toEqual([
+    { line: 11, message: "explicit activation is dropped; ene draws a bar from each request to its response" },
+  ]);
 });
 
 test("errors: other diagram kinds, empty input, no messages, nesting beyond the ene limit", () => {
