@@ -445,13 +445,13 @@ export async function main(argv: string[]): Promise<number> {
     return 0;
   };
   if (!watching) return once();
-  await once();
   return watchFile(file, once);
 }
 
 /**
- * Re-render whenever the input file changes, until Ctrl+C. The folder is watched (not the file) because
- * many editors save by writing a new file and renaming it over the old one.
+ * Render, then render again whenever the input file changes, until Ctrl+C. The folder is watched (not the
+ * file) because many editors save by writing a new file and renaming it over the old one. The watcher starts
+ * before the first render, so a save during that render is not lost.
  */
 function watchFile(file: string, render: () => Promise<number>): Promise<number> {
   return new Promise((done) => {
@@ -481,13 +481,19 @@ function watchFile(file: string, render: () => Promise<number>): Promise<number>
       clearTimeout(timer);
       timer = setTimeout(() => void run(), 80);
     });
-    console.error(`watching ${file} (Ctrl+C to stop)`);
-    const stop = () => {
+    const stop = (code = 0) => {
       clearTimeout(timer);
       watcher.close();
-      done(0);
+      done(code);
     };
-    process.once("SIGINT", stop);
-    process.once("SIGTERM", stop);
+    // For example EMFILE: without a handler the process would die with a stack trace
+    watcher.on("error", (e) => {
+      console.error(`error: cannot watch ${file} (${(e as NodeJS.ErrnoException).code ?? e.message})`);
+      stop(1);
+    });
+    console.error(`watching ${file} (Ctrl+C to stop)`);
+    void run();
+    process.once("SIGINT", () => stop());
+    process.once("SIGTERM", () => stop());
   });
 }
