@@ -221,20 +221,32 @@ class Parser {
     const used = (id: string) => this.nodes.has(id);
     const ownIds = new Set(this.doc.groups.map((g) => g.id));
     const taken = new Set(this.doc.groups.flatMap((g) => g.members));
-    let alive: Group[] = [];
-    for (const g of this.catalog.groups) {
-      if (ownIds.has(g.id) || alive.some((k) => k.id === g.id)) continue;
-      const members = g.members.filter((m) => used(m) && !taken.has(m));
-      if (members.length) alive.push({ ...g, members });
-    }
-    // A nested group needs its parent (the parent holds the same nodes, so it is only gone on an id clash)
-    for (;;) {
-      const ids = new Set(alive.map((g) => g.id));
-      const next = alive.filter((g) => !g.parent || ids.has(g.parent));
-      if (next.length === alive.length) break;
-      alive = next;
-    }
-    this.doc.groups.push(...alive);
+    // Several files may group the same node. As inside one file, a node sits in one chain of nested groups:
+    // a top-level group takes nodes no group has yet, a nested group takes nodes of its parent. The first
+    // file to group a node wins; parents are placed before their children whatever the order in the files.
+    const byId = new Map<string, Group>();
+    for (const g of this.catalog.groups) if (!ownIds.has(g.id) && !byId.has(g.id)) byId.set(g.id, g);
+    const innermost = new Map<string, string>();
+    const alive = new Map<string, Group>();
+    const place = (g: Group, seen: Set<string>) => {
+      if (alive.has(g.id) || seen.has(g.id)) return;
+      seen.add(g.id);
+      if (g.parent !== undefined) {
+        const parent = byId.get(g.parent);
+        if (parent) place(parent, seen);
+        // Without its parent (an id clash, or the parent kept no node) a nested group is dropped
+        if (!alive.has(g.parent)) return;
+      }
+      const members = g.members.filter(
+        (m) => used(m) && !taken.has(m) && (g.parent !== undefined ? innermost.get(m) === g.parent : !innermost.has(m)),
+      );
+      if (!members.length) return;
+      for (const m of members) innermost.set(m, g.id);
+      alive.set(g.id, { ...g, members });
+    };
+    for (const g of byId.values()) place(g, new Set());
+    // Declaration order, as for the diagram's own groups
+    this.doc.groups.push(...[...byId.keys()].flatMap((id) => alive.get(id) ?? []));
     for (const p of this.catalog.pins)
       if (used(p.id) && !this.doc.pins.some((q) => q.id === p.id || (q.col === p.col && q.row === p.row)))
         this.doc.pins.push(p);
@@ -335,6 +347,7 @@ class Parser {
     if (word === "include") return this.include(l, t, rest);
     if (this.lib && !["group", "pin", "rank", "theme", "speed"].includes(word)) {
       // An included file: besides those lines, only node declarations
+      this.started = true;
       if (!this.nodeLine(l, t)) this.report("E503", l, 0, t.length);
       return;
     }

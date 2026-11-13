@@ -3,10 +3,11 @@ import { describe, expect, test } from "vitest";
 import { createIncluder, formatAll, diagnosticToJson, parse, type Includer } from "../src/index";
 
 /** In-memory files, keyed by absolute path under /d */
-const fs = (files: Record<string, string>): Includer =>
+const fs = (files: Record<string, string>, links: Record<string, string> = {}): Includer =>
   createIncluder({
     rootDir: "/d",
     path: path.posix,
+    realPath: (p) => links[p] ?? p,
     readFile: (p) => {
       if (!(p in files)) throw Object.assign(new Error("no such file"), { code: "ENOENT" });
       return files[p];
@@ -93,6 +94,23 @@ describe("include", () => {
     expect([...r.doc.nodes.values()].map((n) => n.label)).toEqual(["From one", "Y two", "Z two"]);
   });
 
+  test("two files grouping the same nodes: the first one wins, nested groups stay with their parent", () => {
+    const r = run("include ./a.ene\ninclude ./b.ene\nx -> y\ny -> z", {
+      "/d/a.ene": "x[X]\ny[Y]\nz[Z]\ngroup inner[Inner] in a : x\ngroup a[A] : x y",
+      "/d/b.ene": "include ./a.ene\ngroup b[B] : x y z\ngroup deep[Deep] in b : x z",
+    });
+    expect(codes(r)).toEqual([]);
+    // b only gets z (x and y are taken); deep is nested in b, so it only gets z too; inner follows its parent a
+    expect(r.doc.groups.map((g) => [g.id, g.parent, g.members])).toEqual([
+      ["inner", "a", ["x"]],
+      ["a", undefined, ["x", "y"]],
+      ["b", undefined, ["z"]],
+      ["deep", "b", ["z"]],
+    ]);
+    // Every node is in exactly one chain of nested groups
+    const top = r.doc.groups.filter((g) => !g.parent).flatMap((g) => g.members);
+    expect(new Set(top).size).toBe(top.length);
+  });
   test("sequence participants follow the diagram, not the included file", () => {
     const r = run("diagram sequence\ninclude ./system.ene\ndb -> api\napi -> user", { "/d/system.ene": SYSTEM });
     // groups, pin and rank from the file are simply unused here: no W111 for lines the author did not write
@@ -118,11 +136,34 @@ describe("include errors", () => {
     expect(one("a/../../d2/x.ene").args.reason).toBe("the file is outside the diagram's folder");
     expect(one(".").args.reason).toBe("the file is outside the diagram's folder");
     const big = parse("include ./big.ene\na -> b", {
-      include: createIncluder({ rootDir: "/d", path: path.posix, readFile: () => "a[A]\n".repeat(10), maxLength: 20 }),
+      include: createIncluder({
+        rootDir: "/d",
+        path: path.posix,
+        realPath: (p) => p,
+        readFile: () => "a[A]\n".repeat(10),
+        maxLength: 20,
+      }),
     });
     expect(big.diagnostics[0].args.reason).toBe("the file is too large");
     // The span covers the path
     expect(one("./nope.ene").span).toEqual({ line: 1, col: 9, length: 10 });
+  });
+  test("a symbolic link inside the folder cannot lead out of it; a link that stays inside is fine", () => {
+    const files = { "/secret/keys.ene": "a[Secret]", "/d/real.ene": "a[Real]" };
+    const out = parse("include ./link.ene\na -> b", { include: fs(files, { "/d/link.ene": "/secret/keys.ene" }) });
+    expect(out.diagnostics[0]).toMatchObject({
+      code: "E502",
+      args: { reason: "the file is outside the diagram's folder" },
+    });
+    expect(out.doc.nodes.get("a")?.label).toBe("a");
+    const ok = parse("include ./link.ene\na -> b", { include: fs(files, { "/d/link.ene": "/d/real.ene" }) });
+    expect(ok.diagnostics).toEqual([]);
+    expect(ok.doc.nodes.get("a")?.label).toBe("Real");
+    // The folder itself may be reached through a link
+    const viaLink = parse("include ./real.ene\na -> b", {
+      include: fs({ "/disk/d/real.ene": "a[Real]" }, { "/d": "/disk/d", "/d/real.ene": "/disk/d/real.ene" }),
+    });
+    expect(viaLink.diagnostics).toEqual([]);
   });
   test("a nested include cannot climb out through a subfolder", () => {
     const r = run("include ./sub/a.ene\na -> b", { "/d/sub/a.ene": "include ../../out.ene\na[A]", "/out.ene": "b[B]" });
@@ -133,6 +174,14 @@ describe("include errors", () => {
     expect(codes(run("title T\ndiagram flow\ntheme mono\nspeed 1\ninclude ./s.ene\na -> b", files))).toEqual([]);
     expect(codes(run("a -> b\ninclude ./s.ene", files))).toEqual(["E504"]);
     expect(codes(run("a[A]\ninclude ./s.ene\na -> b", files))).toEqual(["E504"]);
+  });
+  test("E504 inside an included file too: its includes come before its declarations", () => {
+    const r = run("include ./a.ene\nx -> y", { "/d/a.ene": "x[X]\ninclude ./b.ene", "/d/b.ene": "y[Y]" });
+    expect(r.diagnostics.map((d) => [d.code, d.file, d.span.line])).toEqual([["E504", "/d/a.ene", 2]]);
+    // theme / speed before the include are still fine there
+    expect(
+      codes(run("include ./a.ene\nx -> y", { "/d/a.ene": "theme mono\ninclude ./b.ene\nx[X]", "/d/b.ene": "y[Y]" })),
+    ).toEqual([]);
   });
   test("E505: a file that includes itself, a loop through another file, the root, and too many levels", () => {
     expect(codes(run("include ./a.ene\nx -> y", { "/d/a.ene": "include ./a.ene\nx[X]" }))).toEqual(["E505"]);

@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const bin = new URL("../bin/ene.mjs", import.meta.url).pathname;
@@ -303,7 +303,7 @@ describe("include", () => {
     const r = runCli(["check", f, "--json"]);
     expect(r.status).toBe(1);
     const [diag] = JSON.parse(r.stdout);
-    expect(diag).toMatchObject({ code: "E503", line: 2, file: join(d, "system.ene") });
+    expect(diag).toMatchObject({ code: "E503", line: 2, file: realpathSync(join(d, "system.ene")) });
     expect(runCli([f, "-o", "-"]).stderr).toContain("system.ene, line 2");
   });
   test("cannot read outside the diagram's folder", () => {
@@ -313,6 +313,18 @@ describe("include", () => {
     const r = runCli([f, "-o", "-"]);
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("outside the diagram's folder");
+  });
+  test("a symlink in the folder that points outside it is refused", () => {
+    const d = dir();
+    const outside = join(mkdtempSync(join(tmpdir(), "ene-out-")), "secret.ene");
+    writeFileSync(outside, "api[Secret]\n");
+    symlinkSync(outside, join(d, "link.ene"));
+    const f = join(d, "flow.ene");
+    writeFileSync(f, "include ./link.ene\nuser -> api\n");
+    const r = runCli([f, "-o", "-"]);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("outside the diagram's folder");
+    expect(r.stderr).not.toContain("Secret");
   });
   test("stdin resolves from the working folder", () => {
     const d = dir();

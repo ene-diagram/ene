@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import * as vscode from "vscode";
 import {
@@ -46,6 +46,7 @@ function parseOptionsFor(doc: vscode.TextDocument, seen?: Map<string, Included>)
   const read = createIncluder({
     rootDir: dirname(file),
     path: { resolve, dirname, relative, isAbsolute },
+    realPath: (p) => realpathSync(p),
     readFile: (p) => readFileSync(p, "utf8"),
   });
   return {

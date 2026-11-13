@@ -47,12 +47,17 @@ Per block, the fence meta can set `title="..."`, `choice=1,0`, and `live` or `st
 **Includes.** The plugin reads no files, so an `include` line needs a reader. In Node:
 
 ```js
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { createIncluder } from "@ene-diagram/core";
 
 remarkEne({
-  include: createIncluder({ rootDir: "docs/diagrams", path, readFile: (p) => readFileSync(p, "utf8") }),
+  include: createIncluder({
+    rootDir: "docs/diagrams",
+    path,
+    realPath: (p) => realpathSync(p),
+    readFile: (p) => readFileSync(p, "utf8"),
+  }),
 });
 ```
 
