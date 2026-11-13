@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -277,4 +277,50 @@ test("notes are captions in the SVG unless --no-notes", () => {
 test("--version prints the package version", () => {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
   expect(execFileSync("node", [bin, "--version"], { encoding: "utf8" }).trim()).toBe(pkg.version);
+});
+
+describe("--watch", () => {
+  const waitFor = async (ok: () => boolean, ms = 8000) => {
+    const end = Date.now() + ms;
+    while (!ok()) {
+      if (Date.now() > end) throw new Error("timed out");
+      await new Promise((r) => setTimeout(r, 40));
+    }
+  };
+  test("re-renders on change, keeps going after an error, stops on SIGINT", async () => {
+    const d = mkdtempSync(join(tmpdir(), "ene-"));
+    const f = join(d, "w.ene"),
+      out = join(d, "w.svg");
+    writeFileSync(f, "a -> b : one");
+    const p = spawn("node", [bin, f, "-o", out, "--watch"]);
+    let err = "";
+    p.stderr.on("data", (c) => {
+      err += c;
+    });
+    const read = () => (existsSync(out) ? readFileSync(out, "utf8") : "");
+    try {
+      await waitFor(() => err.includes("watching") && read().includes("1. one"));
+      writeFileSync(f, "a -> b : two");
+      await waitFor(() => read().includes("1. two"));
+      // A broken file prints the diagnostic and leaves the last good output
+      writeFileSync(f, "a ->");
+      await waitFor(() => err.includes("E103"));
+      expect(read()).toContain("1. two");
+      writeFileSync(f, "a -> b : three");
+      await waitFor(() => read().includes("1. three"));
+    } finally {
+      p.kill("SIGINT");
+    }
+    const code = await new Promise((r) => p.on("exit", r));
+    expect(code).toBe(0);
+  }, 20000);
+  test.each([
+    [["-", "--watch"], "stdin"],
+    [["x.ene", "-o", "-", "--watch"], "stdout"],
+    [["x.ene", "-o", "x.gif", "--watch"], "video"],
+  ])("refuses %j", (args, why) => {
+    const r = runCli(args as string[]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(`--watch does not work with ${why}`);
+  });
 });

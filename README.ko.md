@@ -179,6 +179,7 @@ ene flow.ene -o flow.svg
 cat flow.ene | ene - > flow.svg   # "-" 는 stdin 에서 읽고, 결과는 stdout 으로
 ene flow.ene -o flow.svg --no-notes   # `note` 자막 빼기
 ene flow.ene -o -                # SVG 를 stdout 으로
+ene flow.ene -o flow.svg --watch  # 저장할 때마다 다시 그려요(SVG 파일만). Ctrl+C 로 끝내요
 ```
 
 움직이는 SVG 를 재생하지 못하는 곳(Slack, Notion, 발표 자료, SNS)에는 GIF 나 MP4 로 내보내요. 형식은 확장자로 정해요:

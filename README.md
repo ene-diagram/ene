@@ -178,6 +178,7 @@ Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Sp
 ene flow.ene -o flow.svg
 cat flow.ene | ene - > flow.svg   # "-" reads stdin; output goes to stdout
 ene flow.ene -o -                # write the SVG to stdout
+ene flow.ene -o flow.svg --watch  # render again on every save (SVG files only); Ctrl+C stops it
 ene flow.ene -o flow.svg --no-notes   # leave out the `note` captions
 ```
 

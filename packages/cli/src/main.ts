@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, watch, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import {
   THEMES,
@@ -32,7 +32,7 @@ import {
 const USAGE = `usage: ene --version
        ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1]
                  [--icons pack.json ...] [--no-network] [--allow-host host ...] [--fps n] [--scale n] [--no-notes]
-                 [--theme default|mono|high-contrast]
+                 [--theme default|mono|high-contrast] [--watch]
        ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
        ene fmt <input.ene ...> [--check | --write]
        ene from-mermaid <input.mmd|input.md|-> [-o out.ene|-]
@@ -301,7 +301,8 @@ export async function main(argv: string[]): Promise<number> {
   let fps: number | undefined,
     scale: number | undefined,
     theme: ThemeName | undefined,
-    notes = true;
+    notes = true,
+    watching = false;
   const bad = () => {
     console.error(USAGE);
     return 2;
@@ -340,6 +341,7 @@ export async function main(argv: string[]): Promise<number> {
       theme = v;
     } else if (a === "--no-network") net.network = false;
     else if (a === "--no-notes") notes = false;
+    else if (a === "--watch") watching = true;
     else if (a === "--allow-host") {
       const v = val();
       if (!v) return bad();
@@ -352,82 +354,140 @@ export async function main(argv: string[]): Promise<number> {
     else input = a;
   }
   if (!input) return bad();
-  let src: string;
-  const fromStdin = input === "-";
-  try {
-    src = readFileSync(fromStdin ? 0 : input, "utf8");
-  } catch (e) {
-    console.error(
-      `error: cannot read ${fromStdin ? "stdin" : input} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`,
-    );
-    return 1;
+  const file = input;
+  const target = out ?? (file === "-" ? "-" : `${file.replace(/\.[^./\\]+$/, "")}.svg`);
+  if (watching) {
+    const why =
+      file === "-" ? "stdin" : target === "-" ? "stdout output" : /\.(gif|mp4)$/i.test(target) ? "video output" : "";
+    if (why) {
+      console.error(`error: --watch does not work with ${why}`);
+      return 2;
+    }
   }
-  // A Mermaid sequence diagram or flowchart renders directly: it is converted first (see `ene from-mermaid`)
-  if (!fromStdin && isMermaidFile(input)) {
-    const converted = convertMermaid(src, input);
-    if (converted === undefined) return 1;
-    src = converted;
-  }
-  const { doc, diagnostics } = parse(src);
-  const packs: IconPack[] = [];
-  for (const f of packFiles) {
-    let data: unknown;
+  /** One render; the exit code it would end with */
+  const once = async (): Promise<number> => {
+    let src: string;
+    const fromStdin = file === "-";
     try {
-      data = JSON.parse(readFileSync(f, "utf8"));
+      src = readFileSync(fromStdin ? 0 : file, "utf8");
     } catch (e) {
-      console.error(`error: cannot load icon pack ${f} (${(e as Error).message})`);
+      console.error(
+        `error: cannot read ${fromStdin ? "stdin" : file} (${(e as NodeJS.ErrnoException).code ?? "unknown"})`,
+      );
       return 1;
     }
-    const errs = validateIconPack(data);
-    if (errs.length) {
-      console.error(`error: invalid icon pack ${f}:\n  - ${errs.join("\n  - ")}`);
-      return 1;
+    // A Mermaid sequence diagram or flowchart renders directly: it is converted first (see `ene from-mermaid`)
+    if (!fromStdin && isMermaidFile(file)) {
+      const converted = convertMermaid(src, file);
+      if (converted === undefined) return 1;
+      src = converted;
     }
-    packs.push(data as IconPack);
-  }
-  diagnostics.push(...checkIcons(doc, packs));
-  if (diagnostics.length) console.error(`${formatAll(src, diagnostics, lang)}\n`);
-  if (diagnostics.some((d) => d.severity === "error")) return 1;
-  const tl = buildTimeline(doc, { choices });
-  choices.forEach((c, i) => {
-    const b = tl.branches[i];
-    if (!b) console.error(`warning: choice ${c} ignored — there are only ${tl.branches.length} branch(es)`);
-    else if (c >= b.arms.length)
-      console.error(`warning: choice ${c} for branch ${i + 1} is out of range (0-${b.arms.length - 1}); using 0`);
+    const { doc, diagnostics } = parse(src);
+    const packs: IconPack[] = [];
+    for (const f of packFiles) {
+      let data: unknown;
+      try {
+        data = JSON.parse(readFileSync(f, "utf8"));
+      } catch (e) {
+        console.error(`error: cannot load icon pack ${f} (${(e as Error).message})`);
+        return 1;
+      }
+      const errs = validateIconPack(data);
+      if (errs.length) {
+        console.error(`error: invalid icon pack ${f}:\n  - ${errs.join("\n  - ")}`);
+        return 1;
+      }
+      packs.push(data as IconPack);
+    }
+    diagnostics.push(...checkIcons(doc, packs));
+    if (diagnostics.length) console.error(`${formatAll(src, diagnostics, lang)}\n`);
+    if (diagnostics.some((d) => d.severity === "error")) return 1;
+    const tl = buildTimeline(doc, { choices });
+    choices.forEach((c, i) => {
+      const b = tl.branches[i];
+      if (!b) console.error(`warning: choice ${c} ignored — there are only ${tl.branches.length} branch(es)`);
+      else if (c >= b.arms.length)
+        console.error(`warning: choice ${c} for branch ${i + 1} is out of range (0-${b.arms.length - 1}); using 0`);
+    });
+    const icons = new Map<string, ResolvedIcon>();
+    const refs = [...new Set([...doc.nodes.values()].map((n) => n.icon).filter((i): i is string => !!i))];
+    for (const ref of refs.filter((r) => !isIconUrl(r))) {
+      const ic = resolveIcon(ref, packs);
+      if (ic) icons.set(ref, ic);
+    }
+    const urlRefs = refs.filter(isIconUrl);
+    const results = await Promise.all(urlRefs.map((r) => loadIcon(r, fromStdin ? process.cwd() : dirname(file), net)));
+    results.forEach((res, i) => {
+      if (res.ok) icons.set(urlRefs[i], res.icon);
+      else console.error(`warning: cannot load icon ${urlRefs[i]}: ${res.reason}`);
+    });
+    const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
+    // --theme wins over the document's `theme` setting
+    const svg = renderSvg(lay, tl, {
+      title: doc.title,
+      icons,
+      notes,
+      theme: theme ?? (doc.theme as ThemeName | undefined),
+      lang,
+    });
+    const summary = `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
+    const video = /\.(gif|mp4)$/i.exec(target)?.[1].toLowerCase() as "gif" | "mp4" | undefined;
+    if (!video && (fps !== undefined || scale !== undefined))
+      console.error("warning: --fps and --scale only apply to .gif and .mp4 output");
+    if (video) return exportVideo(svg, { out: target, format: video, seconds: loopSeconds(tl), fps, scale }, summary);
+    if (target === "-") {
+      process.stdout.write(svg);
+      console.error(`✅ stdout ${summary}`);
+    } else {
+      writeFileSync(target, svg);
+      console.log(`✅ ${target} ${summary}`);
+    }
+    return 0;
+  };
+  if (!watching) return once();
+  await once();
+  return watchFile(file, once);
+}
+
+/**
+ * Re-render whenever the input file changes, until Ctrl+C. The folder is watched (not the file) because
+ * many editors save by writing a new file and renaming it over the old one.
+ */
+function watchFile(file: string, render: () => Promise<number>): Promise<number> {
+  return new Promise((done) => {
+    let timer: ReturnType<typeof setTimeout> | undefined,
+      running = false,
+      again = false;
+    const run = async () => {
+      if (running) {
+        again = true;
+        return;
+      }
+      running = true;
+      try {
+        await render();
+      } catch (e) {
+        console.error(`error: ${(e as Error).message}`);
+      }
+      running = false;
+      if (again) {
+        again = false;
+        void run();
+      }
+    };
+    const name = basename(file);
+    const watcher = watch(dirname(resolve(file)), (_event, changed) => {
+      if (changed && changed !== name) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => void run(), 80);
+    });
+    console.error(`watching ${file} (Ctrl+C to stop)`);
+    const stop = () => {
+      clearTimeout(timer);
+      watcher.close();
+      done(0);
+    };
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
   });
-  const icons = new Map<string, ResolvedIcon>();
-  const refs = [...new Set([...doc.nodes.values()].map((n) => n.icon).filter((i): i is string => !!i))];
-  for (const ref of refs.filter((r) => !isIconUrl(r))) {
-    const ic = resolveIcon(ref, packs);
-    if (ic) icons.set(ref, ic);
-  }
-  const urlRefs = refs.filter(isIconUrl);
-  const results = await Promise.all(urlRefs.map((r) => loadIcon(r, fromStdin ? process.cwd() : dirname(input!), net)));
-  results.forEach((res, i) => {
-    if (res.ok) icons.set(urlRefs[i], res.icon);
-    else console.error(`warning: cannot load icon ${urlRefs[i]}: ${res.reason}`);
-  });
-  const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
-  // --theme wins over the document's `theme` setting
-  const svg = renderSvg(lay, tl, {
-    title: doc.title,
-    icons,
-    notes,
-    theme: theme ?? (doc.theme as ThemeName | undefined),
-    lang,
-  });
-  const target = out ?? (fromStdin ? "-" : `${input.replace(/\.[^./\\]+$/, "")}.svg`);
-  const summary = `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
-  const video = /\.(gif|mp4)$/i.exec(target)?.[1].toLowerCase() as "gif" | "mp4" | undefined;
-  if (!video && (fps !== undefined || scale !== undefined))
-    console.error("warning: --fps and --scale only apply to .gif and .mp4 output");
-  if (video) return exportVideo(svg, { out: target, format: video, seconds: loopSeconds(tl), fps, scale }, summary);
-  if (target === "-") {
-    process.stdout.write(svg);
-    console.error(`✅ stdout ${summary}`);
-  } else {
-    writeFileSync(target, svg);
-    console.log(`✅ ${target} ${summary}`);
-  }
-  return 0;
 }
