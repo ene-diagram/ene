@@ -13,8 +13,12 @@ const fence = (src: string, meta = "") => "```ene" + (meta ? " " + meta : "") + 
 const FLOW = "user -> api : GET /\napi --> user : 200";
 
 async function toHtml(input: string, opts?: RemarkEneOptions) {
-  const file = await unified().use(remarkParse).use(remarkEne, opts).use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeStringify, { allowDangerousHtml: true }).process(input);
+  const file = await unified()
+    .use(remarkParse)
+    .use(remarkEne, opts)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeStringify, { allowDangerousHtml: true })
+    .process(input);
   return { html: String(file), messages: file.messages.map((m) => m.message) };
 }
 
@@ -36,7 +40,7 @@ describe("remark-ene static", () => {
     expect(html).not.toContain("<b>Hi</b>");
   });
   it("escapes labels from diagram source", async () => {
-    const { html } = await toHtml(md(fence('user -> api : <img src=x onerror=alert(1)>')));
+    const { html } = await toHtml(md(fence("user -> api : <img src=x onerror=alert(1)>")));
     expect(html).not.toContain("<img");
   });
   it("scopes ids so two diagrams on a page do not collide", async () => {
@@ -130,7 +134,9 @@ describe("markdown-it plugin", () => {
 
 describe("themes and notes from main", () => {
   it("keeps each inline diagram's theme to itself and shows step notes", async () => {
-    const { html } = await toHtml(md(fence("theme mono\na -> b\nnote why") + "\n\n" + fence("theme high-contrast\na ~> b")));
+    const { html } = await toHtml(
+      md(fence("theme mono\na -> b\nnote why") + "\n\n" + fence("theme high-contrast\na ~> b")),
+    );
     const styles = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
     expect(styles).toHaveLength(2);
     // no rule may target every <svg> on the page

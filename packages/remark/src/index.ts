@@ -1,6 +1,25 @@
-import { DEFAULT_PLAYER_URL, errorHtml, escapeHtml, hash, scopeSvg, liveSource, parseMeta, renderEne, type RenderOptions } from "./render.js";
+import {
+  DEFAULT_PLAYER_URL,
+  errorHtml,
+  escapeHtml,
+  hash,
+  scopeSvg,
+  liveSource,
+  parseMeta,
+  renderEne,
+  type RenderOptions,
+} from "./render.js";
 
-export { renderEne, parseMeta, scopeSvg, liveSource, errorHtml, DEFAULT_PLAYER_URL, type RenderOptions, type RenderResult } from "./render.js";
+export {
+  renderEne,
+  parseMeta,
+  scopeSvg,
+  liveSource,
+  errorHtml,
+  DEFAULT_PLAYER_URL,
+  type RenderOptions,
+  type RenderResult,
+} from "./render.js";
 
 export interface RemarkEneOptions extends RenderOptions {
   /**
@@ -26,22 +45,56 @@ export interface RemarkEneOptions extends RenderOptions {
 }
 
 // Minimal mdast/vfile shapes so the plugin has no type dependencies
-interface Node { type: string; lang?: string | null; meta?: string | null; value?: string; children?: Node[]; [k: string]: unknown }
-interface VFileLike { path?: string; extname?: string; message(reason: string, place?: unknown): unknown; fail(reason: string, place?: unknown): never }
+interface Node {
+  type: string;
+  lang?: string | null;
+  meta?: string | null;
+  value?: string;
+  children?: Node[];
+  [k: string]: unknown;
+}
+interface VFileLike {
+  path?: string;
+  extname?: string;
+  message(reason: string, place?: unknown): unknown;
+  fail(reason: string, place?: unknown): never;
+}
 
 /** Raw HTML as an `html` node, or for MDX as `<div dangerouslySetInnerHTML={{__html: "..."}} />` */
 function htmlNode(html: string, mdx: boolean, className: string): Node {
   if (!mdx) return { type: "html", value: `<div class="${escapeHtml(className)}">${html}</div>` };
   const lit = { type: "Literal", value: html, raw: JSON.stringify(html) };
-  const obj = { type: "ObjectExpression", properties: [{ type: "Property", method: false, shorthand: false, computed: false, kind: "init", key: { type: "Identifier", name: "__html" }, value: lit }] };
+  const obj = {
+    type: "ObjectExpression",
+    properties: [
+      {
+        type: "Property",
+        method: false,
+        shorthand: false,
+        computed: false,
+        kind: "init",
+        key: { type: "Identifier", name: "__html" },
+        value: lit,
+      },
+    ],
+  };
   return {
-    type: "mdxJsxFlowElement", name: "div", children: [],
+    type: "mdxJsxFlowElement",
+    name: "div",
+    children: [],
     attributes: [
       { type: "mdxJsxAttribute", name: "className", value: className },
-      { type: "mdxJsxAttribute", name: "dangerouslySetInnerHTML", value: {
-        type: "mdxJsxAttributeValueExpression", value: `{__html: ${JSON.stringify(html)}}`,
-        data: { estree: { type: "Program", sourceType: "module", body: [{ type: "ExpressionStatement", expression: obj }] } },
-      } },
+      {
+        type: "mdxJsxAttribute",
+        name: "dangerouslySetInnerHTML",
+        value: {
+          type: "mdxJsxAttributeValueExpression",
+          value: `{__html: ${JSON.stringify(html)}}`,
+          data: {
+            estree: { type: "Program", sourceType: "module", body: [{ type: "ExpressionStatement", expression: obj }] },
+          },
+        },
+      },
     ],
   };
 }
@@ -52,11 +105,17 @@ function usesMdx(processor: unknown): boolean {
   if (typeof data !== "function") return false;
   const exts = data.call(processor, "fromMarkdownExtensions");
   const flat = (x: unknown): unknown[] => (Array.isArray(x) ? x.flatMap(flat) : [x]);
-  return flat(exts).some((e) => !!e && typeof e === "object" && "enter" in e && !!(e as { enter?: Record<string, unknown> }).enter?.mdxJsxFlowTag);
+  return flat(exts).some(
+    (e) =>
+      !!e && typeof e === "object" && "enter" in e && !!(e as { enter?: Record<string, unknown> }).enter?.mdxJsxFlowTag,
+  );
 }
 
 function walk(node: Node, fn: (n: Node, parent: Node, i: number) => void) {
-  node.children?.forEach((c, i) => { fn(c, node, i); walk(c, fn); });
+  node.children?.forEach((c, i) => {
+    fn(c, node, i);
+    walk(c, fn);
+  });
 }
 
 /** remark plugin: ```ene fences → animated SVG (static) or player markup (live) */
@@ -73,24 +132,36 @@ export default function remarkEne(this: unknown, options: RemarkEneOptions = {})
     if (!found.length) return;
     const mdx = options.mdx ?? (mdxParser || hasMdxNodes || file.extname === ".mdx" || /\.mdx$/i.test(file.path ?? ""));
     let scriptAdded = false;
-    await Promise.all(found.map(async ({ node, parent, i }, k) => {
-      const meta = parseMeta(node.meta);
-      const src = node.value ?? "";
-      const mode = meta.mode ?? options.mode ?? "static";
-      let html: string;
-      if (mode === "live") {
-        html = `<pre class="ene">${escapeHtml(liveSource(src, meta.title))}</pre>`;
-        const script = options.script ?? DEFAULT_PLAYER_URL;
-        if (!mdx && script && !scriptAdded) { scriptAdded = true; html += `<script src="${escapeHtml(script)}" defer></script>`; }
-      } else {
-        const r = await renderEne(src, { ...options, title: meta.title ?? options.title, choice: meta.choice ?? options.choice });
-        for (const w of r.warnings) file.message(`ene: ${w}`, node.position);
-        if (r.ok) html = scopeSvg(r.svg, `ene-${hash(src)}-${k}-`);
-        else if (options.failOnError) return file.fail(`ene diagram has errors:\n${r.error}`, node.position);
-        else { file.message(`ene diagram has errors:\n${r.error}`, node.position); html = errorHtml(r.error); }
-      }
-      parent.children![i] = htmlNode(html, mdx, className);
-    }));
+    await Promise.all(
+      found.map(async ({ node, parent, i }, k) => {
+        const meta = parseMeta(node.meta);
+        const src = node.value ?? "";
+        const mode = meta.mode ?? options.mode ?? "static";
+        let html: string;
+        if (mode === "live") {
+          html = `<pre class="ene">${escapeHtml(liveSource(src, meta.title))}</pre>`;
+          const script = options.script ?? DEFAULT_PLAYER_URL;
+          if (!mdx && script && !scriptAdded) {
+            scriptAdded = true;
+            html += `<script src="${escapeHtml(script)}" defer></script>`;
+          }
+        } else {
+          const r = await renderEne(src, {
+            ...options,
+            title: meta.title ?? options.title,
+            choice: meta.choice ?? options.choice,
+          });
+          for (const w of r.warnings) file.message(`ene: ${w}`, node.position);
+          if (r.ok) html = scopeSvg(r.svg, `ene-${hash(src)}-${k}-`);
+          else if (options.failOnError) return file.fail(`ene diagram has errors:\n${r.error}`, node.position);
+          else {
+            file.message(`ene diagram has errors:\n${r.error}`, node.position);
+            html = errorHtml(r.error);
+          }
+        }
+        parent.children![i] = htmlNode(html, mdx, className);
+      }),
+    );
   };
 }
 

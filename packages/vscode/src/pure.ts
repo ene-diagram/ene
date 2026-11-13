@@ -1,12 +1,19 @@
 // Pure helpers shared by the extension; no `vscode` import so they can be unit-tested with vitest.
 import { diagnosticToJson, type Diagnostic, type Lang } from "@ene-diagram/core";
 
-export interface Pos { line: number; character: number } // 0-based, UTF-16 (VS Code)
-export interface Rng { start: Pos; end: Pos }
+export interface Pos {
+  line: number;
+  character: number;
+} // 0-based, UTF-16 (VS Code)
+export interface Rng {
+  start: Pos;
+  end: Pos;
+}
 
 /** Convert a 1-based code-point column on `lineText` to a 0-based UTF-16 offset. */
 export function cpColToUtf16(lineText: string, col: number): number {
-  let cp = 0, i = 0;
+  let cp = 0,
+    i = 0;
   while (cp < col - 1 && i < lineText.length) {
     const c = lineText.codePointAt(i)!;
     i += c > 0xffff ? 2 : 1;
@@ -27,14 +34,26 @@ export function spanToRange(lines: string[], span: { line: number; col: number; 
   return { start: { line, character: start }, end: { line, character: end } };
 }
 
-export interface EneDiag { range: Rng; severity: "error" | "warning"; code: string; message: string; suggestion?: string; target?: string }
+export interface EneDiag {
+  range: Rng;
+  severity: "error" | "warning";
+  code: string;
+  message: string;
+  suggestion?: string;
+  target?: string;
+}
 
 /** Diagnostics ready for the editor: message + hint, range and the token a quick fix replaces. */
 export function toEditorDiagnostics(text: string, diags: Diagnostic[], lang: Lang = "en"): EneDiag[] {
   const lines = splitLines(text);
   return diags.map((d) => {
     const j = diagnosticToJson(d, lang);
-    const out: EneDiag = { range: spanToRange(lines, d.span), severity: d.severity, code: d.code, message: `${j.message}\n${j.hint}` };
+    const out: EneDiag = {
+      range: spanToRange(lines, d.span),
+      severity: d.severity,
+      code: d.code,
+      message: `${j.message}\n${j.hint}`,
+    };
     if (j.suggestion) {
       out.suggestion = j.suggestion;
       out.target = d.args.name ?? d.args.word?.split(/\s/, 1)[0];
@@ -54,7 +73,10 @@ export function quickFixEdit(lines: string[], d: EneDiag): { range: Rng; newText
   if (d.target) {
     // The text no longer holds the word the diagnostic was about: don't guess, offer nothing
     if (!text.startsWith(d.target, start.character)) return undefined;
-    return { range: { start, end: { line: start.line, character: start.character + d.target.length } }, newText: d.suggestion };
+    return {
+      range: { start, end: { line: start.line, character: start.character + d.target.length } },
+      newText: d.suggestion,
+    };
   }
   return { range: d.range, newText: d.suggestion };
 }
@@ -64,7 +86,10 @@ export function formatEdit(text: string, formatted: string): { range: Rng; newTe
   if (formatted === text) return undefined;
   const lines = splitLines(text);
   const last = lines.length - 1;
-  return { range: { start: { line: 0, character: 0 }, end: { line: last, character: lines[last].length } }, newText: formatted };
+  return {
+    range: { start: { line: 0, character: 0 }, end: { line: last, character: lines[last].length } },
+    newText: formatted,
+  };
 }
 
 /** Accept only well-formed messages from the webview. */
@@ -73,7 +98,8 @@ export function parseWebviewMessage(m: unknown): WebviewMessage | undefined {
   if (!m || typeof m !== "object") return undefined;
   const t = (m as { type?: unknown }).type;
   if (t === "ready") return { type: "ready" };
-  if (t === "error" && typeof (m as { message?: unknown }).message === "string") return { type: "error", message: (m as { message: string }).message.slice(0, 500) };
+  if (t === "error" && typeof (m as { message?: unknown }).message === "string")
+    return { type: "error", message: (m as { message: string }).message.slice(0, 500) };
   return undefined;
 }
 
@@ -85,7 +111,14 @@ export function nonce(): string {
 }
 
 /** HTML for the preview webview. `cspSource` and URIs come from the VS Code webview API. */
-export function previewHtml(o: { cspSource: string; nonce: string; playerUri: string; elkUri: string; scriptUri: string; lang: Lang }): string {
+export function previewHtml(o: {
+  cspSource: string;
+  nonce: string;
+  playerUri: string;
+  elkUri: string;
+  scriptUri: string;
+  lang: Lang;
+}): string {
   const csp = [
     "default-src 'none'",
     `script-src 'nonce-${o.nonce}' ${o.cspSource}`,

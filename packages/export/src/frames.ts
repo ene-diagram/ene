@@ -24,13 +24,17 @@ export function sample(values: number[], keyTimes: number[], f: number): number 
   if (n === 1 || f <= keyTimes[0]) return values[0];
   let i = n - 2;
   while (i > 0 && keyTimes[i] > f) i--;
-  const a = keyTimes[i], b = keyTimes[i + 1];
+  const a = keyTimes[i],
+    b = keyTimes[i + 1];
   if (f >= b) return values[i + 1];
   return b > a ? values[i] + (values[i + 1] - values[i]) * ((f - a) / (b - a)) : values[i + 1];
 }
 
 const nums = (s: string | null) => (s ?? "").split(";").map((x) => Number(x.trim()));
-const seconds = (s: string | null) => { const m = /^([\d.]+)s$/.exec((s ?? "").trim()); return m ? Number(m[1]) : NaN; };
+const seconds = (s: string | null) => {
+  const m = /^([\d.]+)s$/.exec((s ?? "").trim());
+  return m ? Number(m[1]) : NaN;
+};
 
 /** Length of one loop: the longest `dur` in the document */
 export function loopLength(svg: string): number {
@@ -42,8 +46,10 @@ export function loopLength(svg: string): number {
 /** Pixel size from the root element's width/height */
 export function svgSize(svg: string): { width: number; height: number } {
   const root = svg.match(/<svg\b[^>]*>/)?.[0] ?? "";
-  const width = Number(root.match(/\swidth="([\d.]+)"/)?.[1]), height = Number(root.match(/\sheight="([\d.]+)"/)?.[1]);
-  if (!(width > 0) || !(height > 0)) throw new Error("cannot read the size of the SVG (no width/height on the root element)");
+  const width = Number(root.match(/\swidth="([\d.]+)"/)?.[1]),
+    height = Number(root.match(/\sheight="([\d.]+)"/)?.[1]);
+  if (!(width > 0) || !(height > 0))
+    throw new Error("cannot read the size of the SVG (no width/height on the root element)");
   return { width: Math.ceil(width), height: Math.ceil(height) };
 }
 
@@ -56,7 +62,8 @@ export type PointAt = (pathId: string, fraction: number) => { x: number; y: numb
  */
 export function freeze(root: Element, t: number, pointAt: PointAt): void {
   for (const a of Array.from(root.getElementsByTagName("animate"))) {
-    const dur = seconds(a.getAttribute("dur")), attr = a.getAttribute("attributeName");
+    const dur = seconds(a.getAttribute("dur")),
+      attr = a.getAttribute("attributeName");
     const target = a.parentElement;
     if (target && attr && dur > 0) {
       const v = sample(nums(a.getAttribute("values")), nums(a.getAttribute("keyTimes")), (t % dur) / dur);
@@ -65,7 +72,8 @@ export function freeze(root: Element, t: number, pointAt: PointAt): void {
     a.remove();
   }
   for (const a of Array.from(root.getElementsByTagName("animateMotion"))) {
-    const dur = seconds(a.getAttribute("dur")), target = a.parentElement;
+    const dur = seconds(a.getAttribute("dur")),
+      target = a.parentElement;
     const mpath = a.getElementsByTagName("mpath")[0];
     const href = (mpath?.getAttribute("href") ?? mpath?.getAttribute("xlink:href") ?? "").replace(/^#/, "");
     if (target && href && dur > 0) {

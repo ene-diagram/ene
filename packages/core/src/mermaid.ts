@@ -1,7 +1,10 @@
 import { KEYWORDS, MESSAGES, fill, type Code } from "./diagnostics.js";
 import { parse } from "./parse.js";
 
-export interface MermaidWarning { line: number; message: string }
+export interface MermaidWarning {
+  line: number;
+  message: string;
+}
 export interface MermaidResult {
   /** The converted `.ene` source; empty when nothing could be converted */
   source: string;
@@ -16,25 +19,49 @@ type Node_ =
   | { t: "comment"; text: string }
   | { t: "note"; text: string; line: number }
   | { t: "block"; kind: BlockKind; arms: Arm[]; line: number };
-interface Arm { label: string; body: Node_[]; line: number }
+interface Arm {
+  label: string;
+  body: Node_[];
+  line: number;
+}
 type BlockKind = "alt" | "opt" | "loop" | "par" | "critical" | "break" | "rect" | "box";
 
 /** Longest first, so `-->>` is not read as `-->` followed by `>` */
 const ARROWS: [string, Arrow, boolean][] = [
-  ["<<-->>", "-->", true], ["<<->>", "->", true],
-  ["-->>", "-->", false], ["--)", "-->", false], ["--x", "-x", false], ["-->", "-->", false],
-  ["->>", "->", false], ["-)", "~>", false], ["-x", "-x", false], ["->", "->", false],
+  ["<<-->>", "-->", true],
+  ["<<->>", "->", true],
+  ["-->>", "-->", false],
+  ["--)", "-->", false],
+  ["--x", "-x", false],
+  ["-->", "-->", false],
+  ["->>", "->", false],
+  ["-)", "~>", false],
+  ["-x", "-x", false],
+  ["->", "->", false],
 ];
-const ARROW_RE = new RegExp(`^(.+?)\\s*(${ARROWS.map(([a]) => a.replace(/[)>]/g, "\\$&")).join("|")})\\s*([+-])?\\s*([^:]+?)\\s*(?::(.*))?$`);
-const ENTITIES: Record<string, string> = { quot: '"', amp: "&", lt: "<", gt: ">", nbsp: " ", colon: ":", semi: ";", hash: "#" };
+const ARROW_RE = new RegExp(
+  `^(.+?)\\s*(${ARROWS.map(([a]) => a.replace(/[)>]/g, "\\$&")).join("|")})\\s*([+-])?\\s*([^:]+?)\\s*(?::(.*))?$`,
+);
+const ENTITIES: Record<string, string> = {
+  quot: '"',
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  nbsp: " ",
+  colon: ":",
+  semi: ";",
+  hash: "#",
+};
 const SHAPE_BY_TYPE: Record<string, string> = { database: "db", queue: "queue", actor: "circle" };
 
 /** `Hello<br/>world #35;1` → `Hello world #1` */
-const text = (s: string) => s
-  .replace(/<br\s*\/?>/gi, " ")
-  .replace(/#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-  .replace(/#([a-z]+);/gi, (m, n) => ENTITIES[n.toLowerCase()] ?? m)
-  .replace(/\s+/g, " ").trim();
+const text = (s: string) =>
+  s
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/#([a-z]+);/gi, (m, n) => ENTITIES[n.toLowerCase()] ?? m)
+    .replace(/\s+/g, " ")
+    .trim();
 
 /**
  * Convert a Mermaid `sequenceDiagram` into `.ene` source (`diagram sequence`); a `flowchart` / `graph` goes to fromFlowchart.
@@ -73,12 +100,19 @@ export function fromMermaid(input: string): MermaidResult {
   if (/^(flowchart|graph)\b/.test(header)) {
     // Re-read the diagram itself (header to the last line, inside its fence) with quote-aware statements
     const raw = input.replace(/^﻿/, "").split(/\r\n|\r|\n/);
-    const from = lines[i].no, to = lines[lines.length - 1].no;
+    const from = lines[i].no,
+      to = lines[lines.length - 1].no;
     return fromFlowchart(quotedStatements(raw.slice(from - 1, to).join("\n"), from), 0, title);
   }
   if (!/^sequenceDiagram\b/.test(header)) {
     const kind = header.split(/\s/, 1)[0];
-    return { source: "", warnings: [], error: kind ? `only \`sequenceDiagram\`, \`flowchart\` and \`graph\` can be converted (found \`${kind}\`)` : "no Mermaid diagram found" };
+    return {
+      source: "",
+      warnings: [],
+      error: kind
+        ? `only \`sequenceDiagram\`, \`flowchart\` and \`graph\` can be converted (found \`${kind}\`)`
+        : "no Mermaid diagram found",
+    };
   }
   i++;
 
@@ -93,7 +127,8 @@ export function fromMermaid(input: string): MermaidResult {
 
   const root: Node_[] = [];
   const stack: { block: Extract<Node_, { t: "block" }> }[] = [];
-  const body = () => (stack.length ? stack[stack.length - 1].block.arms[stack[stack.length - 1].block.arms.length - 1].body : root);
+  const body = () =>
+    stack.length ? stack[stack.length - 1].block.arms[stack[stack.length - 1].block.arms.length - 1].body : root;
   const open = (kind: BlockKind, label: string, line: number) => {
     const block: Extract<Node_, { t: "block" }> = { t: "block", kind, arms: [{ label, body: [], line }], line };
     body().push(block);
@@ -105,11 +140,18 @@ export function fromMermaid(input: string): MermaidResult {
     const s = raw;
     if (!s) continue;
     if (/^%%\{.*\}%%$/.test(s)) continue;
-    if (s.startsWith("%%")) { const c = s.slice(2).trim(); if (c) body().push({ t: "comment", text: c }); continue; }
+    if (s.startsWith("%%")) {
+      const c = s.slice(2).trim();
+      if (c) body().push({ t: "comment", text: c });
+      continue;
+    }
     const word = s.split(/[\s:]/, 1)[0].toLowerCase();
     const rest = s.slice(word.length).trim();
 
-    if (word === "title") { title = text(rest.replace(/^:\s*/, "")); continue; }
+    if (word === "title") {
+      title = text(rest.replace(/^:\s*/, ""));
+      continue;
+    }
     if (word === "autonumber" || word === "acctitle" || word === "accdescr") continue;
     if (word === "participant" || word === "actor" || (word === "create" && /^(participant|actor)\b/i.test(rest))) {
       const created = word === "create";
@@ -123,13 +165,17 @@ export function fromMermaid(input: string): MermaidResult {
       if (cfg) {
         const type = cfg[2].match(/["']?type["']?\s*:\s*["']?([\w-]+)/)?.[1]?.toLowerCase();
         if (type && SHAPE_BY_TYPE[type]) shape = SHAPE_BY_TYPE[type];
-        else if (type && type !== "participant") warn(no, `participant type \`${type}\` has no ene shape; drawn as a box`, "ptype");
+        else if (type && type !== "participant")
+          warn(no, `participant type \`${type}\` has no ene shape; drawn as a box`, "ptype");
         cfgAlias = cfg[2].match(/["']?alias["']?\s*:\s*(["'])(.*?)\1/)?.[2];
         spec = `${cfg[1]} ${cfg[3]}`.trim();
       }
       const m = spec.match(/^(.+?)\s+as\s+(.+)$/i);
       const name = (m ? m[1] : spec).trim();
-      if (!name) { warn(no, `cannot read participant line: \`${s}\``); continue; }
+      if (!name) {
+        warn(no, `cannot read participant line: \`${s}\``);
+        continue;
+      }
       const id = idOf(name);
       const d = decl.get(id)!;
       if (m) d.label = text(m[2]);
@@ -142,19 +188,33 @@ export function fromMermaid(input: string): MermaidResult {
       if (!stack.pop()) warn(no, "`end` without an open block is ignored");
       continue;
     }
-    if (word === "alt" || word === "opt" || word === "loop" || word === "par" || word === "critical" || word === "break" || word === "rect" || word === "box") {
+    if (
+      word === "alt" ||
+      word === "opt" ||
+      word === "loop" ||
+      word === "par" ||
+      word === "critical" ||
+      word === "break" ||
+      word === "rect" ||
+      word === "box"
+    ) {
       if (word === "par" && /^par\s+over\b/i.test(s)) warn(no, "`par over` is read as `par`", "parover");
       if (word === "critical") warn(no, "`critical` / `option` are converted to `branch` / `else`", "critical");
       if (word === "break") warn(no, "`break` is converted to `opt`; ene keeps playing the steps after it", "break");
       if (word === "rect") warn(no, "`rect` background highlights are dropped", "rect");
-      if (word === "box") warn(no, "`box` participant groups are dropped (groups are not drawn in sequence diagrams)", "box");
+      if (word === "box")
+        warn(no, "`box` participant groups are dropped (groups are not drawn in sequence diagrams)", "box");
       open(word, text(rest), no);
       continue;
     }
     if (word === "else" || word === "and" || word === "option") {
       const top = stack[stack.length - 1]?.block;
-      const fits = top && (word === "else" ? top.kind === "alt" : word === "and" ? top.kind === "par" : top.kind === "critical");
-      if (!fits) { warn(no, `\`${word}\` outside a matching block is ignored`); continue; }
+      const fits =
+        top && (word === "else" ? top.kind === "alt" : word === "and" ? top.kind === "par" : top.kind === "critical");
+      if (!fits) {
+        warn(no, `\`${word}\` outside a matching block is ignored`);
+        continue;
+      }
       top.arms.push({ label: text(rest), body: [], line: no });
       continue;
     }
@@ -162,13 +222,25 @@ export function fromMermaid(input: string): MermaidResult {
       // `Note over A,B: text` / `Note left of A: text` → the text only; ene shows it as a caption of the step
       const c = rest.indexOf(":");
       const note = text(c < 0 ? "" : rest.slice(c + 1));
-      if (!note) { warn(no, "empty note is dropped"); continue; }
+      if (!note) {
+        warn(no, "empty note is dropped");
+        continue;
+      }
       body().push({ t: "note", text: note, line: no });
       continue;
     }
-    if (word === "activate" || word === "deactivate") { warn(no, "activation bars are not drawn", "activation"); continue; }
-    if (word === "destroy") { warn(no, "`destroy` is not supported; the participant stays", "destroy"); continue; }
-    if (word === "link" || word === "links" || word === "properties" || word === "details") { warn(no, "participant links and properties are dropped", "links"); continue; }
+    if (word === "activate" || word === "deactivate") {
+      warn(no, "activation bars are not drawn", "activation");
+      continue;
+    }
+    if (word === "destroy") {
+      warn(no, "`destroy` is not supported; the participant stays", "destroy");
+      continue;
+    }
+    if (word === "link" || word === "links" || word === "properties" || word === "details") {
+      warn(no, "participant links and properties are dropped", "links");
+      continue;
+    }
 
     const m = s.match(ARROW_RE);
     if (m) {
@@ -181,7 +253,8 @@ export function fromMermaid(input: string): MermaidResult {
     }
     warn(no, `not converted: \`${s}\``);
   }
-  for (const f of stack) warn(f.block.line, `\`${f.block.kind}\` is never closed with \`end\`; closed at the end of the diagram`);
+  for (const f of stack)
+    warn(f.block.line, `\`${f.block.kind}\` is never closed with \`end\`; closed at the end of the diagram`);
 
   // ---- emit ----
   const out: string[] = [];
@@ -192,7 +265,10 @@ export function fromMermaid(input: string): MermaidResult {
   };
   const safeLabel = (label: string, fallback: string, line: number): string => {
     if (!label) return fallback;
-    const reads = (l: string) => { const st = parse(`branch ${l}\n a -> b\nend`).doc.body[0]; return st?.type === "branch" && st.arms[0].label === l; };
+    const reads = (l: string) => {
+      const st = parse(`branch ${l}\n a -> b\nend`).doc.body[0];
+      return st?.type === "branch" && st.arms[0].label === l;
+    };
     if (reads(label)) return label;
     const safe = label.replace(/#/g, "＃");
     warn(line, `block label was adjusted so \`#\` is not read as a comment: \`${label}\``);
@@ -200,8 +276,11 @@ export function fromMermaid(input: string): MermaidResult {
   };
   /** Note text that reads back as the same note; a leading arrow (`note -> x` is E115) gets a Unicode hyphen */
   const safeNote = (note: string, line: number): string | undefined => {
-    const reads = (n: string) => { const r = parse(`a -> b\nnote ${n}`); const st = r.doc.body[0];
-      return !r.diagnostics.some((d) => d.severity === "error") && st?.type === "step" && st.note === n; };
+    const reads = (n: string) => {
+      const r = parse(`a -> b\nnote ${n}`);
+      const st = r.doc.body[0];
+      return !r.diagnostics.some((d) => d.severity === "error") && st?.type === "step" && st.note === n;
+    };
     if (reads(note)) return note;
     const safe = note.replace(/^-/, "‐");
     warn(line, `note text was adjusted so it is not read as an edge: \`${note}\``);
@@ -211,7 +290,10 @@ export function fromMermaid(input: string): MermaidResult {
     const n = safeNote(c.text, c.line);
     return n === undefined ? `${pad}# note: ${c.text}` : `${pad}note ${n}`;
   };
-  const single = (arm: Arm) => { const real = arm.body.filter((n) => n.t !== "comment" && n.t !== "note"); return real.length === 1 && real[0].t === "msg" ? real[0] : undefined; };
+  const single = (arm: Arm) => {
+    const real = arm.body.filter((n) => n.t !== "comment" && n.t !== "note");
+    return real.length === 1 && real[0].t === "msg" ? real[0] : undefined;
+  };
 
   /** Returns the number of steps written */
   const emit = (nodes: Node_[], depth: number): number => {
@@ -220,7 +302,10 @@ export function fromMermaid(input: string): MermaidResult {
     /** The last statement written in this body is a step, so a note can attach to it */
     let afterStep = false;
     for (const node of nodes) {
-      if (node.t === "comment") { out.push(`${pad}# ${node.text}`); continue; }
+      if (node.t === "comment") {
+        out.push(`${pad}# ${node.text}`);
+        continue;
+      }
       if (node.t === "note") {
         if (afterStep) out.push(noteLine(pad, node));
         else {
@@ -230,9 +315,17 @@ export function fromMermaid(input: string): MermaidResult {
         continue;
       }
       afterStep = false;
-      if (node.t === "msg") { out.push(pad + safeEdge(node)); n++; afterStep = true; continue; }
+      if (node.t === "msg") {
+        out.push(pad + safeEdge(node));
+        n++;
+        afterStep = true;
+        continue;
+      }
       const { kind, arms } = node;
-      if (kind === "rect" || kind === "box") { for (const a of arms) n += emit(a.body, depth); continue; }
+      if (kind === "rect" || kind === "box") {
+        for (const a of arms) n += emit(a.body, depth);
+        continue;
+      }
       if (kind === "par") {
         const msgs = arms.map(single);
         if (msgs.every((m) => m)) {
@@ -243,7 +336,10 @@ export function fromMermaid(input: string): MermaidResult {
           for (const a of arms) for (const c of a.body) if (c.t === "note") out.push(noteLine(pad, c));
         } else {
           warn(node.line, "`par` with more than one message per arm is played one arm after another");
-          for (const a of arms) { if (a.label) out.push(`${pad}# par: ${a.label}`); n += emit(a.body, depth); }
+          for (const a of arms) {
+            if (a.label) out.push(`${pad}# par: ${a.label}`);
+            n += emit(a.body, depth);
+          }
         }
         continue;
       }
@@ -256,7 +352,10 @@ export function fromMermaid(input: string): MermaidResult {
         if (label) out.push(`${pad}# loop: ${label}`);
         out.push(`${pad}loop ${count || 2}`);
         const inner = emit(arms[0].body, depth + 1);
-        if (!inner) { out.length = at; continue; }
+        if (!inner) {
+          out.length = at;
+          continue;
+        }
         out.push(`${pad}end`);
         n += inner * (count || 2);
         continue;
@@ -265,7 +364,10 @@ export function fromMermaid(input: string): MermaidResult {
         const at = out.length;
         out.push(`${pad}opt ${safeLabel(arms[0].label, "", arms[0].line)}`.trimEnd());
         const inner = emit(arms[0].body, depth + 1);
-        if (!inner) { out.length = at; continue; }
+        if (!inner) {
+          out.length = at;
+          continue;
+        }
         out.push(`${pad}end`);
         n += inner;
         continue;
@@ -282,14 +384,18 @@ export function fromMermaid(input: string): MermaidResult {
         if (!inner) out.push(`${pad}  wait 0`);
         any += inner;
       });
-      if (!any) { out.length = at; continue; }
+      if (!any) {
+        out.length = at;
+        continue;
+      }
       out.push(`${pad}end`);
       n += any;
     }
     return n;
   };
   const bodyAt = out.length;
-  if (!emit(root, 0)) return { source: "", warnings: flush(warnings, grouped), error: "the diagram has no messages to play" };
+  if (!emit(root, 0))
+    return { source: "", warnings: flush(warnings, grouped), error: "the diagram has no messages to play" };
 
   const head: string[] = ["diagram sequence"];
   if (title) head.push(`title ${title}`);
@@ -303,7 +409,8 @@ export function fromMermaid(input: string): MermaidResult {
   const source = out.join("\n") + "\n";
   const bad = parse(source).diagnostics.find((d) => d.severity === "error");
   const result: MermaidResult = { source, warnings: flush(warnings, grouped) };
-  if (bad) result.error = `the converted source has an error on line ${bad.span.line}: ${fill(MESSAGES.en[bad.code as Code].message, bad.args)}`;
+  if (bad)
+    result.error = `the converted source has an error on line ${bad.span.line}: ${fill(MESSAGES.en[bad.code as Code].message, bad.args)}`;
   return result;
 }
 
@@ -313,8 +420,14 @@ function edgeText(head: string, label: string): { text: string; adjusted: boolea
   const reads = (l: string) => {
     const r = parse(`${head} : ${l}`);
     const st = r.doc.body[0];
-    return !r.diagnostics.some((d) => d.severity === "error") && r.doc.body.length === 1 && st.type === "step" && st.edges.length === 1
-      && st.edges[0].label === l && st.edges[0].duration === undefined;
+    return (
+      !r.diagnostics.some((d) => d.severity === "error") &&
+      r.doc.body.length === 1 &&
+      st.type === "step" &&
+      st.edges.length === 1 &&
+      st.edges[0].label === l &&
+      st.edges[0].duration === undefined
+    );
   };
   if (reads(label)) return { text: `${head} : ${label}`, adjusted: false };
   // `@…` at the end reads as a duration, ` & a -> b` as a second edge: swap the characters that trigger it
@@ -324,24 +437,35 @@ function edgeText(head: string, label: string): { text: string; adjusted: boolea
 
 /** Mermaid name → ene id: invalid characters become `_`, keywords get a `_` suffix, duplicates a number */
 function idMaker() {
-  const ids = new Map<string, string>(), used = new Set<string>();
+  const ids = new Map<string, string>(),
+    used = new Set<string>();
   return (name: string): string => {
     const key = name.trim();
     let id = ids.get(key);
     if (id) return id;
-    let base = key.normalize("NFC").replace(/[^\p{L}\p{N}_-]+/gu, "_").replace(/^[-_]+|[-_]+$/g, "");
+    let base = key
+      .normalize("NFC")
+      .replace(/[^\p{L}\p{N}_-]+/gu, "_")
+      .replace(/^[-_]+|[-_]+$/g, "");
     if (!base) base = "p";
     if (KEYWORDS.includes(base)) base += "_";
     id = base;
     for (let n = 2; used.has(id); n++) id = `${base}_${n}`;
-    ids.set(key, id); used.add(id);
+    ids.set(key, id);
+    used.add(id);
     return id;
   };
 }
 
-function flush(warnings: MermaidWarning[], grouped: Map<string, { line: number; message: string; more: number }>): MermaidWarning[] {
+function flush(
+  warnings: MermaidWarning[],
+  grouped: Map<string, { line: number; message: string; more: number }>,
+): MermaidWarning[] {
   for (const g of grouped.values())
-    warnings.push({ line: g.line, message: g.more ? `${g.message} (and on ${g.more} more line${g.more > 1 ? "s" : ""})` : g.message });
+    warnings.push({
+      line: g.line,
+      message: g.more ? `${g.message} (and on ${g.more} more line${g.more > 1 ? "s" : ""})` : g.message,
+    });
   return warnings.sort((a, b) => a.line - b.line);
 }
 
@@ -350,11 +474,19 @@ function flush(warnings: MermaidWarning[], grouped: Map<string, { line: number; 
  * `;` separates statements on one line, except where it closes an entity such as `#59;` and inside `%%` comments.
  */
 function extract(input: string): { text: string; no: number }[] {
-  const all = input.replace(/^﻿/, "").split(/\r\n|\r|\n/).flatMap((l, k) => {
-    const line = l.trim();
-    const parts = line.startsWith("%%") ? [line] : line.split(/(?<!#\w+);/).map((p) => p.trim()).filter(Boolean);
-    return (parts.length ? parts : [""]).map((text) => ({ text, no: k + 1 }));
-  });
+  const all = input
+    .replace(/^﻿/, "")
+    .split(/\r\n|\r|\n/)
+    .flatMap((l, k) => {
+      const line = l.trim();
+      const parts = line.startsWith("%%")
+        ? [line]
+        : line
+            .split(/(?<!#\w+);/)
+            .map((p) => p.trim())
+            .filter(Boolean);
+      return (parts.length ? parts : [""]).map((text) => ({ text, no: k + 1 }));
+    });
   const fences: { from: number; to: number }[] = [];
   for (let k = 0; k < all.length; k++) {
     if (!/^(```|~~~)\s*mermaid\b/i.test(all[k].text)) continue;
@@ -364,7 +496,9 @@ function extract(input: string): { text: string; no: number }[] {
     k = close;
   }
   if (!fences.length) return all;
-  const pick = fences.find((f) => all.slice(f.from, f.to).some((l) => /^(sequenceDiagram|flowchart|graph)\b/.test(l.text))) ?? fences[0];
+  const pick =
+    fences.find((f) => all.slice(f.from, f.to).some((l) => /^(sequenceDiagram|flowchart|graph)\b/.test(l.text))) ??
+    fences[0];
   return all.slice(pick.from, pick.to);
 }
 
@@ -372,26 +506,67 @@ function extract(input: string): { text: string; no: number }[] {
 
 /** Mermaid node shapes (longest opener first) → ene shape; `undefined` = no ene shape, drawn as a box with a warning */
 const FC_SHAPES: [open: string, close: string, shape: string | undefined, name: string][] = [
-  ["(((", ")))", "circle", "double circle"], ["((", "))", "circle", "circle"], ["([", "])", "round", "stadium"],
-  ["[[", "]]", undefined, "subroutine"], ["[(", ")]", "db", "cylinder"], ["[/", "/]", undefined, "parallelogram"],
-  ["[\\", "\\]", undefined, "parallelogram"], ["[/", "\\]", undefined, "trapezoid"], ["[\\", "/]", undefined, "trapezoid"],
-  ["{{", "}}", undefined, "hexagon"], ["(", ")", "round", "rounded"], ["[", "]", "box", "rectangle"],
-  ["{", "}", undefined, "rhombus"], [">", "]", undefined, "flag"],
+  ["(((", ")))", "circle", "double circle"],
+  ["((", "))", "circle", "circle"],
+  ["([", "])", "round", "stadium"],
+  ["[[", "]]", undefined, "subroutine"],
+  ["[(", ")]", "db", "cylinder"],
+  ["[/", "/]", undefined, "parallelogram"],
+  ["[\\", "\\]", undefined, "parallelogram"],
+  ["[/", "\\]", undefined, "trapezoid"],
+  ["[\\", "/]", undefined, "trapezoid"],
+  ["{{", "}}", undefined, "hexagon"],
+  ["(", ")", "round", "rounded"],
+  ["[", "]", "box", "rectangle"],
+  ["{", "}", undefined, "rhombus"],
+  [">", "]", undefined, "flag"],
 ];
 /** `A@{ shape: … }` names (Mermaid 11.3+) */
 const FC_NAMED: Record<string, string> = {
-  rect: "box", rectangle: "box", proc: "box", process: "box", rounded: "round", event: "round", stadium: "round", pill: "round",
-  terminal: "round", circle: "circle", circ: "circle", "sm-circ": "circle", "dbl-circ": "circle", cyl: "db", cylinder: "db",
-  db: "db", database: "db", "h-cyl": "queue", das: "queue", "horizontal-cylinder": "queue",
+  rect: "box",
+  rectangle: "box",
+  proc: "box",
+  process: "box",
+  rounded: "round",
+  event: "round",
+  stadium: "round",
+  pill: "round",
+  terminal: "round",
+  circle: "circle",
+  circ: "circle",
+  "sm-circ": "circle",
+  "dbl-circ": "circle",
+  cyl: "db",
+  cylinder: "db",
+  db: "db",
+  database: "db",
+  "h-cyl": "queue",
+  das: "queue",
+  "horizontal-cylinder": "queue",
 };
 const FC_ID = /^[\p{L}\p{N}_]+(?:[.-][\p{L}\p{N}_]+)*/u;
 /** A link: `-->`, `---`, `-.->`, `==>`, `--x`, `--o`, `<-->`, `~~~`, optionally `|label|`; or `-- label -->` style */
 const FC_TEXT_LINK = /^\s*([<ox]?)(--|==|-\.)\s+(.+?)\s+(-{2,}|={2,}|\.+-)(>|x|o)?(?=\s|$|[\p{L}\p{N}_])\s*/u;
-const FC_LINK = /^\s*([<ox]?)(-{2,}|={2,}|-\.+-|~{3,})(>|x(?=[\s|]|$)|o(?=[\s|]|$))?\s*(?:\|(\s*"[^"]*"\s*|[^|]*)\|)?\s*/;
+const FC_LINK =
+  /^\s*([<ox]?)(-{2,}|={2,}|-\.+-|~{3,})(>|x(?=[\s|]|$)|o(?=[\s|]|$))?\s*(?:\|(\s*"[^"]*"\s*|[^|]*)\|)?\s*/;
 
-interface FcNode { id: string; label: string; shape?: string; line: number; group?: string }
-interface FcGroup { id: string; label: string; parent?: string; line: number; mentions: Set<string> }
-type FcItem = { t: "edge"; from: string; to: string; arrow: Arrow; label: string; line: number } | { t: "comment"; text: string };
+interface FcNode {
+  id: string;
+  label: string;
+  shape?: string;
+  line: number;
+  group?: string;
+}
+interface FcGroup {
+  id: string;
+  label: string;
+  parent?: string;
+  line: number;
+  mentions: Set<string>;
+}
+type FcItem =
+  | { t: "edge"; from: string; to: string; arrow: Arrow; label: string; line: number }
+  | { t: "comment"; text: string };
 
 /**
  * Convert a Mermaid `flowchart` / `graph` into `.ene` source (flow layout).
@@ -422,8 +597,10 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   const nodes = new Map<string, FcNode>();
   const groups: FcGroup[] = [];
   const items: FcItem[] = [];
-  const stack: FcGroup[] = [], closed: FcGroup[] = [];
-  const nodeId = idMaker(), groupId = idMaker();
+  const stack: FcGroup[] = [],
+    closed: FcGroup[] = [];
+  const nodeId = idMaker(),
+    groupId = idMaker();
 
   /** Read one node reference at s; returns its ene id and the rest, or undefined */
   const node = (s: string, line: number): { id: string; rest: string } | undefined => {
@@ -431,17 +608,24 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
     if (!m) return;
     const name = m[0];
     // declared: this mention sets the shape (a bare reference keeps the earlier one)
-    let rest = s.slice(name.length), label: string | undefined, shape: string | undefined, declared = false;
+    let rest = s.slice(name.length),
+      label: string | undefined,
+      shape: string | undefined,
+      declared = false;
     for (const [open, close, sh, shapeName] of FC_SHAPES) {
       if (!rest.startsWith(open)) continue;
-      let body = rest.slice(open.length), end: number;
+      let body = rest.slice(open.length),
+        end: number;
       const q = body.match(/^\s*"/);
-      if (q) { const c = body.indexOf('"', q[0].length); end = c < 0 ? -1 : body.indexOf(close, c + 1); }
-      else end = body.indexOf(close);
+      if (q) {
+        const c = body.indexOf('"', q[0].length);
+        end = c < 0 ? -1 : body.indexOf(close, c + 1);
+      } else end = body.indexOf(close);
       if (end < 0) continue;
       label = mdText(body.slice(0, end));
       rest = body.slice(end + close.length);
-      shape = sh; declared = true;
+      shape = sh;
+      declared = true;
       if (!sh) warn(line, `the ${shapeName} shape has no ene equivalent; drawn as a box`, `shape-${shapeName}`);
       break;
     }
@@ -457,13 +641,19 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
       rest = rest.slice(cfg[0].length);
     }
     const cls = rest.match(/^:::[\w-]+/);
-    if (cls) { warn(line, "`:::class` styles are dropped", "classref"); rest = rest.slice(cls[0].length); }
+    if (cls) {
+      warn(line, "`:::class` styles are dropped", "classref");
+      rest = rest.slice(cls[0].length);
+    }
     if (subIds.has(name) && label === undefined && !declared) return { id: `\u0000${name}`, rest };
     const id = nodeId(name);
     let n = nodes.get(id);
-    if (!n) nodes.set(id, n = { id, label: text(name), line });
+    if (!n) nodes.set(id, (n = { id, label: text(name), line }));
     if (label !== undefined) n.label = label;
-    if (declared) { if (shape && shape !== "box") n.shape = shape; else delete n.shape; }
+    if (declared) {
+      if (shape && shape !== "box") n.shape = shape;
+      else delete n.shape;
+    }
     if (stack.length) stack[stack.length - 1].mentions.add(id);
     return { id, rest };
   };
@@ -474,7 +664,8 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
     for (;;) {
       const r = node(rest.trimStart(), line);
       if (!r) return;
-      ids.push(r.id); rest = r.rest;
+      ids.push(r.id);
+      rest = r.rest;
       const amp = rest.match(/^\s*&\s*/);
       if (!amp) return { ids, rest };
       rest = rest.slice(amp[0].length);
@@ -484,50 +675,99 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   for (let i = at + 1; i < lines.length; i++) {
     const { text: s, no } = lines[i];
     if (!s || /^%%\{.*\}%%$/.test(s)) continue;
-    if (s.startsWith("%%")) { const c = s.slice(2).trim(); if (c) items.push({ t: "comment", text: c }); continue; }
+    if (s.startsWith("%%")) {
+      const c = s.slice(2).trim();
+      if (c) items.push({ t: "comment", text: c });
+      continue;
+    }
     const word = s.split(/\s/, 1)[0].toLowerCase();
     if (word === "subgraph") {
       const h = subgraphHead(s.slice(8).trim());
-      const g: FcGroup = { id: groupId(h.id), label: h.label, line: no, mentions: new Set(), ...(stack.length ? { parent: stack[stack.length - 1].id } : {}) };
-      groups.push(g); stack.push(g);
+      const g: FcGroup = {
+        id: groupId(h.id),
+        label: h.label,
+        line: no,
+        mentions: new Set(),
+        ...(stack.length ? { parent: stack[stack.length - 1].id } : {}),
+      };
+      groups.push(g);
+      stack.push(g);
       continue;
     }
     if (s.toLowerCase() === "end") {
       const g = stack.pop();
-      if (g) closed.push(g); else warn(no, "`end` without an open subgraph is ignored");
+      if (g) closed.push(g);
+      else warn(no, "`end` without an open subgraph is ignored");
       continue;
     }
-    if (word === "direction") { warn(no, "`direction` inside a subgraph is ignored", "direction"); continue; }
-    if (word === "style" || word === "classdef" || word === "class" || word === "linkstyle") { warn(no, "styles and classes are dropped", "style"); continue; }
-    if (word === "click") { warn(no, "click handlers and links are dropped", "click"); continue; }
-    if (word === "title") { title = text(s.slice(5).replace(/^\s*:?\s*/, "")); continue; }
-    if (word === "acctitle" || word === "accdescr" || word.startsWith("acctitle:") || word.startsWith("accdescr")) continue;
+    if (word === "direction") {
+      warn(no, "`direction` inside a subgraph is ignored", "direction");
+      continue;
+    }
+    if (word === "style" || word === "classdef" || word === "class" || word === "linkstyle") {
+      warn(no, "styles and classes are dropped", "style");
+      continue;
+    }
+    if (word === "click") {
+      warn(no, "click handlers and links are dropped", "click");
+      continue;
+    }
+    if (word === "title") {
+      title = text(s.slice(5).replace(/^\s*:?\s*/, ""));
+      continue;
+    }
+    if (word === "acctitle" || word === "accdescr" || word.startsWith("acctitle:") || word.startsWith("accdescr"))
+      continue;
 
     const known = new Set(nodes.keys());
     const first = nodeGroup(s, no);
-    if (!first) { warn(no, `not converted: \`${s}\``); continue; }
-    let from = first.ids, rest = first.rest, ok = true, linked = false;
+    if (!first) {
+      warn(no, `not converted: \`${s}\``);
+      continue;
+    }
+    let from = first.ids,
+      rest = first.rest,
+      ok = true,
+      linked = false;
     while (rest.trim()) {
       // An edge id (`A e1@--> B`) is dropped
       rest = rest.replace(/^\s*[\w-]+@(?=[-=.<ox~])/, " ");
-      const tm = rest.match(FC_TEXT_LINK), lm = tm ? undefined : rest.match(FC_LINK);
-      if (!tm && !lm) { ok = false; break; }
-      const [all, start, body, label, head2] = tm ? [tm[0], tm[1], tm[2] + tm[4], tm[3], tm[5]] : [lm![0], lm![1], lm![2], lm![4] ?? "", lm![3]];
+      const tm = rest.match(FC_TEXT_LINK),
+        lm = tm ? undefined : rest.match(FC_LINK);
+      if (!tm && !lm) {
+        ok = false;
+        break;
+      }
+      const [all, start, body, label, head2] = tm
+        ? [tm[0], tm[1], tm[2] + tm[4], tm[3], tm[5]]
+        : [lm![0], lm![1], lm![2], lm![4] ?? "", lm![3]];
       rest = rest.slice(all.length);
       const to = nodeGroup(rest, no);
-      if (!to) { ok = false; break; }
+      if (!to) {
+        ok = false;
+        break;
+      }
       rest = to.rest;
       linked = true;
-      if (body.startsWith("~")) { warn(no, "invisible links (`~~~`) are dropped", "invisible"); from = to.ids; continue; }
+      if (body.startsWith("~")) {
+        warn(no, "invisible links (`~~~`) are dropped", "invisible");
+        from = to.ids;
+        continue;
+      }
       const dotted = body.includes(".");
       const arrow: Arrow = head2 === "x" ? "-x" : dotted ? "-->" : "->";
       if (head2 === "o") warn(no, "circle arrowheads (`--o`) are drawn as plain arrows", "circlehead");
       else if (!head2) warn(no, "links without an arrowhead are drawn as arrows", "open");
-      if (start === "<" || start === "o" || start === "x") warn(no, "two-way links are drawn one way, from the first node", "twoway");
-      for (const a of from) for (const b of to.ids) {
-        if (a.startsWith("\u0000") || b.startsWith("\u0000")) { warn(no, "links to a subgraph are dropped (ene groups cannot be edge ends)", "subedge"); continue; }
-        items.push({ t: "edge", from: a, to: b, arrow, label: mdText(label), line: no });
-      }
+      if (start === "<" || start === "o" || start === "x")
+        warn(no, "two-way links are drawn one way, from the first node", "twoway");
+      for (const a of from)
+        for (const b of to.ids) {
+          if (a.startsWith("\u0000") || b.startsWith("\u0000")) {
+            warn(no, "links to a subgraph are dropped (ene groups cannot be edge ends)", "subedge");
+            continue;
+          }
+          items.push({ t: "edge", from: a, to: b, arrow, label: mdText(label), line: no });
+        }
       from = to.ids;
     }
     // Nothing was read as a link: forget the nodes this line introduced
@@ -537,11 +777,17 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   for (const g of stack) warn(g.line, "`subgraph` is never closed with `end`; closed at the end of the diagram");
   // Like Mermaid: a subgraph takes the nodes it mentions that no subgraph closed before it has taken (inner ones close first)
   for (const g of [...closed, ...stack.reverse()])
-    for (const id of g.mentions) { const n = nodes.get(id); if (n) n.group ??= g.id; }
+    for (const id of g.mentions) {
+      const n = nodes.get(id);
+      if (n) n.group ??= g.id;
+    }
 
   // ---- emit ----
-  const out: string[] = ["# Converted from a Mermaid flowchart: each edge is one step, in source order.",
-    "# A flowchart has no time axis, so review the step order.", ""];
+  const out: string[] = [
+    "# Converted from a Mermaid flowchart: each edge is one step, in source order.",
+    "# A flowchart has no time axis, so review the step order.",
+    "",
+  ];
   if (title) out.push(`title ${title}`, "");
   const label = (s: string) => s.replace(/\[/g, "(").replace(/\]/g, ")");
   for (const n of nodes.values()) {
@@ -551,10 +797,14 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   out.push("");
   let steps = 0;
   for (const it of items) {
-    if (it.t === "comment") { out.push(`# ${it.text}`); continue; }
+    if (it.t === "comment") {
+      out.push(`# ${it.text}`);
+      continue;
+    }
     const r = edgeText(`${it.from} ${it.arrow} ${it.to}`, it.label);
     if (r.adjusted) warn(it.line, `link text was adjusted so it stays one label: \`${it.label}\``);
-    out.push(r.text); steps++;
+    out.push(r.text);
+    steps++;
   }
   if (!steps) return { source: "", warnings: flush(warnings, grouped), error: "the flowchart has no links to play" };
 
@@ -567,7 +817,10 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   const gl: string[] = [];
   for (const g of groups) {
     const members = deep(g.id);
-    if (!members.length) { warn(g.line, "a subgraph with no nodes is dropped"); continue; }
+    if (!members.length) {
+      warn(g.line, "a subgraph with no nodes is dropped");
+      continue;
+    }
     if (g.parent && !kept.has(g.parent)) continue;
     kept.add(g.id);
     gl.push(`group ${g.id}[${label(g.label) || g.id}]${g.parent ? ` in ${g.parent}` : ""} : ${members.join(" ")}`);
@@ -576,7 +829,8 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
   const source = out.join("\n") + "\n";
   const bad = parse(source).diagnostics.find((d) => d.severity === "error");
   const result: MermaidResult = { source, warnings: flush(warnings, grouped) };
-  if (bad) result.error = `the converted source has an error on line ${bad.span.line}: ${fill(MESSAGES.en[bad.code as Code].message, bad.args)}`;
+  if (bad)
+    result.error = `the converted source has an error on line ${bad.span.line}: ${fill(MESSAGES.en[bad.code as Code].message, bad.args)}`;
   return result;
 }
 
@@ -585,8 +839,9 @@ function configBlock(s: string): [string, string] | undefined {
   let q: string | undefined;
   for (let k = 2; k < s.length; k++) {
     const c = s[k];
-    if (q) { if (c === q) q = undefined; }
-    else if (c === '"' || c === "'") q = c;
+    if (q) {
+      if (c === q) q = undefined;
+    } else if (c === '"' || c === "'") q = c;
     else if (c === "}") return [s.slice(0, k + 1), s.slice(2, k)];
   }
   return undefined;
@@ -598,7 +853,10 @@ function configBlock(s: string): [string, string] | undefined {
  */
 function quotedStatements(input: string, first: number): { text: string; no: number }[] {
   const out: { text: string; no: number }[] = [];
-  let cur = "", no = first, start = first, q = false;
+  let cur = "",
+    no = first,
+    start = first,
+    q = false;
   const push = () => {
     const t = cur.trim();
     if (t || !out.length || out[out.length - 1].no !== start) out.push({ text: t, no: start });
@@ -609,10 +867,18 @@ function quotedStatements(input: string, first: number): { text: string; no: num
     if (c === '"' && !comment) q = !q;
     if (c === "\n") {
       no++;
-      if (q) { cur += " "; continue; }
-      push(); start = no; continue;
+      if (q) {
+        cur += " ";
+        continue;
+      }
+      push();
+      start = no;
+      continue;
     }
-    if (c === ";" && !q && !comment && !/#\w+$/.test(cur)) { push(); continue; }
+    if (c === ";" && !q && !comment && !/#\w+$/.test(cur)) {
+      push();
+      continue;
+    }
     cur += c;
   }
   push();
@@ -629,4 +895,11 @@ function subgraphHead(s: string): { id: string; label: string } {
 }
 
 /** Node / link text: quotes, Markdown strings (`"`**a**`"`) and entities */
-const mdText = (s: string) => text(s.trim().replace(/^"(.*)"$/s, "$1").replace(/^`(.*)`$/s, "$1").replace(/\*\*(.+?)\*\*|\*(.+?)\*/g, "$1$2"));
+const mdText = (s: string) =>
+  text(
+    s
+      .trim()
+      .replace(/^"(.*)"$/s, "$1")
+      .replace(/^`(.*)`$/s, "$1")
+      .replace(/\*\*(.+?)\*\*|\*(.+?)\*/g, "$1$2"),
+  );

@@ -38,7 +38,10 @@ test("#29 nesting depth is bounded", () => {
 
 test("#8 group parent cycles report E407", () => {
   const r = parse("a -> b\ngroup x in y : a\ngroup y in x : a");
-  expect(r.diagnostics.map((d) => [d.code, d.args.name]).sort()).toEqual([["E407", "x"], ["E407", "y"]]);
+  expect(r.diagnostics.map((d) => [d.code, d.args.name]).sort()).toEqual([
+    ["E407", "x"],
+    ["E407", "y"],
+  ]);
   expect(codes("a -> b\ngroup x in x : a")).toEqual(["E407"]);
 });
 
@@ -47,11 +50,15 @@ test("#9 hints list every keyword and attribute", () => {
     for (const k of KEYWORDS) expect(MESSAGES[lang].E102.hint).toContain(k);
     for (const k of ["icon", "shape", "color"]) expect(MESSAGES[lang].E108.hint).toContain(k);
   }
-  for (const c of CODES) { expect(MESSAGES.en[c]).toBeTruthy(); expect(MESSAGES.ko[c]).toBeTruthy(); }
+  for (const c of CODES) {
+    expect(MESSAGES.en[c]).toBeTruthy();
+    expect(MESSAGES.ko[c]).toBeTruthy();
+  }
 });
 
 test("#10 color must be a CSS name or hex", () => {
   expect(parse("a{color: notacolor} -> b").diagnostics[0]).toMatchObject({ code: "E111" });
   expect(parse("a{color: orang} -> b").diagnostics[0]).toMatchObject({ code: "E111", args: { suggestion: "orange" } });
-  for (const c of ["orange", "RebeccaPurple", "#f59e0b", "#abc", "currentColor"]) expect(codes(`a{color: ${c}} -> b`)).toEqual([]);
+  for (const c of ["orange", "RebeccaPurple", "#f59e0b", "#abc", "currentColor"])
+    expect(codes(`a{color: ${c}} -> b`)).toEqual([]);
 });

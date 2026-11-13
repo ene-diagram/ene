@@ -2,7 +2,8 @@ import { parse, buildTimeline } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
 import { renderSvg, themeCss, THEMES, THEME_VARS, type ThemeName } from "../src/index";
 const make = async (src: string) => {
-  const { doc } = parse(src); const tl = buildTimeline(doc);
+  const { doc } = parse(src);
+  const tl = buildTimeline(doc);
   return renderSvg(await layout(doc, tl), tl, { title: doc.title });
 };
 test("well-formed XML with escaped labels", async () => {
@@ -20,17 +21,20 @@ test("one moving dot per timeline edge", async () => {
 });
 test("reply is dashed, fail shows cross", async () => {
   const svg = await make("a -> b\nb --> a\nb -x a");
-  expect(svg).toContain('class="hl reply"'); expect(svg).toContain("✕");
+  expect(svg).toContain('class="hl reply"');
+  expect(svg).toContain("✕");
 });
 test("accessibility and preferences", async () => {
   const svg = await make("title 주문\nuser -> api : POST\napi --> user : 201");
   expect(svg).toContain("<title>주문</title>");
   expect(svg).toMatch(/<desc>[^<]*1\. user → api: POST[^<]*2\. api → user: 201/);
-  expect(svg).toContain("prefers-reduced-motion"); expect(svg).toContain("prefers-color-scheme: dark");
+  expect(svg).toContain("prefers-reduced-motion");
+  expect(svg).toContain("prefers-color-scheme: dark");
 });
 
 describe("themes", () => {
-  const doc = parse("a -> b").doc, tl = buildTimeline(doc);
+  const doc = parse("a -> b").doc,
+    tl = buildTimeline(doc);
   const out = (theme?: ThemeName) => renderSvg(layoutSequence(doc, tl), tl, { theme });
   it("tags the root and emits that theme's variables with a dark variant", () => {
     for (const t of THEMES) {
@@ -44,7 +48,8 @@ describe("themes", () => {
     expect(themeCss("mono")).toMatch(/^:where\(svg\.ene-theme-mono\)\{--bg:/);
   });
   it("scopes exported rules to the theme class so inline exports don't restyle each other", () => {
-    const a = out("mono"), b = out("high-contrast");
+    const a = out("mono"),
+      b = out("high-contrast");
     expect(a).not.toMatch(/(^|[;}\s])svg\{--/);
     expect(b).toContain("svg.ene-theme-high-contrast{--bg:");
   });
@@ -55,7 +60,9 @@ describe("themes", () => {
 });
 test("step notes are a caption under the diagram, shown while their step plays; notes: false omits them", async () => {
   const src = "a -> b : one\nnote first <why>\nb -> c : two\nc --> a : three\nnote third";
-  const { doc } = parse(src); const tl = buildTimeline(doc); const l = await layout(doc, tl);
+  const { doc } = parse(src);
+  const tl = buildTimeline(doc);
+  const l = await layout(doc, tl);
   const svg = renderSvg(l, tl);
   const notes = [...svg.matchAll(/class="note"[^>]*><tspan[^>]*>([^<]*)/g)].map((m) => m[1]);
   expect(notes).toEqual(["first &lt;why&gt;", "third"]);
@@ -68,12 +75,15 @@ test("step notes are a caption under the diagram, shown while their step plays; 
 });
 test("long notes wrap to the diagram width and grow the caption", async () => {
   const { wrapNote } = await import("../src/index");
-  const long = "This explanation is much longer than a small two node diagram is wide, so it has to wrap onto more lines";
+  const long =
+    "This explanation is much longer than a small two node diagram is wide, so it has to wrap onto more lines";
   const lines = wrapNote(long, 200);
   expect(lines.length).toBeGreaterThan(2);
   expect(lines.join(" ")).toBe(long);
   expect(wrapNote("x".repeat(100), 100).join("")).toBe("x".repeat(100));
-  const { doc } = parse(`a -> b\nnote ${long}`); const tl = buildTimeline(doc); const l = await layout(doc, tl);
+  const { doc } = parse(`a -> b\nnote ${long}`);
+  const tl = buildTimeline(doc);
+  const l = await layout(doc, tl);
   const svg = renderSvg(l, tl);
   const n = wrapNote(long, l.width - 80).length;
   expect(n).toBeGreaterThan(1);

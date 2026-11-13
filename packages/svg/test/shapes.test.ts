@@ -10,14 +10,18 @@ test("db is a cylinder, queue has stripes, circle is an ellipse, round is a pill
 });
 test("color tints node and is escaped", () => {
   const m = nodeMarkup({ ...base, color: "#f59e0b" });
-  expect(m).toContain('stroke="#f59e0b"'); expect(m).toContain('fill="#f59e0b"');
+  expect(m).toContain('stroke="#f59e0b"');
+  expect(m).toContain('fill="#f59e0b"');
 });
 test("group markup has dashed box and label", () => {
   const m = groupMarkup({ id: "vpc", label: "VPC <10.0>", color: "#8b5cf6", depth: 0, x: 0, y: 0, w: 300, h: 200 });
-  expect(m).toContain('class="grp"'); expect(m).toContain("VPC &lt;10.0&gt;"); expect(m).toContain('stroke="#8b5cf6"');
+  expect(m).toContain('class="grp"');
+  expect(m).toContain("VPC &lt;10.0&gt;");
+  expect(m).toContain('stroke="#8b5cf6"');
 });
 test("groups are drawn behind nodes in full svg", async () => {
-  const { doc } = parse("a -> b\ngroup g[G] : a b"); const tl = buildTimeline(doc);
+  const { doc } = parse("a -> b\ngroup g[G] : a b");
+  const tl = buildTimeline(doc);
   const svg = renderSvg(await layout(doc, tl), tl);
   expect(svg.indexOf('class="grp"')).toBeLessThan(svg.indexOf('class="node"'));
 });

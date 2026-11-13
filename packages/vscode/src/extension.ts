@@ -1,8 +1,27 @@
 import * as vscode from "vscode";
-import { buildTimeline, checkIcons, formatSource, isIconUrl, parse, resolveIcon, type Lang, type ResolvedIcon } from "@ene-diagram/core";
+import {
+  buildTimeline,
+  checkIcons,
+  formatSource,
+  isIconUrl,
+  parse,
+  resolveIcon,
+  type Lang,
+  type ResolvedIcon,
+} from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
 import { renderSvg, type ThemeName } from "@ene-diagram/svg";
-import { formatEdit, nonce, parseWebviewMessage, previewHtml, quickFixEdit, splitLines, toEditorDiagnostics, type EneDiag, type Rng } from "./pure.js";
+import {
+  formatEdit,
+  nonce,
+  parseWebviewMessage,
+  previewHtml,
+  quickFixEdit,
+  splitLines,
+  toEditorDiagnostics,
+  type EneDiag,
+  type Rng,
+} from "./pure.js";
 
 const LANG_ID = "ene";
 const DEBOUNCE_MS = 250;
@@ -23,17 +42,30 @@ export function activate(ctx: vscode.ExtensionContext): void {
     diagnostics.push(...checkIcons(ast, []).filter((d) => d.severity === "error"));
     const ds = toEditorDiagnostics(text, diagnostics, lang());
     cache.set(doc.uri.toString(), { version: doc.version, diags: ds });
-    collection.set(doc.uri, ds.map((d) => {
-      const v = new vscode.Diagnostic(toRange(d.range), d.message, d.severity === "error" ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning);
-      v.code = d.code;
-      v.source = "ene";
-      return v;
-    }));
+    collection.set(
+      doc.uri,
+      ds.map((d) => {
+        const v = new vscode.Diagnostic(
+          toRange(d.range),
+          d.message,
+          d.severity === "error" ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning,
+        );
+        v.code = d.code;
+        v.source = "ene";
+        return v;
+      }),
+    );
   }
   function schedule(doc: vscode.TextDocument) {
     const key = doc.uri.toString();
     clearTimeout(timers.get(key));
-    timers.set(key, setTimeout(() => { timers.delete(key); lint(doc); }, DEBOUNCE_MS));
+    timers.set(
+      key,
+      setTimeout(() => {
+        timers.delete(key);
+        lint(doc);
+      }, DEBOUNCE_MS),
+    );
   }
   function forget(doc: vscode.TextDocument) {
     const key = doc.uri.toString();
@@ -50,26 +82,30 @@ export function activate(ctx: vscode.ExtensionContext): void {
     vscode.workspace.onDidCloseTextDocument(forget),
     { dispose: () => timers.forEach(clearTimeout) },
 
-    vscode.languages.registerCodeActionsProvider(LANG_ID, {
-      provideCodeActions(doc, range) {
-        const out: vscode.CodeAction[] = [];
-        const cached = cache.get(doc.uri.toString());
-        if (!cached || cached.version !== doc.version) return out; // stale while the debounced lint is pending
-        const lines = splitLines(doc.getText());
-        for (const d of cached.diags) {
-          const r = toRange(d.range);
-          if (!r.intersection(range)) continue;
-          const fix = quickFixEdit(lines, d);
-          if (!fix) continue;
-          const a = new vscode.CodeAction(`Change to "${fix.newText}"`, vscode.CodeActionKind.QuickFix);
-          a.edit = new vscode.WorkspaceEdit();
-          a.edit.replace(doc.uri, toRange(fix.range), fix.newText);
-          a.isPreferred = true;
-          out.push(a);
-        }
-        return out;
+    vscode.languages.registerCodeActionsProvider(
+      LANG_ID,
+      {
+        provideCodeActions(doc, range) {
+          const out: vscode.CodeAction[] = [];
+          const cached = cache.get(doc.uri.toString());
+          if (!cached || cached.version !== doc.version) return out; // stale while the debounced lint is pending
+          const lines = splitLines(doc.getText());
+          for (const d of cached.diags) {
+            const r = toRange(d.range);
+            if (!r.intersection(range)) continue;
+            const fix = quickFixEdit(lines, d);
+            if (!fix) continue;
+            const a = new vscode.CodeAction(`Change to "${fix.newText}"`, vscode.CodeActionKind.QuickFix);
+            a.edit = new vscode.WorkspaceEdit();
+            a.edit.replace(doc.uri, toRange(fix.range), fix.newText);
+            a.isPreferred = true;
+            out.push(a);
+          }
+          return out;
+        },
       },
-    }, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+      { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
+    ),
 
     vscode.languages.registerDocumentFormattingEditProvider(LANG_ID, {
       provideDocumentFormattingEdits(doc) {
@@ -99,20 +135,33 @@ class Preview {
   static show(ctx: vscode.ExtensionContext, doc: vscode.TextDocument) {
     const key = doc.uri.toString();
     const existing = Preview.panels.get(key);
-    if (existing) { existing.panel.reveal(vscode.ViewColumn.Beside, true); return; }
+    if (existing) {
+      existing.panel.reveal(vscode.ViewColumn.Beside, true);
+      return;
+    }
     Preview.panels.set(key, new Preview(ctx, doc));
   }
 
-  private constructor(ctx: vscode.ExtensionContext, private readonly doc: vscode.TextDocument) {
+  private constructor(
+    ctx: vscode.ExtensionContext,
+    private readonly doc: vscode.TextDocument,
+  ) {
     const media = vscode.Uri.joinPath(ctx.extensionUri, "media");
-    this.panel = vscode.window.createWebviewPanel("ene.preview", `Preview ${basename(doc.uri)}`, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true }, {
-      enableScripts: true,
-      localResourceRoots: [media],
-      enableCommandUris: false,
-    });
+    this.panel = vscode.window.createWebviewPanel(
+      "ene.preview",
+      `Preview ${basename(doc.uri)}`,
+      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+      {
+        enableScripts: true,
+        localResourceRoots: [media],
+        enableCommandUris: false,
+      },
+    );
     const w = this.panel.webview;
     w.html = previewHtml({
-      cspSource: w.cspSource, nonce: nonce(), lang: lang(),
+      cspSource: w.cspSource,
+      nonce: nonce(),
+      lang: lang(),
       playerUri: w.asWebviewUri(vscode.Uri.joinPath(media, "ene.js")).toString(),
       elkUri: w.asWebviewUri(vscode.Uri.joinPath(media, "ene-elk.js")).toString(),
       scriptUri: w.asWebviewUri(vscode.Uri.joinPath(media, "preview.js")).toString(),
@@ -120,11 +169,17 @@ class Preview {
     this.disposables.push(
       w.onDidReceiveMessage((raw) => {
         const m = parseWebviewMessage(raw);
-        if (m?.type === "ready") { this.ready = true; this.post(); }
-        else if (m?.type === "error") void vscode.window.showWarningMessage(`ene preview: ${m.message}`);
+        if (m?.type === "ready") {
+          this.ready = true;
+          this.post();
+        } else if (m?.type === "error") void vscode.window.showWarningMessage(`ene preview: ${m.message}`);
       }),
-      vscode.workspace.onDidChangeTextDocument((e) => { if (e.document === this.doc) this.schedule(); }),
-      vscode.workspace.onDidCloseTextDocument((d) => { if (d === this.doc) this.panel.dispose(); }),
+      vscode.workspace.onDidChangeTextDocument((e) => {
+        if (e.document === this.doc) this.schedule();
+      }),
+      vscode.workspace.onDidCloseTextDocument((d) => {
+        if (d === this.doc) this.panel.dispose();
+      }),
     );
     this.panel.onDidDispose(() => this.dispose());
   }
@@ -148,24 +203,37 @@ const basename = (u: vscode.Uri) => u.path.split("/").pop() ?? "";
 
 async function exportSvg() {
   const ed = vscode.window.activeTextEditor;
-  if (!ed || ed.document.languageId !== LANG_ID) { void vscode.window.showErrorMessage("ene: open an .ene file first"); return; }
+  if (!ed || ed.document.languageId !== LANG_ID) {
+    void vscode.window.showErrorMessage("ene: open an .ene file first");
+    return;
+  }
   const text = ed.document.getText();
   const { doc, diagnostics } = parse(text);
   diagnostics.push(...checkIcons(doc, []));
-  if (diagnostics.some((d) => d.severity === "error")) { void vscode.window.showErrorMessage("ene: fix the errors before exporting (see Problems)"); return; }
+  if (diagnostics.some((d) => d.severity === "error")) {
+    void vscode.window.showErrorMessage("ene: fix the errors before exporting (see Problems)");
+    return;
+  }
   const src = ed.document.uri;
-  const defaultUri = src.scheme === "untitled" ? undefined : src.with({ path: src.path.replace(/\.[^./]+$/, "") + ".svg" });
+  const defaultUri =
+    src.scheme === "untitled" ? undefined : src.with({ path: src.path.replace(/\.[^./]+$/, "") + ".svg" });
   const target = await vscode.window.showSaveDialog({ defaultUri, filters: { SVG: ["svg"] } });
   if (!target) return;
   const tl = buildTimeline(doc, { choices: [] });
   // Icons from packs are not bundled; URL icons are skipped (no network access from the export).
   const icons = new Map<string, ResolvedIcon>();
-  for (const n of doc.nodes.values()) if (n.icon && !isIconUrl(n.icon)) { const ic = resolveIcon(n.icon, []); if (ic) icons.set(n.icon, ic); }
+  for (const n of doc.nodes.values())
+    if (n.icon && !isIconUrl(n.icon)) {
+      const ic = resolveIcon(n.icon, []);
+      if (ic) icons.set(n.icon, ic);
+    }
   try {
     const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
     const svg = renderSvg(lay, tl, { title: doc.title, icons, theme: doc.theme as ThemeName | undefined });
     await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(svg));
-    void vscode.window.showInformationMessage(`ene: exported ${basename(target)} (${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`);
+    void vscode.window.showInformationMessage(
+      `ene: exported ${basename(target)} (${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`,
+    );
   } catch (e) {
     void vscode.window.showErrorMessage(`ene: export failed: ${(e as Error).message}`);
   }

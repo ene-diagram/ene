@@ -13,16 +13,26 @@ export function installDom() {
     proto.getPointAtLength ??= () => ({ x: 0, y: 0 });
     const g = globalThis as unknown as { Option?: unknown };
     if (typeof g.Option !== "function")
+      // biome-ignore lint/complexity/useArrowFunction: Option must be callable with `new`
       g.Option = function (text = "", value = text, defSel = false, sel = false) {
         const o = document.createElement("option");
-        o.text = text; o.value = value; o.defaultSelected = defSel; o.selected = sel;
+        o.text = text;
+        o.value = value;
+        o.defaultSelected = defSel;
+        o.selected = sel;
         return o;
       };
   });
   beforeEach(() => {
     frames.queue = new Map();
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => { const id = frames.next++; frames.queue.set(id, cb); return id; });
-    vi.stubGlobal("cancelAnimationFrame", (id: number) => { frames.queue.delete(id); });
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      const id = frames.next++;
+      frames.queue.set(id, cb);
+      return id;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+      frames.queue.delete(id);
+    });
     document.body.replaceChildren();
   });
   afterEach(() => vi.unstubAllGlobals());

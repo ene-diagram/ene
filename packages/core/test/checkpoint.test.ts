@@ -7,13 +7,17 @@ test("--> is a reply edge", () => {
 });
 test("--> in parallel and ids with dashes", () => {
   const s = parse("my-api --> a & my-api -> b").doc.body[0];
-  expect(s.type === "step" && s.edges.map(e => [e.from, e.to, e.kind])).toEqual([["my-api", "a", "reply"], ["my-api", "b", "ok"]]);
+  expect(s.type === "step" && s.edges.map((e) => [e.from, e.to, e.kind])).toEqual([
+    ["my-api", "a", "reply"],
+    ["my-api", "b", "ok"],
+  ]);
 });
 test("leading & continues the previous step", () => {
   const { doc, diagnostics } = parse("l -> s : 작은\n& l -> s : 큰\n  & l -> db : 메타");
   expect(diagnostics).toEqual([]);
   expect(doc.body).toHaveLength(1);
-  const s = doc.body[0]; expect(s.type === "step" && s.edges.map(e => e.label)).toEqual(["작은", "큰", "메타"]);
+  const s = doc.body[0];
+  expect(s.type === "step" && s.edges.map((e) => e.label)).toEqual(["작은", "큰", "메타"]);
   expect(buildTimeline(doc).steps).toHaveLength(1);
 });
 test("leading & without a previous step is E106", () => {

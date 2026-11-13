@@ -7,16 +7,22 @@ beforeAll(() => {
   SVGElement.prototype.getPointAtLength = () => ({ x: 0, y: 0 }) as DOMPoint;
 });
 beforeEach(() => {
+  // biome-ignore lint/complexity/useArrowFunction: Option must be callable with `new`
   vi.stubGlobal("Option", function (text = "", value = text) {
     const o = document.createElement("option");
-    o.text = text; o.value = value;
+    o.text = text;
+    o.value = value;
     return o;
   });
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
-afterEach(() => { document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  document.body.replaceChildren();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 test("a malformed URL warns and still renders the diagram", async () => {
   const el = document.createElement("div");
@@ -24,13 +30,17 @@ test("a malformed URL warns and still renders the diagram", async () => {
   try {
     expect(el.querySelector(".ene-player")).not.toBeNull();
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("invalid URL"));
-  } finally { p?.destroy(); }
+  } finally {
+    p?.destroy();
+  }
 });
 
 test("autoRun continues after a malformed icon URL", async () => {
   for (const source of ["diagram sequence\na{icon: http://[} -> b", "diagram sequence\nc -> d"]) {
     const pre = document.createElement("pre");
-    pre.className = "ene"; pre.textContent = source; document.body.appendChild(pre);
+    pre.className = "ene";
+    pre.textContent = source;
+    document.body.appendChild(pre);
   }
   await autoRun("pre.ene", { autoplay: false });
   expect(document.querySelectorAll(".ene-player")).toHaveLength(2);

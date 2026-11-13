@@ -9,7 +9,10 @@ test("opt is an optional branch: arm 0 = the steps, arm 1 = skip", () => {
   expect(diagnostics).toEqual([]);
   const st = doc.body[1];
   expect(st).toMatchObject({ type: "branch", optional: true });
-  expect(st.type === "branch" && st.arms.map((a) => [a.label, a.body.length])).toEqual([["cached", 1], ["skip", 0]]);
+  expect(st.type === "branch" && st.arms.map((a) => [a.label, a.body.length])).toEqual([
+    ["cached", 1],
+    ["skip", 0],
+  ]);
   expect(buildTimeline(doc).steps).toHaveLength(3);
   const skipped = buildTimeline(doc, { choices: [1] });
   expect(skipped.steps.map((s) => s.edges[0].to)).toEqual(["b", "c"]);

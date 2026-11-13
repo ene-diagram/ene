@@ -1,6 +1,9 @@
 import type { Timeline } from "@ene-diagram/core";
 
-export interface ControllerOptions { loop?: boolean; hold?: number }
+export interface ControllerOptions {
+  loop?: boolean;
+  hold?: number;
+}
 
 export interface Controller {
   time: number;
@@ -21,18 +24,30 @@ export interface Controller {
 }
 
 export function createController(tl: Timeline, opts: ControllerOptions = {}): Controller {
-  const loop = opts.loop ?? true, hold = opts.hold ?? 1.5;
+  const loop = opts.loop ?? true,
+    hold = opts.hold ?? 1.5;
   const starts = tl.steps.map((s) => s.start);
   const c: Controller = {
     time: 0,
     rate: 1,
     playing: false,
     total: tl.total,
-    play() { if (!loop && c.time >= tl.total) c.time = 0; c.playing = true; },
-    pause() { c.playing = false; },
-    toggle() { c.playing ? c.pause() : c.play(); },
-    restart() { c.time = 0; },
-    setRate(r) { c.rate = r; },
+    play() {
+      if (!loop && c.time >= tl.total) c.time = 0;
+      c.playing = true;
+    },
+    pause() {
+      c.playing = false;
+    },
+    toggle() {
+      c.playing ? c.pause() : c.play();
+    },
+    restart() {
+      c.time = 0;
+    },
+    setRate(r) {
+      c.rate = r;
+    },
     tick(dt) {
       if (!c.playing) return;
       c.time += dt * c.rate;
@@ -44,7 +59,9 @@ export function createController(tl: Timeline, opts: ControllerOptions = {}): Co
         c.playing = false;
       }
     },
-    next() { c.time = starts.find((s) => s > c.time + 1e-9) ?? tl.total; },
+    next() {
+      c.time = starts.find((s) => s > c.time + 1e-9) ?? tl.total;
+    },
     prev() {
       const i = c.currentStep();
       if (i < 0) return void (c.time = 0);
@@ -55,7 +72,9 @@ export function createController(tl: Timeline, opts: ControllerOptions = {}): Co
     },
     currentStep() {
       let i = -1;
-      starts.forEach((s, k) => { if (s <= c.time + 1e-9) i = k; });
+      starts.forEach((s, k) => {
+        if (s <= c.time + 1e-9) i = k;
+      });
       return i;
     },
   };

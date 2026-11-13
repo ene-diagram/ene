@@ -6,7 +6,8 @@ import { addPre, installDom } from "./dom-setup.js";
 installDom();
 const STEPS = "title Order\na[A] -> b[B] : one\nb -> c[C] : two\nc --> a : three";
 const BRANCHY = "a -> b : start\nbranch hit\n  b --> a : cached\nelse miss\n  b -> db : read\n  db --> b : row\nend";
-const key = (el: Element, k: string) => el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+const key = (el: Element, k: string) =>
+  el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
 const stepText = (root: ParentNode) => root.querySelector(".ene-step")!.textContent;
 
 describe("player DOM", () => {
@@ -25,7 +26,8 @@ describe("player DOM", () => {
   });
 
   it("Space toggles playback, arrows step and update the step text", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;
     const root = el.querySelector(".ene-player")!;
     expect(stepText(root)).toBe("1/3 · a → b one");
@@ -38,16 +40,22 @@ describe("player DOM", () => {
     const play = root.querySelectorAll(".ene-bar button")[2];
     expect(play.textContent).toBe("▶");
     key(root, " ");
-    expect(p.controller.playing).toBe(true); expect(play.textContent).toBe("⏸");
+    expect(p.controller.playing).toBe(true);
+    expect(play.textContent).toBe("⏸");
     key(root, " ");
-    expect(p.controller.playing).toBe(false); expect(play.textContent).toBe("▶");
+    expect(p.controller.playing).toBe(false);
+    expect(play.textContent).toBe("▶");
     p.destroy();
   });
 
   it("shows the note of the current step in a caption (flow and sequence)", async () => {
     for (const head of ["", "diagram sequence\n"]) {
-      const el = document.createElement("div"); document.body.appendChild(el);
-      const p = (await render(el, `${head}a -> b : one\nnote why one\nb -> c : two\nc --> a : three\nnote why three`, { autoplay: false, lang: "en" }))!;
+      const el = document.createElement("div");
+      document.body.appendChild(el);
+      const p = (await render(el, `${head}a -> b : one\nnote why one\nb -> c : two\nc --> a : three\nnote why three`, {
+        autoplay: false,
+        lang: "en",
+      }))!;
       const root = el.querySelector(".ene-player")!;
       const note = () => root.querySelector(".ene-note")!.textContent;
       expect(note()).toBe("why one");
@@ -57,15 +65,20 @@ describe("player DOM", () => {
       expect(note()).toBe("why three");
       p.destroy();
     }
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false }))!;
     expect(el.querySelector(".ene-note")).toBeNull();
     p.destroy();
   });
 
   it("opt is a checkbox toggle that skips its steps", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
-    const p = (await render(el, "a -> b : one\nopt cached\n  b --> a : two\nend\na -> c : three", { autoplay: false, lang: "en" }))!;
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const p = (await render(el, "a -> b : one\nopt cached\n  b --> a : two\nend\na -> c : three", {
+      autoplay: false,
+      lang: "en",
+    }))!;
     const box = el.querySelector<HTMLInputElement>(".ene-opt input")!;
     expect(el.querySelector(".ene-opt")!.textContent).toBe("cached");
     expect(box.checked).toBe(true);
@@ -74,28 +87,34 @@ describe("player DOM", () => {
     box.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(false);
     expect(p.controller.playing).toBe(false);
-    box.checked = false; box.dispatchEvent(new Event("change"));
+    box.checked = false;
+    box.dispatchEvent(new Event("change"));
     expect(p.controller.total).toBeCloseTo(2 * 1.2);
     p.destroy();
   });
 
   it("opt reports and restores its choice, and menus after it keep their own index", async () => {
-    const src = "a -> b : one\nopt cached\n  b --> a : two\nend\nbranch hit\n  a -> c : x\nelse miss\n  a -> d : y\nend";
+    const src =
+      "a -> b : one\nopt cached\n  b --> a : two\nend\nbranch hit\n  a -> c : x\nelse miss\n  a -> d : y\nend";
     const seen: number[][] = [];
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, src, { autoplay: false, lang: "en", onChoicesChange: (c) => seen.push(c) }))!;
     const box = el.querySelector<HTMLInputElement>(".ene-opt input")!;
-    box.checked = false; box.dispatchEvent(new Event("change"));
+    box.checked = false;
+    box.dispatchEvent(new Event("change"));
     expect(seen.at(-1)).toEqual([1]);
     const sel = el.querySelector<HTMLSelectElement>('select[aria-label="Branch 2"]')!;
-    sel.value = "1"; sel.dispatchEvent(new Event("change"));
+    sel.value = "1";
+    sel.dispatchEvent(new Event("change"));
     expect(seen.at(-1)).toEqual([1, 1]);
     p.setChoices([0, 1]);
     expect(box.checked).toBe(true);
     expect(sel.value).toBe("1");
     p.destroy();
 
-    const el2 = document.createElement("div"); document.body.appendChild(el2);
+    const el2 = document.createElement("div");
+    document.body.appendChild(el2);
     const p2 = (await render(el2, src, { autoplay: false, lang: "en", choices: [1, 0] }))!;
     expect(el2.querySelector<HTMLInputElement>(".ene-opt input")!.checked).toBe(false);
     expect(el2.querySelector<HTMLSelectElement>('select[aria-label="Branch 2"]')!.value).toBe("0");
@@ -106,27 +125,32 @@ describe("player DOM", () => {
   });
 
   it("buttons drive the controller", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;
     const [restart, , , next] = [...el.querySelectorAll<HTMLButtonElement>(".ene-bar button")];
-    next.click(); next.click();
+    next.click();
+    next.click();
     expect(p.controller.currentStep()).toBe(2);
     restart.click();
     expect(p.controller.time).toBe(0);
     const rate = el.querySelector<HTMLSelectElement>('select[aria-label="Speed"]')!;
-    rate.value = "2"; rate.dispatchEvent(new Event("change"));
+    rate.value = "2";
+    rate.dispatchEvent(new Event("change"));
     expect(p.controller.rate).toBe(2);
     p.destroy();
   });
 
   it("branch select switches the played path", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, BRANCHY, { autoplay: false, lang: "en" }))!;
     const sel = el.querySelector<HTMLSelectElement>('select[aria-label="Branch 1"]')!;
     expect([...sel.options].map((o) => o.text)).toEqual(["hit", "miss"]);
     expect(p.controller.total).toBeGreaterThan(0);
     const hitTotal = p.controller.total;
-    sel.value = "1"; sel.dispatchEvent(new Event("change"));
+    sel.value = "1";
+    sel.dispatchEvent(new Event("change"));
     expect(p.controller.total).toBeGreaterThan(hitTotal);
     p.setChoices([0]);
     expect(p.controller.total).toBe(hitTotal);
@@ -134,14 +158,21 @@ describe("player DOM", () => {
   });
 
   it("starts from given choices, reports menu changes, keeps the menu in sync and exports the chosen path", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const seen: number[][] = [];
-    const p = (await render(el, BRANCHY, { autoplay: false, lang: "en", choices: [1], onChoicesChange: (c) => seen.push(c) }))!;
+    const p = (await render(el, BRANCHY, {
+      autoplay: false,
+      lang: "en",
+      choices: [1],
+      onChoicesChange: (c) => seen.push(c),
+    }))!;
     const sel = el.querySelector<HTMLSelectElement>('select[aria-label="Branch 1"]')!;
     expect(sel.value).toBe("1");
     expect(p.choices).toEqual([1]);
     expect(p.toSvg()).toContain("3. row");
-    sel.value = "0"; sel.dispatchEvent(new Event("change"));
+    sel.value = "0";
+    sel.dispatchEvent(new Event("change"));
     expect(seen).toEqual([[0]]);
     expect(p.toSvg()).not.toContain("row");
     p.setChoices([1]);
@@ -153,26 +184,37 @@ describe("player DOM", () => {
   });
 
   it("focus dims nodes and edges outside the playing step and clears at the end", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
-    const p = (await render(el, "a -> b : one\nb -> c : two\nc -> d : three", { autoplay: false, lang: "en", focus: true }))!;
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const p = (await render(el, "a -> b : one\nb -> c : two\nc -> d : three", {
+      autoplay: false,
+      lang: "en",
+      focus: true,
+    }))!;
     const root = el.querySelector(".ene-player")!;
     expect(root.classList.contains("ene-focus")).toBe(true);
     const dimmed = () => [...root.querySelectorAll("g.ene-n")].map((g) => g.classList.contains("ene-dim"));
     expect(dimmed()).toEqual([false, false, true, true]);
     key(root, "ArrowRight");
     expect(dimmed()).toEqual([true, false, false, true]);
-    expect([...root.querySelectorAll("path.edge")].map((e) => e.classList.contains("ene-dim"))).toEqual([true, false, true]);
+    expect([...root.querySelectorAll("path.edge")].map((e) => e.classList.contains("ene-dim"))).toEqual([
+      true,
+      false,
+      true,
+    ]);
     const hl = root.querySelectorAll<SVGPathElement>("path.hl");
     expect(hl[0].style.opacity).toBe("0.2");
     expect(hl[1].style.opacity).toBe("1");
-    p.controller.time = p.controller.total; key(root, "ArrowRight");
+    p.controller.time = p.controller.total;
+    key(root, "ArrowRight");
     expect(dimmed()).toEqual([false, false, false, false]);
     expect(hl[0].style.opacity).toBe("1");
     p.destroy();
   });
 
   it("focus is off for small diagrams by default and can be forced off", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const big = Array.from({ length: 12 }, (_, i) => `n${i} -> n${i + 1}`).join("\n");
     let p = (await render(el, STEPS, { autoplay: false, lang: "en" }))!;
     expect(el.querySelector(".ene-focus")).toBeNull();
@@ -186,7 +228,8 @@ describe("player DOM", () => {
   });
 
   it("applies the document theme, and the theme option overrides it (also in toSvg)", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     let p = (await render(el, "theme mono\na -> b", { autoplay: false, lang: "en" }))!;
     expect(el.querySelector("svg")!.getAttribute("class")).toBe("ene ene-theme-mono");
     expect(p.toSvg()).toContain("ene-theme-mono");
@@ -199,7 +242,8 @@ describe("player DOM", () => {
   });
 
   it("shows a localized error box and returns undefined for invalid source", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     expect(await render(el, "a ->", { lang: "ko" })).toBeUndefined();
     const pre = el.querySelector("pre.ene-error")!;
     expect(pre.textContent).toContain("E103");
@@ -208,7 +252,8 @@ describe("player DOM", () => {
   });
 
   it("uses Korean control labels with lang ko", async () => {
-    const el = document.createElement("div"); document.body.appendChild(el);
+    const el = document.createElement("div");
+    document.body.appendChild(el);
     const p = (await render(el, BRANCHY, { autoplay: false, lang: "ko" }))!;
     expect(el.querySelector('button[aria-label="재생/정지"]')).not.toBeNull();
     expect(el.querySelector('select[aria-label="분기 1"]')).not.toBeNull();

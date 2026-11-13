@@ -17,7 +17,11 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
   // Pass 1: collect unique edges and branch numbers in source order, including all arms and loops
   const collect = (body: Stmt[]) => {
     for (const s of body) {
-      if (s.type === "step") for (const e of s.edges) { edgeIndex.set(e, allEdges.length); allEdges.push(e); }
+      if (s.type === "step")
+        for (const e of s.edges) {
+          edgeIndex.set(e, allEdges.length);
+          allEdges.push(e);
+        }
       else if (s.type === "loop") collect(s.body);
       else if (s.type === "branch") {
         branchIndex.set(s, branches.length);
@@ -30,7 +34,8 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
 
   // Pass 2: compute times along the chosen path
   const steps: TimelineStep[] = [];
-  let t = 0, end = 0;
+  let t = 0,
+    end = 0;
   const walk = (body: Stmt[], path: number[]) => {
     for (const s of body) {
       if (s.type === "wait") t += s.seconds;
@@ -50,7 +55,13 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
           branchPath: path,
           ...(s.note !== undefined ? { note: s.note } : {}),
           edges: s.edges.map((e, i) => ({
-            edgeIndex: edgeIndex.get(e)!, from: e.from, to: e.to, kind: e.kind, label: e.label, start: t, duration: durs[i],
+            edgeIndex: edgeIndex.get(e)!,
+            from: e.from,
+            to: e.to,
+            kind: e.kind,
+            label: e.label,
+            start: t,
+            duration: durs[i],
           })),
         });
         // A step of only async edges (`~>`) does not block: the next step starts after a short hand-off

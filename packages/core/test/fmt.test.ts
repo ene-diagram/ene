@@ -3,7 +3,9 @@ import { formatSource } from "../src/fmt";
 import { parse } from "../src/parse";
 
 const exDir = new URL("../examples/", import.meta.url).pathname;
-const examples = readdirSync(exDir).filter((f) => f.endsWith(".ene")).map((f) => [f, readFileSync(exDir + f, "utf8")]);
+const examples = readdirSync(exDir)
+  .filter((f) => f.endsWith(".ene"))
+  .map((f) => [f, readFileSync(exDir + f, "utf8")]);
 
 test("normalizes spacing, indentation and attributes", () => {
   const src = [
@@ -24,23 +26,25 @@ test("normalizes spacing, indentation and attributes", () => {
     "api -> db   &   api -> log",
     "group  vpc[VPC]  :  user   api",
   ].join("\n");
-  expect(formatSource(src)).toBe([
-    "title Order  flow   # keep",
-    "speed 1.2",
-    "user[User]{shape: circle, color: #f59e0b} -> api[API] : POST /order",
-    "branch hit",
-    "  cache --> api : hit",
-    "else miss",
-    "  loop 2",
-    "    api -x db : retry   @2s",
-    "  end",
-    "end",
-    "",
-    "# trailing comment",
-    "api -> db & api -> log",
-    "group vpc[VPC] : user api",
-    "",
-  ].join("\n"));
+  expect(formatSource(src)).toBe(
+    [
+      "title Order  flow   # keep",
+      "speed 1.2",
+      "user[User]{shape: circle, color: #f59e0b} -> api[API] : POST /order",
+      "branch hit",
+      "  cache --> api : hit",
+      "else miss",
+      "  loop 2",
+      "    api -x db : retry   @2s",
+      "  end",
+      "end",
+      "",
+      "# trailing comment",
+      "api -> db & api -> log",
+      "group vpc[VPC] : user api",
+      "",
+    ].join("\n"),
+  );
 });
 test("keeps comments and literal # in labels", () => {
   const src = "a->b   # real comment\na -> b : issue #12   # still label text\na[Tag #1] -> c";
@@ -58,7 +62,10 @@ test("never changes meaning: unparsable or ambiguous lines are left alone", () =
 test.each(examples)("example %s: same meaning and idempotent", (_, src) => {
   const once = formatSource(src);
   expect(formatSource(once)).toBe(once);
-  const strip = (s: string) => JSON.stringify({ ...parse(s).doc, nodes: [...parse(s).doc.nodes.values()] }, (k, v) => (k === "span" ? undefined : v));
+  const strip = (s: string) =>
+    JSON.stringify({ ...parse(s).doc, nodes: [...parse(s).doc.nodes.values()] }, (k, v) =>
+      k === "span" ? undefined : v,
+    );
   expect(strip(once)).toBe(strip(src));
 });
 

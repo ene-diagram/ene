@@ -11,7 +11,8 @@ const svg = renderSvg(layoutSequence(doc, tl), tl);
 
 describe("sample", () => {
   it("interpolates linearly and treats repeated keyTimes as jumps", () => {
-    const v = [0, 0, 1, 1, 0], k = [0, 0.2, 0.2, 0.8, 1];
+    const v = [0, 0, 1, 1, 0],
+      k = [0, 0.2, 0.2, 0.8, 1];
     expect(sample(v, k, 0.1)).toBe(0);
     expect(sample(v, k, 0.2)).toBe(1);
     expect(sample(v, k, 0.5)).toBe(1);
@@ -43,7 +44,10 @@ describe("freeze", () => {
   const frozen = (t: number) => {
     const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
     const seen: string[] = [];
-    freeze(root, t, (id, f) => { seen.push(id); return { x: f * 100, y: 0 }; });
+    freeze(root, t, (id, f) => {
+      seen.push(id);
+      return { x: f * 100, y: 0 };
+    });
     return { root, seen };
   };
   it("removes every animation element and writes plain values", () => {
@@ -54,7 +58,8 @@ describe("freeze", () => {
     for (const el of Array.from(root.querySelectorAll(".hl"))) expect(el.getAttribute("opacity")).toBe("0");
   });
   it("shows the first edge and moves its dot partway during step 1", () => {
-    const s0 = tl.steps[0], mid = s0.start + s0.edges[0].duration * 0.4;
+    const s0 = tl.steps[0],
+      mid = s0.start + s0.edges[0].duration * 0.4;
     const { root } = frozen(mid);
     const [hl1, hl2] = Array.from(root.querySelectorAll(".hl"));
     expect(hl1.getAttribute("opacity")).toBe("1");
@@ -62,6 +67,7 @@ describe("freeze", () => {
     const dot = root.querySelector("circle.dot")!;
     expect(dot.getAttribute("opacity")).toBe("1");
     const x = Number(/translate\(([\d.]+)/.exec(dot.getAttribute("transform")!)![1]);
-    expect(x).toBeGreaterThan(0); expect(x).toBeLessThan(100);
+    expect(x).toBeGreaterThan(0);
+    expect(x).toBeLessThan(100);
   });
 });

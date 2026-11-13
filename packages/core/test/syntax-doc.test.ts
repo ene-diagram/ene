@@ -11,9 +11,12 @@ test("SYNTAX.md has valid examples and mistake examples", () => {
   expect(blocks.filter((b) => !b.code).length).toBeGreaterThan(4);
   expect(blocks.filter((b) => b.code).length).toBeGreaterThan(10);
 });
-test.each(blocks.filter((b) => !b.code).map((b) => [b.src.split("\n")[0], b.src]))("valid example parses cleanly: %s", (_, src) => {
-  expect(parse(src).diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-});
+test.each(blocks.filter((b) => !b.code).map((b) => [b.src.split("\n")[0], b.src]))(
+  "valid example parses cleanly: %s",
+  (_, src) => {
+    expect(parse(src).diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+  },
+);
 test.each(blocks.filter((b) => b.code).map((b) => [b.code!, b.src]))("mistake example produces %s", (code, src) => {
   expect(parse(src).diagnostics.map((d) => d.code)).toContain(code);
 });

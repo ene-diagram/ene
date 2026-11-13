@@ -7,7 +7,10 @@ export function formatDiagnostic(source: string, d: Diagnostic, lang: Lang = "en
   const g = String(d.span.line).length;
   const pad = " ".repeat(g);
   // Keep tabs in the source as-is so the ^ stays aligned
-  const lead = [...raw].slice(0, d.span.col - 1).map((c) => (c === "\t" ? "\t" : " ")).join("");
+  const lead = [...raw]
+    .slice(0, d.span.col - 1)
+    .map((c) => (c === "\t" ? "\t" : " "))
+    .join("");
   const hint = d.args.suggestion ? fill(DID_YOU_MEAN[lang], d.args) : fill(m.hint, d.args);
   return [
     `${d.severity}[${d.code}]: ${fill(m.message, d.args)}`,
@@ -24,13 +27,27 @@ export const formatAll = (source: string, ds: Diagnostic[], lang: Lang = "en") =
 
 /** Machine-readable diagnostic (for `ene check --json` and tools/agents) */
 export interface DiagnosticJson {
-  code: string; severity: Diagnostic["severity"]; line: number; col: number; length: number;
-  message: string; hint: string; suggestion?: string;
+  code: string;
+  severity: Diagnostic["severity"];
+  line: number;
+  col: number;
+  length: number;
+  message: string;
+  hint: string;
+  suggestion?: string;
 }
 export function diagnosticToJson(d: Diagnostic, lang: Lang = "en"): DiagnosticJson {
   const m = MESSAGES[lang][d.code as Code];
   const hint = d.args.suggestion ? fill(DID_YOU_MEAN[lang], d.args) : fill(m.hint, d.args);
-  const j: DiagnosticJson = { code: d.code, severity: d.severity, line: d.span.line, col: d.span.col, length: d.span.length, message: fill(m.message, d.args), hint };
+  const j: DiagnosticJson = {
+    code: d.code,
+    severity: d.severity,
+    line: d.span.line,
+    col: d.span.col,
+    length: d.span.length,
+    message: fill(m.message, d.args),
+    hint,
+  };
   if (d.args.suggestion) j.suggestion = d.args.suggestion;
   return j;
 }

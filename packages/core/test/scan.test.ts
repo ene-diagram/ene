@@ -6,7 +6,9 @@ test("strips comment only at start or after space", () => {
 });
 test("normalizes CRLF and keeps columns with tabs", () => {
   const [l] = scan("\r\n\tapi -> db\r\n");
-  expect(l.no).toBe(2); expect(l.text).toBe("api -> db"); expect(l.cols[0]).toBe(2);
+  expect(l.no).toBe(2);
+  expect(l.text).toBe("api -> db");
+  expect(l.cols[0]).toBe(2);
 });
 test("columns count code points", () => {
   const [l] = scan("😀 -> 서버");

@@ -12,7 +12,10 @@ const target = join(dir, "ene");
 
 const stat = lstatSync(target, { throwIfNoEntry: false });
 if (stat?.isSymbolicLink()) {
-  if (resolve(dir, readlinkSync(target)) === source) { console.log(`already installed: ${target}`); process.exit(0); }
+  if (resolve(dir, readlinkSync(target)) === source) {
+    console.log(`already installed: ${target}`);
+    process.exit(0);
+  }
   unlinkSync(target);
 } else if (stat) {
   console.error(`${target} exists and is not a link. Remove it first.`);
@@ -21,4 +24,5 @@ if (stat?.isSymbolicLink()) {
 mkdirSync(dir, { recursive: true });
 symlinkSync(source, target, "dir");
 console.log(`installed: ${target} -> ${source}`);
-if (!existsSync(fileURLToPath(new URL("../packages/cli/dist/main.js", import.meta.url)))) console.log("next: pnpm build");
+if (!existsSync(fileURLToPath(new URL("../packages/cli/dist/main.js", import.meta.url))))
+  console.log("next: pnpm build");

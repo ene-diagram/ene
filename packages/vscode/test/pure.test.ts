@@ -1,8 +1,23 @@
 import { parse } from "@ene-diagram/core";
 import { readFileSync } from "node:fs";
-import { cpColToUtf16, formatEdit, parseWebviewMessage, previewHtml, quickFixEdit, spanToRange, splitLines, toEditorDiagnostics } from "../src/pure.js";
+import {
+  cpColToUtf16,
+  formatEdit,
+  parseWebviewMessage,
+  previewHtml,
+  quickFixEdit,
+  spanToRange,
+  splitLines,
+  toEditorDiagnostics,
+} from "../src/pure.js";
 
-const apply = (text: string, e: { range: { start: { line: number; character: number }; end: { line: number; character: number } }; newText: string }) => {
+const apply = (
+  text: string,
+  e: {
+    range: { start: { line: number; character: number }; end: { line: number; character: number } };
+    newText: string;
+  },
+) => {
   const lines = splitLines(text);
   const { start, end } = e.range;
   const head = lines.slice(0, start.line).concat(lines[start.line].slice(0, start.character)).join("\n");
@@ -19,7 +34,10 @@ describe("range mapping", () => {
     expect(cpColToUtf16("ab", 10)).toBe(2); // clamped
   });
   it("maps spans to 0-based ranges", () => {
-    expect(spanToRange(["a -> b", "😀 -> c"], { line: 2, col: 3, length: 2 })).toEqual({ start: { line: 1, character: 3 }, end: { line: 1, character: 5 } });
+    expect(spanToRange(["a -> b", "😀 -> c"], { line: 2, col: 3, length: 2 })).toEqual({
+      start: { line: 1, character: 3 },
+      end: { line: 1, character: 5 },
+    });
   });
   it("never yields an empty range and clamps the line", () => {
     const r = spanToRange(["a ->"], { line: 5, col: 5, length: 1 });
@@ -80,7 +98,14 @@ describe("webview", () => {
     expect(parseWebviewMessage(null)).toBeUndefined();
   });
   it("has a strict CSP without remote sources or unsafe-eval", () => {
-    const html = previewHtml({ cspSource: "vscode-resource:", nonce: "N", playerUri: "u1", elkUri: "u\"2", scriptUri: "u3", lang: "en" });
+    const html = previewHtml({
+      cspSource: "vscode-resource:",
+      nonce: "N",
+      playerUri: "u1",
+      elkUri: 'u"2',
+      scriptUri: "u3",
+      lang: "en",
+    });
     const csp = /Content-Security-Policy" content="([^"]*)"/.exec(html)![1];
     expect(csp).toContain("default-src 'none'");
     expect(csp).toContain("script-src 'nonce-N' vscode-resource:");

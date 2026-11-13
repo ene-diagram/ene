@@ -12,21 +12,34 @@ const DURATION = /^(\d+(?:\.\d+)?)s$/;
 export const LIMITS = { depth: 32, steps: 10_000, seconds: 86_400 };
 
 /** CSS named colors (CSS Color Module Level 4) plus transparent / currentColor */
-const CSS_COLORS = new Set(("aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood " +
-  "cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey " +
-  "darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey " +
-  "darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite " +
-  "gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon " +
-  "lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue " +
-  "lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid " +
-  "mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin " +
-  "navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff " +
-  "peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver " +
-  "skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow " +
-  "yellowgreen transparent currentcolor").split(" "));
-const isColor = (v: string) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v) || CSS_COLORS.has(v.toLowerCase());
+const CSS_COLORS = new Set(
+  (
+    "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood " +
+    "cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey " +
+    "darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey " +
+    "darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite " +
+    "gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon " +
+    "lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue " +
+    "lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid " +
+    "mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin " +
+    "navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff " +
+    "peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver " +
+    "skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow " +
+    "yellowgreen transparent currentcolor"
+  ).split(" "),
+);
+const isColor = (v: string) =>
+  /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v) || CSS_COLORS.has(v.toLowerCase());
 
-interface Ref { id: string; label?: string; icon?: string; shape?: Shape; color?: string; start: number; end: number }
+interface Ref {
+  id: string;
+  label?: string;
+  icon?: string;
+  shape?: Shape;
+  color?: string;
+  start: number;
+  end: number;
+}
 
 /** `#` that reads like a comment (whitespace on both sides) and `@2s` that reads like a duration, inside a label */
 const LABEL_HASH = /(?:^|\s)(#)(?:\s|$)/;
@@ -43,8 +56,19 @@ type Frame =
 class Parser {
   private stack: Frame[] = [];
   private uses = new Map<string, { line: Line; from: number; to: number }[]>();
-  private pendingGroups: { g: Group; line: Line; memberAt: { id: string; from: number; to: number }[]; parentAt?: [number, number] }[] = [];
-  private hints: { kind: "pin" | "rank"; ids: { id: string; from: number; to: number }[]; line: Line; col?: number; row?: number }[] = [];
+  private pendingGroups: {
+    g: Group;
+    line: Line;
+    memberAt: { id: string; from: number; to: number }[];
+    parentAt?: [number, number];
+  }[] = [];
+  private hints: {
+    kind: "pin" | "rank";
+    ids: { id: string; from: number; to: number }[];
+    line: Line;
+    col?: number;
+    row?: number;
+  }[] = [];
   private nodes = new Map<string, NodeDecl>();
   private labeled = new Set<string>();
   private settings = new Set<string>();
@@ -61,12 +85,15 @@ class Parser {
     // Report unclosed blocks starting from the outermost (topmost line)
     for (const f of this.stack.splice(0)) {
       this.close(f);
-      this.report("E203", f.line, 0, [...f.line.text].length, { block: f.kind === "branch" && f.stmt.optional ? "opt" : f.kind });
+      this.report("E203", f.line, 0, [...f.line.text].length, {
+        block: f.kind === "branch" && f.stmt.optional ? "opt" : f.kind,
+      });
     }
     this.resolveHints();
     this.resolveGroups();
     // W111: layout hints and groups are dropped by the sequence layout
-    if (this.doc.kind === "sequence") for (const { keyword, line } of this.layoutLines) this.report("W111", line, 0, keyword.length, { keyword });
+    if (this.doc.kind === "sequence")
+      for (const { keyword, line } of this.layoutLines) this.report("W111", line, 0, keyword.length, { keyword });
     this.typos();
     if (!this.diags.some((d) => d.severity === "error")) this.budget();
     if (this.doc.body.length === 0 && !this.diags.some((d) => d.severity === "error"))
@@ -88,28 +115,38 @@ class Parser {
   }
 
   depthCheck(l: Line) {
-    if (this.stack.length === LIMITS.depth) this.report("E206", l, 0, [...l.text].length, { limit: String(LIMITS.depth) });
+    if (this.stack.length === LIMITS.depth)
+      this.report("E206", l, 0, [...l.text].length, { limit: String(LIMITS.depth) });
   }
 
   /** E305/E306: worst-case expanded steps and duration over any branch path, without expanding */
   budget() {
     const cost = (body: Stmt[]): { steps: number; secs: number } => {
-      let steps = 0, secs = 0;
+      let steps = 0,
+        secs = 0;
       for (const s of body) {
         if (s.type === "wait") secs += s.seconds;
-        else if (s.type === "step") { steps++; secs += Math.max(...s.edges.map((e) => e.duration ?? this.doc.speed)); }
-        else if (s.type === "loop") { const c = cost(s.body); steps += c.steps * s.count; secs += c.secs * s.count; }
-        else {
+        else if (s.type === "step") {
+          steps++;
+          secs += Math.max(...s.edges.map((e) => e.duration ?? this.doc.speed));
+        } else if (s.type === "loop") {
+          const c = cost(s.body);
+          steps += c.steps * s.count;
+          secs += c.secs * s.count;
+        } else {
           const cs = s.arms.map((a) => cost(a.body));
-          steps += Math.max(...cs.map((c) => c.steps)); secs += Math.max(...cs.map((c) => c.secs));
+          steps += Math.max(...cs.map((c) => c.steps));
+          secs += Math.max(...cs.map((c) => c.secs));
         }
       }
       return { steps, secs };
     };
     const c = cost(this.doc.body);
     const at: Span = { line: 1, col: 1, length: 1 };
-    if (c.steps > LIMITS.steps) this.diags.push({ code: "E305", severity: "error", span: at, args: { limit: String(LIMITS.steps) } });
-    else if (!(c.secs <= LIMITS.seconds)) this.diags.push({ code: "E306", severity: "error", span: at, args: { limit: String(LIMITS.seconds) } });
+    if (c.steps > LIMITS.steps)
+      this.diags.push({ code: "E305", severity: "error", span: at, args: { limit: String(LIMITS.steps) } });
+    else if (!(c.secs <= LIMITS.seconds))
+      this.diags.push({ code: "E306", severity: "error", span: at, args: { limit: String(LIMITS.seconds) } });
   }
 
   // ---- statements ----
@@ -138,7 +175,8 @@ class Parser {
     const rest = l.text.slice(word.length).trim();
     // A keyword followed by an arrow is almost always a node named like the keyword
     if (KEYWORDS.includes(word) && arrowAt([...rest], 0)) {
-      if (word !== "title" && word !== "branch" && word !== "else") return this.report("E115", l, 0, word.length, { keyword: word });
+      if (word !== "title" && word !== "branch" && word !== "else")
+        return this.report("E115", l, 0, word.length, { keyword: word });
       this.report("W109", l, 0, word.length, { keyword: word });
     }
     if (word === "title" || word === "diagram" || word === "speed" || word === "theme") {
@@ -153,12 +191,23 @@ class Parser {
       if (rest !== "flow" && rest !== "sequence") return this.report("E112", l, 8, t.length, { value: rest });
       return void (this.doc.kind = rest);
     }
-    const EXAMPLES: Record<string, string> = { speed: "speed 1.2", wait: "wait 0.5", loop: "loop 3", theme: "theme mono", note: "note Cache is checked first" };
-    if (!rest && word in EXAMPLES) return this.report("E307", l, 0, t.length, { keyword: word, example: EXAMPLES[word] });
+    const EXAMPLES: Record<string, string> = {
+      speed: "speed 1.2",
+      wait: "wait 0.5",
+      loop: "loop 3",
+      theme: "theme mono",
+      note: "note Cache is checked first",
+    };
+    if (!rest && word in EXAMPLES)
+      return this.report("E307", l, 0, t.length, { keyword: word, example: EXAMPLES[word] });
     if (word === "theme") {
       if (!isTheme(rest)) {
         const suggestion = suggest(rest, [...THEMES]);
-        return this.report("E118", l, 6, t.length, { value: rest, themes: THEMES.join(", "), ...(suggestion ? { suggestion } : {}) });
+        return this.report("E118", l, 6, t.length, {
+          value: rest,
+          themes: THEMES.join(", "),
+          ...(suggestion ? { suggestion } : {}),
+        });
       }
       return void (this.doc.theme = rest);
     }
@@ -181,7 +230,10 @@ class Parser {
     if (word === "pin" || word === "rank") return this.hint(l, t, word);
     if (word === "group") return this.group(l, t);
     if (word === "end") {
-      if (rest) { const at = skip(t, 3); this.report("W108", l, at, t.length, { word: rest }); }
+      if (rest) {
+        const at = skip(t, 3);
+        this.report("W108", l, at, t.length, { word: rest });
+      }
       const f = this.stack.pop();
       if (!f) return this.report("E204", l, 0, 3);
       return this.close(f);
@@ -234,7 +286,14 @@ class Parser {
   labelHash(l: Line, t: string[], from: number, to: number) {
     const m = t.slice(from, to).join("").match(LABEL_HASH);
     if (!m) return;
-    const at = from + [...t.slice(from, to).join("").slice(0, m.index! + m[0].indexOf("#"))].length;
+    const at =
+      from +
+      [
+        ...t
+          .slice(from, to)
+          .join("")
+          .slice(0, m.index! + m[0].indexOf("#")),
+      ].length;
     this.report("W105", l, at, at + 1);
   }
 
@@ -271,7 +330,7 @@ class Parser {
 
   /** One edge starting at pos. next is the position after the next ` & `, or t.length */
   edge(l: Line, t: string[], pos: number): { edge: Edge; next: number } | undefined {
-    const begin = pos = skip(t, pos);
+    const begin = (pos = skip(t, pos));
     const a = this.ref(l, t, pos);
     if (a === null) return;
     if (!a) {
@@ -289,15 +348,23 @@ class Parser {
     const arrow = arrowAt(t, pos);
     if (!arrow) {
       // `a-x b` (glued to the source) or `a -xb` (glued to the target)
-      if (a.label === undefined && a.id.length > 2 && a.id.endsWith("-x") && a.end === a.start + [...a.id].length && pos > a.end && pos < t.length && ID_CHAR.test(t[pos]))
+      if (
+        a.label === undefined &&
+        a.id.length > 2 &&
+        a.id.endsWith("-x") &&
+        a.end === a.start + [...a.id].length &&
+        pos > a.end &&
+        pos < t.length &&
+        ID_CHAR.test(t[pos])
+      )
         return void this.report("E113", l, a.end - 2, a.end);
-      if (t[pos] === "-" && t[pos + 1] === "x" && pos > a.end)
-        return void this.report("E113", l, pos, pos + 2);
+      if (t[pos] === "-" && t[pos + 1] === "x" && pos > a.end) return void this.report("E113", l, pos, pos + 2);
       const w = t.slice(begin).join("").split(/\s/, 1)[0];
       return void this.report("E102", l, begin, begin + [...w].length, { word: w });
     }
     const arrowPos = pos;
-    if (arrow.kind === "async" && pos + 2 < t.length && !/\s/.test(t[pos + 2])) return void this.report("E117", l, pos, pos + 2);
+    if (arrow.kind === "async" && pos + 2 < t.length && !/\s/.test(t[pos + 2]))
+      return void this.report("E117", l, pos, pos + 2);
     pos = skip(t, pos + arrow.len);
     if (pos >= t.length) return void this.report("E103", l, arrowPos, arrowPos + arrow.len);
     const b = this.ref(l, t, pos);
@@ -306,10 +373,13 @@ class Parser {
     pos = b.end;
 
     // Cut the remainder before the next edge (` & ref ->`)
-    let end = t.length, next = t.length;
+    let end = t.length,
+      next = t.length;
     for (let i = pos; i + 2 < t.length; i++) {
       if (t[i] === " " && t[i + 1] === "&" && t[i + 2] === " " && NEXT_EDGE.test(t.slice(i + 3).join(""))) {
-        end = i; next = i + 3; break;
+        end = i;
+        next = i + 3;
+        break;
       }
     }
     let tail = t.slice(pos, end).join("");
@@ -318,7 +388,8 @@ class Parser {
     if (dm) {
       const at = pos + [...tail.slice(0, dm.index! + dm[1].length)].length;
       const v = dm[2].match(DURATION);
-      if (!v || !Number.isFinite(Number(v[1]))) return void this.report("E303", l, at, at + 1 + [...dm[2]].length, { value: dm[2] });
+      if (!v || !Number.isFinite(Number(v[1])))
+        return void this.report("E303", l, at, at + 1 + [...dm[2]].length, { value: dm[2] });
       duration = Number(v[1]);
       tail = tail.slice(0, dm.index);
     }
@@ -326,21 +397,25 @@ class Parser {
     const tt = tail.trim();
     if (tt.startsWith(":")) {
       label = tt.slice(1).trim();
-      const labelFrom = skip(t, pos) + 1, labelTo = labelFrom + [...tt.slice(1)].length;
+      const labelFrom = skip(t, pos) + 1,
+        labelTo = labelFrom + [...tt.slice(1)].length;
       this.labelHash(l, t, labelFrom, labelTo);
       const lm = label.match(LABEL_DURATION);
       if (lm) {
-        const off = [...tt.slice(1)].length - [...tt.slice(1).trimStart()].length + [...label.slice(0, lm.index! + lm[0].indexOf("@"))].length;
+        const off =
+          [...tt.slice(1)].length -
+          [...tt.slice(1).trimStart()].length +
+          [...label.slice(0, lm.index! + lm[0].indexOf("@"))].length;
         this.report("W110", l, labelFrom + off, labelFrom + off + 1 + [...lm[1]].length, { value: lm[1] });
       }
-    }
-    else if (tt) {
+    } else if (tt) {
       const at = skip(t, pos);
       return void this.report("E102", l, at, at + [...tt].length, { word: tt });
     }
     this.declare(l, a);
     this.declare(l, b);
-    for (const r of [a, b]) this.uses.set(r.id, [...(this.uses.get(r.id) ?? []), { line: l, from: r.start, to: r.end }]);
+    for (const r of [a, b])
+      this.uses.set(r.id, [...(this.uses.get(r.id) ?? []), { line: l, from: r.start, to: r.end }]);
     if (a.id === b.id) this.report("W103", l, begin, pos, { name: a.id });
     const edge: Edge = { from: a.id, to: b.id, kind: arrow.kind, label, span: this.span(l, begin, end) };
     if (duration !== undefined) edge.duration = duration;
@@ -356,12 +431,21 @@ class Parser {
     const id = t.slice(pos, i).join("");
     const r: Ref = { id, start: pos, end: i };
     if (t[i] === "[") {
-      let depth = 0, closed = false;
+      let depth = 0,
+        closed = false;
       for (let j = i; j < t.length; j++) {
         if (t[j] === "[") depth++;
-        else if (t[j] === "]" && --depth === 0) { r.label = t.slice(i + 1, j).join(""); r.end = j + 1; closed = true; break; }
+        else if (t[j] === "]" && --depth === 0) {
+          r.label = t.slice(i + 1, j).join("");
+          r.end = j + 1;
+          closed = true;
+          break;
+        }
       }
-      if (!closed) { this.report("E105", l, i, i + 1); return null; }
+      if (!closed) {
+        this.report("E105", l, i, i + 1);
+        return null;
+      }
     }
     if (t[r.end] === "{") return this.attrs(l, t, r);
     return r;
@@ -369,31 +453,62 @@ class Parser {
 
   /** `{key: value, ...}` node properties. Only icon for now */
   attrs(l: Line, t: string[], r: Ref): Ref | null {
-    const open = r.end, close = t.indexOf("}", open);
-    if (close < 0) { this.report("E109", l, open, open + 1); return null; }
+    const open = r.end,
+      close = t.indexOf("}", open);
+    if (close < 0) {
+      this.report("E109", l, open, open + 1);
+      return null;
+    }
     let at = open + 1;
-    for (const part of t.slice(open + 1, close).join("").split(",")) {
+    for (const part of t
+      .slice(open + 1, close)
+      .join("")
+      .split(",")) {
       const len = [...part].length;
       const c = part.indexOf(":");
       const key = (c < 0 ? part : part.slice(0, c)).trim();
       const value = c < 0 ? "" : part.slice(c + 1).trim();
-      const vAt = at + (c < 0 ? 0 : [...part.slice(0, c + 1)].length + ([...part.slice(c + 1)].length - [...part.slice(c + 1).trimStart()].length));
+      const vAt =
+        at +
+        (c < 0
+          ? 0
+          : [...part.slice(0, c + 1)].length +
+            ([...part.slice(c + 1)].length - [...part.slice(c + 1).trimStart()].length));
       if ((key === "icon" || key === "shape" || key === "color") && !value) {
-        const k0 = at + Math.max(0, [...part].findIndex((ch) => ch.trim()));
-        this.report("E114", l, k0, k0 + [...key].length, { name: key }); return null;
+        const k0 =
+          at +
+          Math.max(
+            0,
+            [...part].findIndex((ch) => ch.trim()),
+          );
+        this.report("E114", l, k0, k0 + [...key].length, { name: key });
+        return null;
       }
       if (key === "icon") r.icon = value;
       else if (key === "shape") {
-        if (!SHAPES.includes(value as Shape)) { this.report("E110", l, vAt, vAt + Math.max(1, [...value].length), { value }); return null; }
+        if (!SHAPES.includes(value as Shape)) {
+          this.report("E110", l, vAt, vAt + Math.max(1, [...value].length), { value });
+          return null;
+        }
         r.shape = value as Shape;
       } else if (key === "color") {
         if (!isColor(value)) {
           const sug = /^[a-zA-Z]+$/.test(value) ? suggest(value.toLowerCase(), CSS_COLORS) : undefined;
-          this.report("E111", l, vAt, vAt + Math.max(1, [...value].length), sug ? { value, suggestion: sug } : { value });
+          this.report(
+            "E111",
+            l,
+            vAt,
+            vAt + Math.max(1, [...value].length),
+            sug ? { value, suggestion: sug } : { value },
+          );
           return null;
         }
         r.color = value;
-      } else if (key) { const k0 = at + [...part].findIndex((ch) => ch.trim()); this.report("E108", l, k0, k0 + [...key].length, { name: key }); return null; }
+      } else if (key) {
+        const k0 = at + [...part].findIndex((ch) => ch.trim());
+        this.report("E108", l, k0, k0 + [...key].length, { name: key });
+        return null;
+      }
       at += len + 1;
     }
     r.end = close + 1;
@@ -439,13 +554,22 @@ class Parser {
     for (let i = 0, depth = 0; i < t.length; i++) {
       if (t[i] === "[" || t[i] === "{") depth++;
       else if (t[i] === "]" || t[i] === "}") depth--;
-      else if (t[i] === ":" && depth === 0) { colon = i; break; }
+      else if (t[i] === ":" && depth === 0) {
+        colon = i;
+        break;
+      }
     }
     let pos = skip(t, 5);
     const r = this.ref(l, t.slice(0, colon < 0 ? t.length : colon), pos);
     if (r === null) return;
     if (!r || colon < 0) return this.report("E102", l, 0, t.length, { word: "group" });
-    const g: Group = { id: r.id, label: r.label ?? r.id, members: [], span: this.span(l, 0, t.length), ...(r.color ? { color: r.color } : {}) };
+    const g: Group = {
+      id: r.id,
+      label: r.label ?? r.id,
+      members: [],
+      span: this.span(l, 0, t.length),
+      ...(r.color ? { color: r.color } : {}),
+    };
     pos = skip(t, r.end);
     let parentAt: [number, number] | undefined;
     const head = t.slice(pos, colon).join("").trim();
@@ -472,7 +596,10 @@ class Parser {
     // Filter out duplicate ids first
     const byId = new Map<string, (typeof this.pendingGroups)[number]>();
     for (const pg of this.pendingGroups) {
-      if (byId.has(pg.g.id)) { this.report("E405", pg.line, 0, [...pg.line.text].length, { name: pg.g.id }); continue; }
+      if (byId.has(pg.g.id)) {
+        this.report("E405", pg.line, 0, [...pg.line.text].length, { name: pg.g.id });
+        continue;
+      }
       byId.set(pg.g.id, pg);
     }
     // Order so parents come first (independent of declaration order)
@@ -504,7 +631,13 @@ class Parser {
         if (inCycle(g.id)) this.report("E407", line, parentAt![0], parentAt![1], { name: g.id });
         else if (!byId.has(g.parent)) {
           const sug = suggest(g.parent, byId.keys());
-          this.report("E406", line, parentAt![0], parentAt![1], sug ? { name: g.parent, suggestion: sug } : { name: g.parent });
+          this.report(
+            "E406",
+            line,
+            parentAt![0],
+            parentAt![1],
+            sug ? { name: g.parent, suggestion: sug } : { name: g.parent },
+          );
         }
         continue;
       }
@@ -516,17 +649,26 @@ class Parser {
         if (!this.nodes.has(m.id)) {
           const sug = suggest(m.id, this.nodes.keys());
           this.report("E401", line, m.from, m.to, sug ? { name: m.id, suggestion: sug } : { name: m.id });
-          good = false; continue;
+          good = false;
+          continue;
         }
         const cur = memberOf.get(m.id);
-        if (g.parent ? cur !== g.parent : cur !== undefined) { this.report("E404", line, m.from, m.to, { name: m.id, group: g.id }); good = false; }
+        if (g.parent ? cur !== g.parent : cur !== undefined) {
+          this.report("E404", line, m.from, m.to, { name: m.id, group: g.id });
+          good = false;
+        }
       }
       if (!good) continue;
-      for (const id of seen) { memberOf.set(id, g.id); g.members.push(id); }
+      for (const id of seen) {
+        memberOf.set(id, g.id);
+        g.members.push(id);
+      }
       ok.add(g.id);
     }
     // Results go back to the original declaration order
-    this.doc.groups = this.pendingGroups.map((pg) => pg.g).filter((g, i, arr) => ok.has(g.id) && arr.findIndex((x) => x.id === g.id) === i);
+    this.doc.groups = this.pendingGroups
+      .map((pg) => pg.g)
+      .filter((g, i, arr) => ok.has(g.id) && arr.findIndex((x) => x.id === g.id) === i);
   }
 
   resolveHints() {
@@ -535,12 +677,23 @@ class Parser {
       const missing = h.ids.find((x) => !this.nodes.has(x.id));
       if (missing) {
         const sug = suggest(missing.id, this.nodes.keys());
-        this.report("E401", h.line, missing.from, missing.to, sug ? { name: missing.id, suggestion: sug } : { name: missing.id });
+        this.report(
+          "E401",
+          h.line,
+          missing.from,
+          missing.to,
+          sug ? { name: missing.id, suggestion: sug } : { name: missing.id },
+        );
         continue;
       }
       const span = this.span(h.line, 0, [...h.line.text].length);
-      if (h.kind === "rank") { this.doc.ranks.push({ ids: h.ids.map((x) => x.id), span }); continue; }
-      const key = `${h.col},${h.row}`, id = h.ids[0].id, other = cells.get(key);
+      if (h.kind === "rank") {
+        this.doc.ranks.push({ ids: h.ids.map((x) => x.id), span });
+        continue;
+      }
+      const key = `${h.col},${h.row}`,
+        id = h.ids[0].id,
+        other = cells.get(key);
       if (other) {
         this.report("E403", h.line, 0, [...h.line.text].length, { name: id, other, cell: key });
         continue;
@@ -554,19 +707,32 @@ class Parser {
   declare(l: Line, r: Ref) {
     const span = this.span(l, r.start, r.end);
     const prev = this.nodes.get(r.id);
-    if (prev) for (const k of ["icon", "shape", "color"] as const) {
-      if (r[k] && !prev[k]) (prev as unknown as Record<string, unknown>)[k] = r[k];
-      else if (r[k] && prev[k] !== r[k]) this.report("W106", l, r.start, r.end, { name: r.id, attr: k, first: prev[k]!, second: r[k]! });
-    }
+    if (prev)
+      for (const k of ["icon", "shape", "color"] as const) {
+        if (r[k] && !prev[k]) (prev as unknown as Record<string, unknown>)[k] = r[k];
+        else if (r[k] && prev[k] !== r[k])
+          this.report("W106", l, r.start, r.end, { name: r.id, attr: k, first: prev[k]!, second: r[k]! });
+      }
     if (!prev) {
-      this.nodes.set(r.id, { id: r.id, label: r.label ?? r.id, span,
-        ...(r.icon ? { icon: r.icon } : {}), ...(r.shape ? { shape: r.shape } : {}), ...(r.color ? { color: r.color } : {}) });
+      this.nodes.set(r.id, {
+        id: r.id,
+        label: r.label ?? r.id,
+        span,
+        ...(r.icon ? { icon: r.icon } : {}),
+        ...(r.shape ? { shape: r.shape } : {}),
+        ...(r.color ? { color: r.color } : {}),
+      });
       if (r.label !== undefined) this.labeled.add(r.id);
       return;
     }
     if (r.label === undefined) return;
-    if (!this.labeled.has(r.id)) { prev.label = r.label; this.labeled.add(r.id); return; }
-    if (prev.label !== r.label) this.report("W102", l, r.start, r.end, { name: r.id, first: prev.label, second: r.label });
+    if (!this.labeled.has(r.id)) {
+      prev.label = r.label;
+      this.labeled.add(r.id);
+      return;
+    }
+    if (prev.label !== r.label)
+      this.report("W102", l, r.start, r.end, { name: r.id, first: prev.label, second: r.label });
   }
 }
 
@@ -583,4 +749,7 @@ const arrowAt = (t: string[], i: number): { kind: EdgeKind; len: number } | unde
     return { kind: "fail", len: 2 };
 };
 const isArrow = (t: string[], i: number) => arrowAt(t, i) !== undefined;
-const skip = (t: string[], i: number) => { while (i < t.length && /\s/.test(t[i])) i++; return i; };
+const skip = (t: string[], i: number) => {
+  while (i < t.length && /\s/.test(t[i])) i++;
+  return i;
+};

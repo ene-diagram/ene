@@ -1,12 +1,22 @@
 import { parse, buildTimeline } from "@ene-diagram/core";
 import { layoutSequence, edgeFor } from "../src/index";
-const seq = (src: string, choices?: number[]) => { const { doc } = parse("diagram sequence\n" + src); const tl = buildTimeline(doc, { choices }); return { tl, l: layoutSequence(doc, tl) }; };
+const seq = (src: string, choices?: number[]) => {
+  const { doc } = parse("diagram sequence\n" + src);
+  const tl = buildTimeline(doc, { choices });
+  return { tl, l: layoutSequence(doc, tl) };
+};
 test("participants in declaration order, rows go down, arrows are horizontal", () => {
   const { tl, l } = seq("user -> api : req\napi -> db : q\ndb --> api : rows\napi --> user : res");
-  expect(l.nodes.map(n => n.id)).toEqual(["user", "api", "db"]);
+  expect(l.nodes.map((n) => n.id)).toEqual(["user", "api", "db"]);
   expect(l.nodes[0].x).toBeLessThan(l.nodes[1].x);
-  const ys = tl.steps.map(s => { const e = edgeFor(l, s.index, 0, s.edges[0].edgeIndex)!; const n = e.d.match(/[-\d.]+/g)!.map(Number); expect(n[1]).toBe(n[n.length - 1]); return n[1]; });
-  expect([...ys].sort((a, b) => a - b)).toEqual(ys); expect(new Set(ys).size).toBe(4);
+  const ys = tl.steps.map((s) => {
+    const e = edgeFor(l, s.index, 0, s.edges[0].edgeIndex)!;
+    const n = e.d.match(/[-\d.]+/g)!.map(Number);
+    expect(n[1]).toBe(n[n.length - 1]);
+    return n[1];
+  });
+  expect([...ys].sort((a, b) => a - b)).toEqual(ys);
+  expect(new Set(ys).size).toBe(4);
   expect(l.lifelines).toHaveLength(3);
 });
 test("parallel edges share a row, self edge loops right", () => {
