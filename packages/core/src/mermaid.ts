@@ -406,7 +406,7 @@ export function fromMermaid(input: string): MermaidResult {
   }
   head.push("");
   out.splice(bodyAt, 0, ...head);
-  const source = out.join("\n") + "\n";
+  const source = `${out.join("\n")}\n`;
   const bad = parse(source).diagnostics.find((d) => d.severity === "error");
   const result: MermaidResult = { source, warnings: flush(warnings, grouped) };
   if (bad)
@@ -648,7 +648,10 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
     if (subIds.has(name) && label === undefined && !declared) return { id: `\u0000${name}`, rest };
     const id = nodeId(name);
     let n = nodes.get(id);
-    if (!n) nodes.set(id, (n = { id, label: text(name), line }));
+    if (!n) {
+      n = { id, label: text(name), line };
+      nodes.set(id, n);
+    }
     if (label !== undefined) n.label = label;
     if (declared) {
       if (shape && shape !== "box") n.shape = shape;
@@ -826,7 +829,7 @@ function fromFlowchart(lines: { text: string; no: number }[], at: number, title:
     gl.push(`group ${g.id}[${label(g.label) || g.id}]${g.parent ? ` in ${g.parent}` : ""} : ${members.join(" ")}`);
   }
   if (gl.length) out.push("", ...gl);
-  const source = out.join("\n") + "\n";
+  const source = `${out.join("\n")}\n`;
   const bad = parse(source).diagnostics.find((d) => d.severity === "error");
   const result: MermaidResult = { source, warnings: flush(warnings, grouped) };
   if (bad)

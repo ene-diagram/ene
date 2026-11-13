@@ -1,7 +1,7 @@
 import { parse, buildTimeline } from "@ene-diagram/core";
 import { layoutSequence, edgeFor } from "../src/index";
 const seq = (src: string, choices?: number[]) => {
-  const { doc } = parse("diagram sequence\n" + src);
+  const { doc } = parse(`diagram sequence\n${src}`);
   const tl = buildTimeline(doc, { choices });
   return { tl, l: layoutSequence(doc, tl) };
 };

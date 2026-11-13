@@ -1,7 +1,15 @@
 {
   "name": "@ene-diagram/layout",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Layout engine (ELK + sequence) for ene diagrams",
+  "keywords": [
+    "ene",
+    "diagram",
+    "animated-diagram",
+    "text-to-diagram",
+    "layout",
+    "elk"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -11,11 +19,12 @@
   "homepage": "https://github.com/ene-diagram/ene#readme",
   "bugs": "https://github.com/ene-diagram/ene/issues",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "files": [
     "dist",
-    "LICENSE"
+    "LICENSE",
+    "README.md"
   ],
   "type": "module",
   "main": "./dist/index.js",

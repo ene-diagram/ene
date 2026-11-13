@@ -97,3 +97,10 @@ test("async edges get their own style", async () => {
   expect(svg).toContain(".hl.async{");
   expect(svg).toContain("a → q: publish (async)");
 });
+test("desc marks failed calls in the chosen language", async () => {
+  const { doc } = parse("a -x b");
+  const tl = buildTimeline(doc);
+  const lay = await layout(doc, tl);
+  expect(renderSvg(lay, tl)).toMatch(/<desc>[^<]*a → b \(fail\)/);
+  expect(renderSvg(lay, tl, { lang: "ko" })).toMatch(/<desc>[^<]*a → b \(실패\)/);
+});

@@ -1,5 +1,5 @@
 import { isTheme, type Timeline } from "@ene-diagram/core";
-import type { ResolvedIcon } from "@ene-diagram/core";
+import type { Lang, ResolvedIcon } from "@ene-diagram/core";
 import { themeClass, themeCss, type ThemeName } from "./themes.js";
 import { edgeFor, textWidth, type LEdge, type LFrame, type LGroup, type LNode, type Layout } from "@ene-diagram/layout";
 
@@ -28,6 +28,8 @@ export interface SvgOptions {
   notes?: boolean;
   /** Colour theme (the document's `theme` setting; default "default") */
   theme?: ThemeName;
+  /** Language of the accessible description (default "en") */
+  lang?: Lang;
 }
 
 const ICON = 24,
@@ -55,7 +57,7 @@ function shapeMarkup(n: LNode, attrs: string): string {
           return `<line x1="${lx}" y1="${y + 8}" x2="${lx}" y2="${y + h - 8}" ${attrs.replace(/fill="[^"]*"/, "")}/>`;
         })
         .join("");
-      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ${attrs}/>` + lines;
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ${attrs}/>${lines}`;
     }
     default:
       return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ${attrs}/>`;
@@ -179,6 +181,21 @@ export const STYLE = `
 /** Length of one loop of the exported animation: the timeline plus a hold on the final state */
 export const loopSeconds = (tl: Timeline) => Math.max(tl.total + HOLD, 0.1);
 
+// Timing rules shared by the SVG renderer and the browser player, so both animate the same way.
+/** The moving dot reaches the target at this fraction of the edge's duration */
+export const DOT_ARRIVAL = 0.85;
+/** When the dot of an edge starting at `start` arrives */
+export const arrivalTime = (start: number, duration: number) => start + duration * DOT_ARRIVAL;
+/** Start times of every step that uses each edge, by edge index */
+export function edgeUses(tl: Timeline): Map<number, number[]> {
+  const uses = new Map<number, number[]>();
+  for (const s of tl.steps) for (const e of s.edges) uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start]);
+  return uses;
+}
+/** When an edge's label hides: the next step that reuses the edge, else `fallback` */
+export const nextUseAfter = (uses: Map<number, number[]>, edgeIndex: number, t: number, fallback: number) =>
+  (uses.get(edgeIndex) ?? []).find((x) => x > t) ?? fallback;
+
 export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): string {
   const theme: ThemeName = opts.theme && isTheme(opts.theme) ? opts.theme : "default";
   const total = loopSeconds(tl);
@@ -189,8 +206,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
   const offY = opts.title ? TITLE_H : 0;
 
   // When the same edge is reused, hide the previous label then
-  const uses = new Map<number, number[]>();
-  tl.steps.forEach((s) => s.edges.forEach((e) => uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start])));
+  const uses = edgeUses(tl);
 
   let base = "",
     hl = "",
@@ -203,10 +219,10 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
       const le = edgeFor(l, s.index, k, e.edgeIndex);
       if (!le) continue;
       const t0 = s.start,
-        t1 = s.start + e.duration * 0.85;
+        t1 = arrivalTime(s.start, e.duration);
       const end = total - FADE;
       // Sequence has separate rows, so keep the label to the end
-      const nextUse = le.step !== undefined ? end : ((uses.get(e.edgeIndex) ?? []).find((t) => t > t0) ?? end);
+      const nextUse = le.step !== undefined ? end : nextUseAfter(uses, e.edgeIndex, t0, end);
       const on = `0;${kt(t0)};${kt(t0)};${kt(end)};1`;
       hl += `<path d="${le.d}" class="hl ${e.kind}" marker-end="url(#ene-ah)" opacity="0">${anim("opacity", "0;0;1;1;0", on)}</path>`;
       dots +=
@@ -253,7 +269,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
       s.edges
         .map(
           (e) =>
-            `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : e.kind === "async" ? " (async)" : ""}`,
+            `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? (opts.lang === "ko" ? " (실패)" : " (fail)") : e.kind === "async" ? " (async)" : ""}`,
         )
         .concat(s.note && opts.notes !== false ? [`(${s.note})`] : [])
         .join(" "),

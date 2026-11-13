@@ -11,7 +11,7 @@ test("loop and wait and per-edge duration", () => {
   const { doc } = parse("loop 3\n a -> b @2s\nend\nwait 0.5");
   const l = doc.body[0];
   expect(l.type === "loop" && l.count).toBe(3);
-  expect(l.type === "loop" && (l.body[0] as any).edges[0].duration).toBe(2);
+  expect(l.type === "loop" && (l.body[0] as { edges: { duration?: number }[] }).edges[0].duration).toBe(2);
   expect(doc.body[1]).toMatchObject({ type: "wait", seconds: 0.5 });
 });
 test("nested unclosed blocks report each opener", () => {

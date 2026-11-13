@@ -13,7 +13,9 @@ let nextId = 1;
 const flushFrame = (now = performance.now() + 16) => {
   const cbs = [...queue.values()];
   queue = new Map();
-  cbs.forEach((cb) => cb(now));
+  cbs.forEach((cb) => {
+    cb(now);
+  });
 };
 
 beforeAll(() => {
@@ -91,8 +93,8 @@ describe("player lifecycle", () => {
 
   it("overlapping async renders: only the latest wins", async () => {
     const el = document.createElement("div");
-    const first = render(el, "title First\n" + SRC);
-    const second = render(el, "title Second\n" + SRC);
+    const first = render(el, `title First\n${SRC}`);
+    const second = render(el, `title Second\n${SRC}`);
     const [a, b] = await Promise.all([first, second]);
     expect(a).toBeUndefined();
     expect(b).toBeDefined();
@@ -112,9 +114,13 @@ describe("player lifecycle", () => {
     expect(players).toHaveLength(2);
     expect(document.querySelectorAll(".ene-player").length).toBe(2);
     expect(queue.size).toBe(0);
-    players.forEach((p) => p.controller.play());
+    players.forEach((p) => {
+      p.controller.play();
+    });
     expect(queue.size).toBe(2);
-    players.forEach((p) => p.destroy());
+    players.forEach((p) => {
+      p.destroy();
+    });
     expect(queue.size).toBe(0);
     expect(document.querySelectorAll(".ene-player").length).toBe(0);
   });
@@ -132,9 +138,9 @@ it("keeps the latest player when an old render finishes after destroy and host r
   ]);
   const el = document.createElement("div");
   const pending = render(el, "title Old\na{icon: lifecycle:x} -> b");
-  const middle = (await render(el, "title Middle\n" + SRC))!;
+  const middle = (await render(el, `title Middle\n${SRC}`))!;
   middle.destroy();
-  const latest = (await render(el, "title Latest\n" + SRC))!;
+  const latest = (await render(el, `title Latest\n${SRC}`))!;
   release({ prefix: "lifecycle", width: 24, height: 24, icons: { x: { body: "<path/>" } } });
   const old = await pending;
   try {

@@ -15,6 +15,9 @@ import {
 import { edgeFor, layout as computeLayout, layoutSequence, type ElkApi, type Layout } from "@ene-diagram/layout";
 import {
   ARROW_DEFS,
+  arrivalTime,
+  edgeUses,
+  nextUseAfter,
   STYLE,
   esc,
   renderSvg,
@@ -365,7 +368,9 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     const sel = document.createElement("select");
     branchCtls[bi] = sel;
     sel.setAttribute("aria-label", `${ko ? "분기" : "Branch"} ${bi + 1}`);
-    b.arms.forEach((a, ai) => sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai))));
+    b.arms.forEach((a, ai) => {
+      sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai)));
+    });
     sel.addEventListener("change", () => pick(bi, Number(sel.value)));
     bar.appendChild(sel);
   });
@@ -402,8 +407,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
   function buildItems(t: Timeline, l: Layout) {
     dyn.replaceChildren();
     const byNode = new Map(l.nodes.map((n) => [n.id, n]));
-    const uses = new Map<number, number[]>();
-    t.steps.forEach((s) => s.edges.forEach((e) => uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start])));
+    const uses = edgeUses(t);
     const hl: SVGPathElement[] = [],
       lbl: SVGTextElement[] = [],
       dots: SVGCircleElement[] = [],
@@ -414,8 +418,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
         const p = svgEl("path", { d: le.d, class: `hl ${e.kind}`, "marker-end": "url(#ene-ah)" });
         hl.push(p);
         dyn.appendChild(p);
-        const nextUse =
-          le.step !== undefined ? Infinity : ((uses.get(e.edgeIndex) ?? []).find((x) => x > s.start) ?? Infinity);
+        const nextUse = le.step !== undefined ? Infinity : nextUseAfter(uses, e.edgeIndex, s.start, Infinity);
         return { s, e, le, p, nextUse, len: p.getTotalLength() };
       }),
     );
@@ -455,7 +458,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     const on = (s: Timeline["steps"][number]) => (live && s !== live ? String(DIM) : "1");
     items.list.forEach((it, i) => {
       const t0 = it.s.start,
-        t1 = t0 + it.e.duration * 0.85;
+        t1 = arrivalTime(t0, it.e.duration);
       const started = t >= t0 - 1e-9;
       items.hl[i].style.opacity = started ? on(it.s) : "0";
       items.lbl[i].style.opacity = started && t < it.nextUse - 1e-9 ? on(it.s) : "0";
@@ -540,7 +543,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       syncLoop();
     },
     toSvg() {
-      return renderSvg(lay, tl, { title: doc.title, icons, theme });
+      return renderSvg(lay, tl, { title: doc.title, icons, theme, lang });
     },
     destroy() {
       if (!alive) return;

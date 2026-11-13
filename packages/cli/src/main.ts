@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import {
   THEMES,
+  VERSION,
   buildTimeline,
   checkIcons,
   diagnosticToJson,
@@ -28,7 +29,8 @@ import {
   type IconLoadResult,
 } from "@ene-diagram/svg";
 
-const USAGE = `usage: ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1]
+const USAGE = `usage: ene --version
+       ene <input.ene|input.mmd|-> [-o out.svg|out.gif|out.mp4|-] [--lang en|ko] [--choice 0,1]
                  [--icons pack.json ...] [--no-network] [--allow-host host ...] [--fps n] [--scale n] [--no-notes]
                  [--theme default|mono|high-contrast]
        ene check <input.ene> [--json] [--lang en|ko] [--icons pack.json ...]
@@ -282,6 +284,10 @@ function fromMermaidCommand(argv: string[]): number {
 }
 
 export async function main(argv: string[]): Promise<number> {
+  if (argv[0] === "-v" || argv[0] === "--version") {
+    console.log(VERSION);
+    return 0;
+  }
   if (argv[0] === "icons") return iconsCommand(argv.slice(1));
   if (argv[0] === "fmt") return fmtCommand(argv.slice(1));
   if (argv[0] === "check") return checkCommand(argv.slice(1));
@@ -337,7 +343,8 @@ export async function main(argv: string[]): Promise<number> {
     else if (a === "--allow-host") {
       const v = val();
       if (!v) return bad();
-      (net.allowHosts ??= []).push(v);
+      net.allowHosts ??= [];
+      net.allowHosts.push(v);
     } else if (a === "-h" || a === "--help") {
       console.log(USAGE);
       return 0;
@@ -379,7 +386,7 @@ export async function main(argv: string[]): Promise<number> {
     packs.push(data as IconPack);
   }
   diagnostics.push(...checkIcons(doc, packs));
-  if (diagnostics.length) console.error(formatAll(src, diagnostics, lang) + "\n");
+  if (diagnostics.length) console.error(`${formatAll(src, diagnostics, lang)}\n`);
   if (diagnostics.some((d) => d.severity === "error")) return 1;
   const tl = buildTimeline(doc, { choices });
   choices.forEach((c, i) => {
@@ -407,8 +414,9 @@ export async function main(argv: string[]): Promise<number> {
     icons,
     notes,
     theme: theme ?? (doc.theme as ThemeName | undefined),
+    lang,
   });
-  const target = out ?? (fromStdin ? "-" : input.replace(/\.[^./\\]+$/, "") + ".svg");
+  const target = out ?? (fromStdin ? "-" : `${input.replace(/\.[^./\\]+$/, "")}.svg`);
   const summary = `(${tl.steps.length} steps, ${tl.total.toFixed(1)}s)`;
   const video = /\.(gif|mp4)$/i.exec(target)?.[1].toLowerCase() as "gif" | "mp4" | undefined;
   if (!video && (fps !== undefined || scale !== undefined))

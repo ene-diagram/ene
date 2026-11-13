@@ -30,9 +30,9 @@ test("#29 total duration is bounded, branch takes the worst arm", () => {
 
 test("#29 nesting depth is bounded", () => {
   const d = LIMITS.depth + 1;
-  const src = "loop 1\n".repeat(d) + "a -> b\n" + "end\n".repeat(d);
+  const src = `${"loop 1\n".repeat(d)}a -> b\n${"end\n".repeat(d)}`;
   expect(codes(src)).toContain("E206");
-  const ok = "loop 1\n".repeat(LIMITS.depth) + "a -> b\n" + "end\n".repeat(LIMITS.depth);
+  const ok = `${"loop 1\n".repeat(LIMITS.depth)}a -> b\n${"end\n".repeat(LIMITS.depth)}`;
   expect(codes(ok)).toEqual([]);
 });
 

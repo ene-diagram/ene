@@ -34,7 +34,7 @@ export function formatSource(source: string): string {
       out.push(pad + (body && comment ? `${body} ${comment}` : body || comment));
     });
     while (out.length && out[out.length - 1] === "") out.pop();
-    return out.length ? out.join("\n") + "\n" : "";
+    return out.length ? `${out.join("\n")}\n` : "";
   };
   const original = lines.map((l) => l.body);
   const formatted = original.map(formatBody);
@@ -178,7 +178,7 @@ function formatHead(head: string): string {
               ? "-x"
               : undefined;
     if (arrow) {
-      out = out.trimEnd() + ` ${arrow} `;
+      out = `${out.trimEnd()} ${arrow} `;
       i += arrow.length - 1;
       continue;
     }

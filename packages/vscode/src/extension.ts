@@ -195,7 +195,9 @@ class Preview {
   private dispose() {
     clearTimeout(this.timer);
     Preview.panels.delete(this.doc.uri.toString());
-    this.disposables.forEach((d) => d.dispose());
+    this.disposables.forEach((d) => {
+      d.dispose();
+    });
   }
 }
 
@@ -216,7 +218,7 @@ async function exportSvg() {
   }
   const src = ed.document.uri;
   const defaultUri =
-    src.scheme === "untitled" ? undefined : src.with({ path: src.path.replace(/\.[^./]+$/, "") + ".svg" });
+    src.scheme === "untitled" ? undefined : src.with({ path: `${src.path.replace(/\.[^./]+$/, "")}.svg` });
   const target = await vscode.window.showSaveDialog({ defaultUri, filters: { SVG: ["svg"] } });
   if (!target) return;
   const tl = buildTimeline(doc, { choices: [] });

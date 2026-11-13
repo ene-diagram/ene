@@ -185,11 +185,13 @@ class Parser {
     }
     if (word === "title") {
       this.labelHash(l, t, word.length, t.length);
-      return void (this.doc.title = rest);
+      this.doc.title = rest;
+      return;
     }
     if (word === "diagram") {
       if (rest !== "flow" && rest !== "sequence") return this.report("E112", l, 8, t.length, { value: rest });
-      return void (this.doc.kind = rest);
+      this.doc.kind = rest;
+      return;
     }
     const EXAMPLES: Record<string, string> = {
       speed: "speed 1.2",
@@ -209,7 +211,8 @@ class Parser {
           ...(suggestion ? { suggestion } : {}),
         });
       }
-      return void (this.doc.theme = rest);
+      this.doc.theme = rest;
+      return;
     }
     if (word === "note") {
       // Attaches to the closest step above it in the same block (a `wait` in between is fine)
@@ -218,12 +221,14 @@ class Parser {
       const prev = into[k];
       if (prev?.type !== "step") return this.report("E116", l, 0, 4);
       this.labelHash(l, t, word.length, t.length);
-      return void (prev.note = prev.note === undefined ? rest : `${prev.note} ${rest}`);
+      prev.note = prev.note === undefined ? rest : `${prev.note} ${rest}`;
+      return;
     }
     if (word === "speed") {
       const n = Number(rest);
       if (!rest || !(n > 0) || !Number.isFinite(n)) return this.report("E304", l, 0, t.length, { value: rest });
-      return void (this.doc.speed = n);
+      this.doc.speed = n;
+      return;
     }
     const whole = this.span(l, 0, t.length);
     if (word === "pin" || word === "rank" || word === "group") this.layoutLines.push({ keyword: word, line: l });
@@ -330,7 +335,8 @@ class Parser {
 
   /** One edge starting at pos. next is the position after the next ` & `, or t.length */
   edge(l: Line, t: string[], pos: number): { edge: Edge; next: number } | undefined {
-    const begin = (pos = skip(t, pos));
+    pos = skip(t, pos);
+    const begin = pos;
     const a = this.ref(l, t, pos);
     if (a === null) return;
     if (!a) {

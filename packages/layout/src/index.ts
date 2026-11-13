@@ -266,7 +266,9 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
   for (const r of doc.ranks) {
     const group = r.ids.map((id) => byId.get(id)!).filter(Boolean);
     const x = Math.min(...group.map((n) => n.x));
-    group.forEach((n) => (n.x = x));
+    group.forEach((n) => {
+      n.x = x;
+    });
   }
   // pin: grid of layer (column) x and row heights
   if (doc.pins.length) {
@@ -352,8 +354,16 @@ export async function layout(doc: Document, tl: Timeline, opts: LayoutOptions = 
 function membersDeep(doc: Document, gid: string): Set<string> {
   const out = new Set<string>();
   const add = (id: string) => {
-    doc.groups.find((g) => g.id === id)?.members.forEach((m) => out.add(m));
-    doc.groups.filter((g) => g.parent === id).forEach((g) => add(g.id));
+    doc.groups
+      .find((g) => g.id === id)
+      ?.members.forEach((m) => {
+        out.add(m);
+      });
+    doc.groups
+      .filter((g) => g.parent === id)
+      .forEach((g) => {
+        add(g.id);
+      });
   };
   add(gid);
   return out;
@@ -424,7 +434,9 @@ function routeEdges(tl: Timeline, byId: Map<string, LNode>): LEdge[] {
   for (const [key, idx] of groups) {
     const [p, q] = key.split("\u0000");
     if (p === q) {
-      idx.forEach((i, k) => out.push(selfLoop(i, byId.get(p)!, k)));
+      idx.forEach((i, k) => {
+        out.push(selfLoop(i, byId.get(p)!, k));
+      });
       continue;
     }
     const P = byId.get(p)!,
@@ -462,7 +474,9 @@ function routeEdges(tl: Timeline, byId: Map<string, LNode>): LEdge[] {
         (i, k) => detour(tl.allEdges[i], byId, others, k) ?? gridRoute(tl.allEdges[i], byId, others, k),
       );
       if (bus.every(Boolean)) {
-        idx.forEach((i, k) => out.push({ index: i, ...bus[k]! }));
+        idx.forEach((i, k) => {
+          out.push({ index: i, ...bus[k]! });
+        });
         continue;
       }
       shift = 0;

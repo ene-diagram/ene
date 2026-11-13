@@ -129,13 +129,15 @@ test("large example lays out in under 3s", async () => {
 test("accepts an injected ELK instance", async () => {
   let called = 0;
   const fake = {
-    layout: async (g: any) => {
+    layout: async (g: { children: object[] }) => {
       called++;
-      return { ...g, children: g.children.map((c: any, i: number) => ({ ...c, x: i * 300, y: 0 })) };
+      return { ...g, children: g.children.map((c, i) => ({ ...c, x: i * 300, y: 0 })) };
     },
   };
   const { doc } = parse("a -> b");
-  const l = await layout(doc, buildTimeline(doc), { elk: fake as any });
+  const l = await layout(doc, buildTimeline(doc), {
+    elk: fake as unknown as NonNullable<Parameters<typeof layout>[2]>["elk"],
+  });
   expect(called).toBe(1);
   expect(l.nodes[1].x - l.nodes[0].x).toBe(300);
 });

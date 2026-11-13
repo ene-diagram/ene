@@ -9,7 +9,7 @@ import remarkEne, { type RemarkEneOptions } from "../src/index.js";
 import markdownItEne from "../src/markdown-it.js";
 
 const md = (body: string) => `# Doc\n\nIntro.\n\n${body}\n\nAfter.\n`;
-const fence = (src: string, meta = "") => "```ene" + (meta ? " " + meta : "") + "\n" + src + "\n```";
+const fence = (src: string, meta = "") => `\`\`\`ene${meta ? ` ${meta}` : ""}\n${src}\n\`\`\``;
 const FLOW = "user -> api : GET /\napi --> user : 200";
 
 async function toHtml(input: string, opts?: RemarkEneOptions) {
@@ -44,7 +44,7 @@ describe("remark-ene static", () => {
     expect(html).not.toContain("<img");
   });
   it("scopes ids so two diagrams on a page do not collide", async () => {
-    const { html } = await toHtml(md(fence(FLOW) + "\n\n" + fence(FLOW)));
+    const { html } = await toHtml(md(`${fence(FLOW)}\n\n${fence(FLOW)}`));
     const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
     expect(ids.length).toBeGreaterThan(0);
     expect(new Set(ids).size).toBe(ids.length);
@@ -93,7 +93,7 @@ describe("remark-ene static", () => {
 
 describe("remark-ene live", () => {
   it("emits pre.ene with escaped source and one script", async () => {
-    const { html } = await toHtml(md(fence("a -> b : <x>") + "\n\n" + fence(FLOW)), { mode: "live" });
+    const { html } = await toHtml(md(`${fence("a -> b : <x>")}\n\n${fence(FLOW)}`), { mode: "live" });
     expect(html).toContain('<pre class="ene">a -> b : &lt;x&gt;</pre>'.replace("->", "-&gt;"));
     expect(html.match(/<script /g)?.length).toBe(1);
     expect(html).toContain("@ene-diagram/player@0.1/dist/ene.js");
@@ -121,7 +121,7 @@ describe("remark-ene with MDX", () => {
 describe("markdown-it plugin", () => {
   it("renders pre.ene and keeps other fences", () => {
     const mdi = new MarkdownIt().use(markdownItEne);
-    const html = mdi.render(md(fence("a -> b : {{ x }} <y>", 'title="T"')) + "\n```js\n1\n```\n");
+    const html = mdi.render(`${md(fence("a -> b : {{ x }} <y>", 'title="T"'))}\n\`\`\`js\n1\n\`\`\`\n`);
     expect(html).toContain('<div class="ene-diagram" v-pre><pre class="ene">title T\na -&gt; b : {{ x }} &lt;y&gt;');
     expect(html).toContain('<code class="language-js">');
     expect(html.match(/<script /g)?.length).toBe(1);
@@ -135,7 +135,7 @@ describe("markdown-it plugin", () => {
 describe("themes and notes from main", () => {
   it("keeps each inline diagram's theme to itself and shows step notes", async () => {
     const { html } = await toHtml(
-      md(fence("theme mono\na -> b\nnote why") + "\n\n" + fence("theme high-contrast\na ~> b")),
+      md(`${fence("theme mono\na -> b\nnote why")}\n\n${fence("theme high-contrast\na ~> b")}`),
     );
     const styles = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
     expect(styles).toHaveLength(2);
