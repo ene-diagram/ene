@@ -149,7 +149,7 @@ test("--no-network skips remote icons with a clear warning", () => {
 test("local icon problems are reported with a reason", () => {
   const d = mkdtempSync(join(tmpdir(), "ene-"));
   const f = join(d, "l.ene");
-  writeFileSync(join(d, "big.svg"), "<svg>" + "x".repeat(600 * 1024) + "</svg>");
+  writeFileSync(join(d, "big.svg"), `<svg>${"x".repeat(600 * 1024)}</svg>`);
   writeFileSync(join(d, "bad.svg"), "not svg");
   writeFileSync(f, "a{icon: ./big.svg} -> b{icon: ./bad.svg}\nb -> c{icon: ./missing.svg}");
   const r = runCli([f]);
@@ -273,4 +273,8 @@ test("notes are captions in the SVG unless --no-notes", () => {
   writeFileSync(f, "a -> b\nnote why this step\n");
   expect(runCli([f, "-o", "-"]).stdout).toContain('class="note"');
   expect(runCli([f, "-o", "-", "--no-notes"]).stdout).not.toContain('class="note"');
+});
+test("--version prints the package version", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+  expect(execFileSync("node", [bin, "--version"], { encoding: "utf8" }).trim()).toBe(pkg.version);
 });

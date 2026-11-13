@@ -64,7 +64,10 @@ export function createController(tl: Timeline, opts: ControllerOptions = {}): Co
     },
     prev() {
       const i = c.currentStep();
-      if (i < 0) return void (c.time = 0);
+      if (i < 0) {
+        c.time = 0;
+        return;
+      }
       const cur = c.time >= tl.total ? tl.total : starts[i];
       // If slightly past the current step's start, go to its start; otherwise go to the previous step
       if (c.time - cur > 0.3) c.time = cur;

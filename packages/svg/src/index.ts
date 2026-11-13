@@ -1,5 +1,5 @@
 import { isTheme, type Timeline } from "@ene-diagram/core";
-import type { ResolvedIcon } from "@ene-diagram/core";
+import type { Lang, ResolvedIcon } from "@ene-diagram/core";
 import { themeClass, themeCss, type ThemeName } from "./themes.js";
 import { edgeFor, textWidth, type LEdge, type LFrame, type LGroup, type LNode, type Layout } from "@ene-diagram/layout";
 
@@ -28,6 +28,8 @@ export interface SvgOptions {
   notes?: boolean;
   /** Colour theme (the document's `theme` setting; default "default") */
   theme?: ThemeName;
+  /** Language of the accessible description (default "en") */
+  lang?: Lang;
 }
 
 const ICON = 24,
@@ -55,7 +57,7 @@ function shapeMarkup(n: LNode, attrs: string): string {
           return `<line x1="${lx}" y1="${y + 8}" x2="${lx}" y2="${y + h - 8}" ${attrs.replace(/fill="[^"]*"/, "")}/>`;
         })
         .join("");
-      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ${attrs}/>` + lines;
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ${attrs}/>${lines}`;
     }
     default:
       return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" ${attrs}/>`;
@@ -190,7 +192,11 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
 
   // When the same edge is reused, hide the previous label then
   const uses = new Map<number, number[]>();
-  tl.steps.forEach((s) => s.edges.forEach((e) => uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start])));
+  tl.steps.forEach((s) => {
+    s.edges.forEach((e) => {
+      uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start]);
+    });
+  });
 
   let base = "",
     hl = "",
@@ -253,7 +259,7 @@ export function renderSvg(l: Layout, tl: Timeline, opts: SvgOptions = {}): strin
       s.edges
         .map(
           (e) =>
-            `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? " (실패)" : e.kind === "async" ? " (async)" : ""}`,
+            `${s.index + 1}. ${e.from} → ${e.to}${e.label ? `: ${e.label}` : ""}${e.kind === "fail" ? (opts.lang === "ko" ? " (실패)" : " (fail)") : e.kind === "async" ? " (async)" : ""}`,
         )
         .concat(s.note && opts.notes !== false ? [`(${s.note})`] : [])
         .join(" "),

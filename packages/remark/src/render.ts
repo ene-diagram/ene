@@ -144,7 +144,7 @@ export function parseMeta(meta: string | null | undefined): {
   const out: { title?: string; choice?: number[]; mode?: "static" | "live" } = {};
   if (!meta) return out;
   const re = /([a-zA-Z]+)=(?:"([^"]*)"|'([^']*)'|(\S+))|\b(live|static)\b/g;
-  for (let m: RegExpExecArray | null; (m = re.exec(meta)); ) {
+  for (const m of meta.matchAll(re)) {
     if (m[5]) {
       out.mode = m[5] as "static" | "live";
       continue;

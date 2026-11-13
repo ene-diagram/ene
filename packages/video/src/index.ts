@@ -136,7 +136,7 @@ export function findFfmpeg(env: NodeJS.ProcessEnv = process.env): string | undef
 /** Minimal Chrome DevTools Protocol client over the page's WebSocket */
 class Cdp {
   private id = 0;
-  private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void }>();
+  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   private waiters = new Map<string, (() => void)[]>();
   private constructor(private ws: WebSocket) {
     ws.addEventListener("message", (ev) => {
@@ -150,7 +150,9 @@ class Cdp {
         this.waiters
           .get(msg.method)
           ?.splice(0)
-          .forEach((f) => f());
+          .forEach((f) => {
+            f();
+          });
     });
     ws.addEventListener("close", () => {
       for (const p of this.pending.values()) p.reject(new Error("the browser closed the connection"));
@@ -164,10 +166,10 @@ class Cdp {
       ws.addEventListener("error", () => reject(new Error("cannot connect to the browser")));
     });
   }
-  send<T = any>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  send<T = Record<string, unknown>>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     const id = ++this.id;
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
       this.ws.send(JSON.stringify({ id, method, params }));
     });
   }
@@ -309,7 +311,7 @@ export async function renderVideo(svg: string, opts: VideoOptions): Promise<Vide
     await cdp.send("Runtime.evaluate", { expression: "document.documentElement.pauseAnimations()" });
     for (const [i, t] of times.entries()) {
       // Seek the SMIL clock, then wait for the next frame so the seeked state is what gets captured
-      const seek = await cdp.send("Runtime.evaluate", {
+      const seek = await cdp.send<{ exceptionDetails?: { text: string } }>("Runtime.evaluate", {
         awaitPromise: true,
         expression: `new Promise((r) => { document.documentElement.setCurrentTime(${t}); requestAnimationFrame(() => r(true)); })`,
       });

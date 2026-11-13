@@ -365,7 +365,9 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     const sel = document.createElement("select");
     branchCtls[bi] = sel;
     sel.setAttribute("aria-label", `${ko ? "분기" : "Branch"} ${bi + 1}`);
-    b.arms.forEach((a, ai) => sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai))));
+    b.arms.forEach((a, ai) => {
+      sel.add(new Option(a || `${ko ? "갈래" : "arm"} ${ai + 1}`, String(ai)));
+    });
     sel.addEventListener("change", () => pick(bi, Number(sel.value)));
     bar.appendChild(sel);
   });
@@ -403,7 +405,11 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     dyn.replaceChildren();
     const byNode = new Map(l.nodes.map((n) => [n.id, n]));
     const uses = new Map<number, number[]>();
-    t.steps.forEach((s) => s.edges.forEach((e) => uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start])));
+    t.steps.forEach((s) => {
+      s.edges.forEach((e) => {
+        uses.set(e.edgeIndex, [...(uses.get(e.edgeIndex) ?? []), s.start]);
+      });
+    });
     const hl: SVGPathElement[] = [],
       lbl: SVGTextElement[] = [],
       dots: SVGCircleElement[] = [],
@@ -540,7 +546,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       syncLoop();
     },
     toSvg() {
-      return renderSvg(lay, tl, { title: doc.title, icons, theme });
+      return renderSvg(lay, tl, { title: doc.title, icons, theme, lang });
     },
     destroy() {
       if (!alive) return;

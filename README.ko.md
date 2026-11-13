@@ -128,7 +128,7 @@ end
 
 ## 시작하기
 
-**필요한 것:** Node.js 20 이상.
+**필요한 것:** Node.js 22 이상.
 
 ```bash
 npm install -g @ene-diagram/cli
@@ -394,7 +394,17 @@ ene flow.ene -o miss.svg --choice 1
 
 ## 릴리스
 
-0.1.0 이 npm 의 [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) 스코프에 있어요: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player`, 선택 사항인 `video`.
+0.1.1 이 npm 의 [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) 스코프에 있어요: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player`, 선택 사항인 `video`.
+
+배포는 손으로 해요. CI 는 배포하지 않아요. `@ene-diagram/*` 패키지는 모두 같은 버전을 써요.
+
+```sh
+pnpm changeset version   # 쌓인 changeset 반영: 버전 올리고 CHANGELOG 작성
+git commit -am "chore: release x.y.z"
+pnpm release             # 빌드한 뒤 npm 에 아직 없는 버전을 모두 배포
+```
+
+`pnpm release` 는 패키지마다 브라우저에서 npm 2단계 인증을 요청해요.
 
 ## 관련 프로젝트
 

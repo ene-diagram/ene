@@ -1,7 +1,16 @@
 {
   "name": "@ene-diagram/remark",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "remark and markdown-it plugins that render ```ene code blocks as animated diagrams",
+  "keywords": [
+    "ene",
+    "diagram",
+    "animated-diagram",
+    "remark",
+    "rehype",
+    "markdown-it",
+    "mdx"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -11,7 +20,7 @@
   "homepage": "https://github.com/ene-diagram/ene/tree/main/packages/remark#readme",
   "bugs": "https://github.com/ene-diagram/ene/issues",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "files": [
     "dist",

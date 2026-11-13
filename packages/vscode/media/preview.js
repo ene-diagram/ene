@@ -14,7 +14,7 @@
         try {
           await window.ene.render(root, text);
         } catch (e) {
-          vscode.postMessage({ type: "error", message: String((e && e.message) || e) });
+          vscode.postMessage({ type: "error", message: String(e?.message || e) });
         }
       }
     } finally {
@@ -23,7 +23,7 @@
   }
   window.addEventListener("message", (ev) => {
     const m = ev.data;
-    if (!m || m.type !== "update" || typeof m.text !== "string") return;
+    if (m?.type !== "update" || typeof m.text !== "string") return;
     latest = m.text;
     void draw();
   });

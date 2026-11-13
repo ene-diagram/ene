@@ -50,7 +50,7 @@ test("reports HTTP errors, non-svg bodies, bad schemes and disallowed hosts", as
 });
 test("iconFromUntrustedSvg rejects absurd viewBox sizes", () => {
   expect(iconFromUntrustedSvg('<svg viewBox="0 0 99999 10"></svg>').ok).toBe(false);
-  expect(iconFromUntrustedSvg('<?xml version="1.0"?>\n' + SVG).ok).toBe(true);
+  expect(iconFromUntrustedSvg(`<?xml version="1.0"?>\n${SVG}`).ok).toBe(true);
 });
 
 test.each([404, 500])("closes an unfinished HTTP %i response without waiting for its body", async (status) => {

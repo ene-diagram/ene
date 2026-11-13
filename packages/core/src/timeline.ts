@@ -26,7 +26,9 @@ export function buildTimeline(doc: Document, opts: TimelineOptions = {}): Timeli
       else if (s.type === "branch") {
         branchIndex.set(s, branches.length);
         branches.push({ label: "", arms: s.arms.map((a) => a.label), ...(s.optional ? { optional: true } : {}) });
-        s.arms.forEach((a) => collect(a.body));
+        s.arms.forEach((a) => {
+          collect(a.body);
+        });
       }
     }
   };

@@ -128,7 +128,7 @@ More examples in [`packages/core/examples`](packages/core/examples).
 
 ## Getting started
 
-**Requirements:** Node.js 20 or newer.
+**Requirements:** Node.js 22 or newer.
 
 ```bash
 npm install -g @ene-diagram/cli
@@ -451,7 +451,17 @@ One line is one step, played top to bottom. The complete reference, with common 
 
 ## Release
 
-0.1.0 is on npm under the [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) scope: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player` and the optional `video`.
+0.1.1 is on npm under the [`@ene-diagram`](https://www.npmjs.com/org/ene-diagram) scope: `@ene-diagram/cli`, `core`, `layout`, `svg`, `player` and the optional `video`.
+
+Releases are published by hand; CI never publishes. All `@ene-diagram/*` packages share one version.
+
+```sh
+pnpm changeset version   # apply pending changesets: bump versions, write CHANGELOGs
+git commit -am "chore: release x.y.z"
+pnpm release             # build, then publish every package whose version is not on npm yet
+```
+
+`pnpm release` asks for npm two-factor approval in the browser for each package.
 
 ## Related projects
 

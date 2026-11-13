@@ -15,7 +15,7 @@ run("pnpm", ["exec", "tsc", "-b", "packages/cli"]);
 run("pnpm", ["bundle"], `${root}packages/player`);
 run("pnpm", ["bundle"], `${root}packages/export`);
 for (const f of ["ene.js", "ene-elk.js"]) copyFileSync(`${root}packages/player/dist/${f}`, out + f);
-copyFileSync(`${root}packages/export/dist/ene-export.js`, out + "ene-export.js");
+copyFileSync(`${root}packages/export/dist/ene-export.js`, `${out}ene-export.js`);
 
 const files = readdirSync(ex)
   .filter((f) => f.endsWith(".ene"))
@@ -31,7 +31,7 @@ for (const [, src] of sources)
     if (name) icons[m[1]] = logos.icons[name];
   }
 writeFileSync(
-  out + "logos-subset.js",
+  `${out}logos-subset.js`,
   `// Example icon pack: a subset of @iconify-json/logos (CC0). ene itself ships no icons.\n` +
     `ene.registerIconPacks([{ pack: ${JSON.stringify({ prefix: "logos", width: logos.width, height: logos.height, icons })} }]);\n`,
 );
@@ -50,7 +50,7 @@ for (const [f] of sources)
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const broken = "a -> b\nbrnch hit\n  cahce --> a\napi ->\n";
 writeFileSync(
-  out + "index.html",
+  `${out}index.html`,
   `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ene examples</title>
 <style>
