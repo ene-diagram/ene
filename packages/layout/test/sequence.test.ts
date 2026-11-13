@@ -65,6 +65,17 @@ describe("activation bars", () => {
   test("an answer to someone else, a self message or an answer with no request does nothing", () => {
     expect(bars("a -> b\nb --> c\nb -> b\nc --> a")).toEqual([]);
   });
+  test("parallel arrows between the same two participants: each bar starts and ends on its own arrow", () => {
+    const { l, tl } = seq("a -> b : one & a -> b : two\nb --> a : one & b --> a : two");
+    const y = (step: number, k: number) =>
+      Number(edgeFor(l, step, k, tl.steps[step].edges[k].edgeIndex)!.d.match(/,([-\d.]+)/)![1]);
+    expect(y(0, 1)).toBe(y(0, 0) + 14);
+    // The latest request is answered first, so the inner bar runs from request 2 to answer 1
+    expect(l.activations!.map((a) => [a.k, a.y1, a.y2])).toEqual([
+      [0, y(0, 0), y(1, 1)],
+      [1, y(0, 1), y(1, 0)],
+    ]);
+  });
   test("bars follow the branch that is taken", () => {
     const src = "a -> b\nbranch ok\n  b --> a\nelse slow\n  b -> c\n  c --> b\n  b --> a\nend";
     expect(bars(src, [0]).map((x) => [x[0], x[2]])).toEqual([["b", 1]]);

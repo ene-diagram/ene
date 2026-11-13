@@ -98,6 +98,8 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
   const cx = new Map(nodes.map((n) => [n.id, n.x + n.w / 2]));
   const rowY = (i: number) => PAD + NODE_H + S_TOP + 20 + i * S_ROW;
   const edges: LEdge[] = [];
+  /** y of each arrow by "row:k" (parallel arrows between the same two participants are stacked) */
+  const edgeY = new Map<string, number>();
   tl.steps.forEach((s, i) => {
     const pairCount = new Map<string, number>();
     s.edges.forEach((e, k) => {
@@ -108,6 +110,7 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
         nth = pairCount.get(pk) ?? 0;
       pairCount.set(pk, nth + 1);
       const y = rowY(i) + nth * 14;
+      edgeY.set(`${i}:${k}`, y);
       if (e.from === e.to) {
         edges.push({
           index: e.edgeIndex,
@@ -137,7 +140,7 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
       if (e.from === e.to) return;
       if (e.kind === "ok") {
         const depth = open.filter((o) => o.callee === e.to).length;
-        open.push({ caller: e.from, callee: e.to, y: rowY(i), step: s.index, k, depth });
+        open.push({ caller: e.from, callee: e.to, y: edgeY.get(`${i}:${k}`) ?? rowY(i), step: s.index, k, depth });
       } else if (e.kind === "reply" || e.kind === "fail") {
         const at = open.findLastIndex((o) => o.callee === e.from && o.caller === e.to);
         if (at < 0) return;
@@ -146,7 +149,7 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
           id: o.callee,
           x: cx.get(o.callee)! - ACT_W / 2 + o.depth * 4,
           y1: o.y,
-          y2: rowY(i),
+          y2: edgeY.get(`${i}:${k}`) ?? rowY(i),
           w: ACT_W,
           step: o.step,
           k: o.k,
