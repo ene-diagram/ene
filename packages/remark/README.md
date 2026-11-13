@@ -61,7 +61,7 @@ remarkEne({
 });
 ```
 
-Paths in every block are then relative to `rootDir` and cannot leave it.
+Paths in every block are then relative to `rootDir` and cannot leave it. A block with `include` is always rendered as a static SVG, also in `live` mode, because the player in the page cannot read files.
 
 **Errors.** A block with errors is replaced by a visible `<div class="ene-error">` that shows the diagnostics, and a message is added to the file (`vfile.messages`). With `failOnError: true` the build fails instead.
 

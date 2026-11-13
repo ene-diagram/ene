@@ -110,6 +110,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
   ctx.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument(lint),
     vscode.workspace.onDidChangeTextDocument((e) => schedule(e.document)),
+    // A saved file may be one that other open diagrams include: check and redraw them all again
+    vscode.workspace.onDidSaveTextDocument((saved) => {
+      if (saved.languageId !== LANG_ID) return;
+      for (const d of vscode.workspace.textDocuments) if (d !== saved) lint(d);
+      Preview.refreshAll();
+    }),
     vscode.workspace.onDidCloseTextDocument(forget),
     { dispose: () => timers.forEach(clearTimeout) },
 
@@ -216,6 +222,9 @@ class Preview {
   }
   private readonly panel: vscode.WebviewPanel;
 
+  static refreshAll() {
+    for (const p of Preview.panels.values()) p.schedule();
+  }
   private schedule() {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.post(), DEBOUNCE_MS);

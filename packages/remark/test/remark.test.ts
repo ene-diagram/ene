@@ -63,6 +63,19 @@ describe("remark-ene static", () => {
     const { html } = await toHtml(md(fence('user -> api : url(#x) href="#y" id=z')));
     expect(html).toContain("url(#x) href=&quot;#y&quot; id=z");
   });
+  it("include: resolved through the option; a live block with include falls back to static with a message", async () => {
+    const src = "include ./sys.ene\nu -> api : go";
+    const include = (p: string) => (p === "./sys.ene" ? { source: "api[Order API]", file: "sys" } : { error: "no" });
+    const ok = await toHtml(md(fence(src)), { include });
+    expect(ok.html).toContain("Order API");
+    expect(ok.html).not.toContain("ene-error");
+    const live = await toHtml(md(fence(src, "live")), { include });
+    expect(live.html).toContain("<svg");
+    expect(live.html).not.toContain('<pre class="ene">');
+    expect(live.messages.join()).toContain("cannot be live");
+    // Without a reader it is the usual error box
+    expect((await toHtml(md(fence(src)))).html).toContain("E501");
+  });
   it("applies choice from meta", async () => {
     const src = "a -> b : go\nbranch ok\n  b --> a : fine\nelse fail\n  b -x a : broken\nend";
     const a = await toHtml(md(fence(src, "choice=0")));
