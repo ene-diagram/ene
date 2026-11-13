@@ -6,23 +6,72 @@
   "private": true,
   "publisher": "ene-diagram",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/ene-diagram/ene.git", "directory": "packages/vscode" },
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Programming Languages", "Formatters", "Visualization"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ene-diagram/ene.git",
+    "directory": "packages/vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Visualization"
+  ],
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
-    "languages": [{ "id": "ene", "aliases": ["ene", "Ene"], "extensions": [".ene"], "configuration": "./language-configuration.json" }],
-    "grammars": [{ "language": "ene", "scopeName": "source.ene", "path": "./syntaxes/ene.tmLanguage.json" }],
+    "languages": [
+      {
+        "id": "ene",
+        "aliases": [
+          "ene",
+          "Ene"
+        ],
+        "extensions": [
+          ".ene"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ene",
+        "scopeName": "source.ene",
+        "path": "./syntaxes/ene.tmLanguage.json"
+      }
+    ],
     "commands": [
-      { "command": "ene.openPreview", "title": "Open Preview to the Side", "category": "ene", "icon": "$(open-preview)" },
-      { "command": "ene.exportSvg", "title": "Export SVG", "category": "ene" }
+      {
+        "command": "ene.openPreview",
+        "title": "Open Preview to the Side",
+        "category": "ene",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "ene.exportSvg",
+        "title": "Export SVG",
+        "category": "ene"
+      }
     ],
     "menus": {
-      "editor/title": [{ "command": "ene.openPreview", "when": "editorLangId == ene", "group": "navigation" }],
+      "editor/title": [
+        {
+          "command": "ene.openPreview",
+          "when": "editorLangId == ene",
+          "group": "navigation"
+        }
+      ],
       "commandPalette": [
-        { "command": "ene.openPreview", "when": "editorLangId == ene" },
-        { "command": "ene.exportSvg", "when": "editorLangId == ene" }
+        {
+          "command": "ene.openPreview",
+          "when": "editorLangId == ene"
+        },
+        {
+          "command": "ene.exportSvg",
+          "when": "editorLangId == ene"
+        }
       ]
     }
   },
@@ -34,10 +83,10 @@
   "devDependencies": {
     "@ene-diagram/core": "workspace:*",
     "@ene-diagram/layout": "workspace:*",
-    "@ene-diagram/svg": "workspace:*",
     "@ene-diagram/player": "workspace:*",
+    "@ene-diagram/svg": "workspace:*",
     "@types/vscode": "~1.85.0",
-    "@vscode/vsce": "^3.2.0",
+    "@vscode/vsce": "^4.1.1",
     "esbuild": "^0.28.2"
   }
 }
