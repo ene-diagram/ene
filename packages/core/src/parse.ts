@@ -114,9 +114,10 @@ class Parser {
   private catalog = {
     nodes: new Map<string, NodeDecl>(),
     labeled: new Set<string>(),
-    groups: [] as Group[],
-    pins: [] as Document["pins"],
-    ranks: [] as Document["ranks"],
+    // Keyed, first one wins: a file reached through several includes contributes each line once
+    groups: new Map<string, Group>(),
+    pins: new Map<string, Document["pins"][number]>(),
+    ranks: new Map<string, Document["ranks"][number]>(),
   };
 
   constructor(
@@ -204,9 +205,12 @@ class Parser {
         this.catalog.nodes.set(id, n.from ? { ...n, from: { ...n.from, at: here } } : n);
         if (sub.labeled.has(id)) this.catalog.labeled.add(id);
       }
-    this.catalog.groups.push(...sub.groups);
-    this.catalog.pins.push(...sub.pins);
-    this.catalog.ranks.push(...sub.ranks);
+    for (const g of sub.groups) if (!this.catalog.groups.has(g.id)) this.catalog.groups.set(g.id, g);
+    for (const p of sub.pins) if (!this.catalog.pins.has(p.id)) this.catalog.pins.set(p.id, p);
+    for (const k of sub.ranks) {
+      const key = k.ids.join("\u0000");
+      if (!this.catalog.ranks.has(key)) this.catalog.ranks.set(key, k);
+    }
     // Settings from an include are defaults: a `theme` / `speed` line in this file replaces them
     if (sub.theme && !this.doc.theme) this.doc.theme = sub.theme;
     if (sub.speed !== undefined && !this.speedSet) {
@@ -239,7 +243,7 @@ class Parser {
     // a top-level group takes nodes no group has yet, a nested group takes nodes of its parent. The first
     // file to group a node wins; parents are placed before their children whatever the order in the files.
     const byId = new Map<string, Group>();
-    for (const g of this.catalog.groups) if (!ownIds.has(g.id) && !byId.has(g.id)) byId.set(g.id, g);
+    for (const g of this.catalog.groups.values()) if (!ownIds.has(g.id)) byId.set(g.id, g);
     const innermost = new Map<string, string>();
     const alive = new Map<string, Group>();
     const place = (g: Group, seen: Set<string>) => {
@@ -261,10 +265,10 @@ class Parser {
     for (const g of byId.values()) place(g, new Set());
     // Declaration order, as for the diagram's own groups
     this.doc.groups.push(...[...byId.keys()].flatMap((id) => alive.get(id) ?? []));
-    for (const p of this.catalog.pins)
+    for (const p of this.catalog.pins.values())
       if (used(p.id) && !this.doc.pins.some((q) => q.id === p.id || (q.col === p.col && q.row === p.row)))
         this.doc.pins.push(p);
-    for (const r of this.catalog.ranks) {
+    for (const r of this.catalog.ranks.values()) {
       const ids = r.ids.filter(used);
       if (ids.length >= 2) this.doc.ranks.push({ ...r, ids });
     }

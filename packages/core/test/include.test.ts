@@ -171,6 +171,12 @@ describe("include errors", () => {
     });
     expect(nested.diagnostics).toEqual([]);
     expect(nested.doc.nodes.get("b")?.label).toBe("B");
+    // The root file's own name may be the linked spelling (an editor gives the path as it was opened)
+    const fromEditor = parse("include ./b.ene\na -> b", {
+      file: "/d/main.ene",
+      include: fs({ "/disk/d/b.ene": "b[B]" }, links),
+    });
+    expect(fromEditor.diagnostics).toEqual([]);
   });
   test("a nested include cannot climb out through a subfolder", () => {
     const r = run("include ./sub/a.ene\na -> b", { "/d/sub/a.ene": "include ../../out.ene\na[A]", "/out.ene": "b[B]" });
@@ -206,6 +212,15 @@ describe("include errors", () => {
     expect(r.doc.nodes.get("leaf")?.label).toBe("Leaf");
     // The broken line in the shared file is reported once, not once per path to it
     expect(r.diagnostics.map((d) => d.code)).toEqual(["E503"]);
+  });
+  test("groups, pins and ranks of a file reached many times are contributed once", () => {
+    const files: Record<string, string> = { "/d/f6.ene": "a[A]\nb[B]\nrank a b\npin a 1,1\ngroup g[G] : a b" };
+    for (let i = 0; i < 6; i++) files[`/d/f${i}.ene`] = `include ./f${i + 1}.ene\n`.repeat(8);
+    const r = run("include ./f0.ene\na -> b", files);
+    expect(codes(r)).toEqual([]);
+    expect(r.doc.ranks.map((k) => k.ids)).toEqual([["a", "b"]]);
+    expect(r.doc.pins).toHaveLength(1);
+    expect(r.doc.groups.map((g) => g.id)).toEqual(["g"]);
   });
   test("E505 when one parse follows too many include lines", () => {
     const files = Object.fromEntries(Array.from({ length: 300 }, (_, i) => [`/d/n${i}.ene`, `x${i}[X]`]));

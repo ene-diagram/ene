@@ -47,7 +47,15 @@ export function createIncluder(io: IncluderIo): Includer {
     } catch (e) {
       return failed(e);
     }
-    const base = from !== undefined && path.isAbsolute(from) ? path.dirname(from) : root;
+    // `from` may be spelled through a link (an editor's path for the root file): use its real folder
+    let base = root;
+    if (from !== undefined && path.isAbsolute(from)) {
+      try {
+        base = io.realPath(path.dirname(from));
+      } catch (e) {
+        return failed(e);
+      }
+    }
     const asWritten = path.resolve(base, target);
     if (outside(root, asWritten)) return { error: "the file is outside the diagram's folder" };
     let file: string;
