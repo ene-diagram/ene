@@ -193,6 +193,10 @@ describe("player DOM", () => {
     sel.dispatchEvent(new Event("change"));
     expect(seen).toEqual([[0]]);
     expect(p.toSvg()).not.toContain("row");
+    // Every path in one file, whatever is chosen in the menu
+    const every = p.toSvg({ paths: "all" });
+    expect(every).toContain("1/2 · ");
+    expect(every).toContain("3. row");
     p.setChoices([1]);
     expect(sel.value).toBe("1");
     expect(seen).toEqual([[0]]);

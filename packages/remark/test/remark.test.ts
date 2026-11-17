@@ -63,6 +63,17 @@ describe("remark-ene static", () => {
     const { html } = await toHtml(md(fence('user -> api : url(#x) href="#y" id=z')));
     expect(html).toContain("url(#x) href=&quot;#y&quot; id=z");
   });
+  it("choice=all plays every path, and inlines safely next to another diagram", async () => {
+    const src = "diagram sequence\na -> b : go\nbranch ok\n  b --> a : fine\nelse fail\n  b -x a : broken\nend";
+    const { html } = await toHtml(md(`${fence(src, "choice=all")}\n\n${fence(src, "choice=all")}`));
+    expect(html).toContain("1/2 · ok");
+    expect(html).toContain("2/2 · fail");
+    const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const m of html.matchAll(/<mpath href="#([^"]+)"/g)) expect(ids).toContain(m[1]);
+    // The reduced-motion rules for the extra paths stay scoped to the diagram
+    expect(html).not.toMatch(/[{}]\s*\.alt\{/);
+  });
   it("include: resolved through the option; a live block with include falls back to static with a message", async () => {
     const src = "include ./sys.ene\nu -> api : go";
     const include = (p: string) => (p === "./sys.ene" ? { source: "api[Order API]", file: "sys" } : { error: "no" });

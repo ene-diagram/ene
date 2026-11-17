@@ -296,7 +296,7 @@ jobs:
 | `output-dir` | next to each file | write SVGs here; the path below the glob's fixed prefix is kept (`docs/**/*.ene` → `out/a/b.svg`) |
 | `mode` | `check` | `check` or `commit` |
 | `version` | `0.1` | `@ene-diagram/cli` version or range |
-| `choice` | | branch arms, like `--choice 0,1` |
+| `choice` | | branch arms, like `--choice 0,1`; `all` plays every path in turn |
 | `icons` | | icon pack JSON files (`--icons`) |
 | `network` | `false` | allow fetching `https://` icons; otherwise `--no-network` |
 | `fmt-check` | `true` | also run `ene fmt --check` |
@@ -343,6 +343,7 @@ const player = await ene.render(element, source, {
 player.setChoices([0]);   // pick arm 0 of the first branch
 player.choices;           // [0]
 player.toSvg();           // the self-playing SVG for the current choices, as `ene -o x.svg` writes it
+player.toSvg({ paths: "all" });   // every path in turn, as `--choice all`
 player.destroy();         // stop playback and clear the element
 ```
 
@@ -383,6 +384,12 @@ The player shows one menu per `branch`, so the reader can replay another path. A
 
 ```bash
 ene flow.ene -o miss.svg --choice 1
+```
+
+`--choice all` puts every path in the same file: they play one after another, and a line under the diagram says which one is playing (`2/3 · cache miss`). It works for SVG, GIF and MP4. A branch inside an arm that is not taken adds no path, and a diagram with more than 16 paths is an error. Under `prefers-reduced-motion` only the first path is shown.
+
+```bash
+ene flow.ene -o flow.svg --choice all
 ```
 
 Exported SVGs animate with SMIL (no script). They loop, follow dark mode, and under `prefers-reduced-motion` show every step at once without moving dots. Some hosts that sanitize SVGs may strip the animation.

@@ -42,7 +42,7 @@ remarkEne({
 });
 ```
 
-Per block, the fence meta can set `title="..."`, `choice=1,0`, and `live` or `static`.
+Per block, the fence meta can set `title="..."`, `choice=1,0` (or `choice=all` to play every branch path in turn), and `live` or `static`.
 
 **Includes.** The plugin reads no files, so an `include` line needs a reader. In Node:
 

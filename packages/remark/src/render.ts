@@ -1,8 +1,10 @@
 import {
   buildTimeline,
   checkIcons,
+  enumeratePaths,
   formatAll,
   isIconUrl,
+  MAX_PATHS,
   parse,
   resolveIcon,
   type IconPack,
@@ -11,13 +13,13 @@ import {
   type ResolvedIcon,
 } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
-import { esc, fetchIcon, renderSvg, type ThemeName } from "@ene-diagram/svg";
+import { esc, fetchIcon, renderSvg, renderSvgPaths, svgParts, type ThemeName } from "@ene-diagram/svg";
 
 export interface RenderOptions {
   /** Diagnostic language (default "en") */
   lang?: Lang;
-  /** Branch arms to show in the static SVG, like the CLI's `--choice 0,1` */
-  choice?: number[];
+  /** Branch arms to show in the static SVG, like the CLI's `--choice 0,1`; `"all"` plays every path in turn */
+  choice?: number[] | "all";
   /**
    * Reads `include`d files, for example `createIncluder` from `@ene-diagram/core` over `node:fs`. This package
    * reads no files itself, so without it an `include` line is an error
@@ -48,7 +50,8 @@ export async function renderEne(src: string, opts: RenderOptions = {}): Promise<
   if (diagnostics.some((d) => d.severity === "error"))
     return { ok: false, error: formatAll(src, diagnostics, lang), warnings };
   if (diagnostics.length) warnings.push(formatAll(src, diagnostics, lang));
-  const choices = opts.choice ?? [];
+  const all = opts.choice === "all";
+  const choices = opts.choice === "all" ? [] : (opts.choice ?? []);
   const tl = buildTimeline(doc, { choices });
   choices.forEach((c, i) => {
     const b = tl.branches[i];
@@ -77,7 +80,14 @@ export async function renderEne(src: string, opts: RenderOptions = {}): Promise<
   );
   const lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await layout(doc, tl);
   const title = opts.title ?? doc.title;
-  return { ok: true, svg: renderSvg(lay, tl, { title, icons, theme: doc.theme as ThemeName | undefined }), warnings };
+  const svgOpts = { title, icons, theme: doc.theme as ThemeName | undefined };
+  const paths = all ? enumeratePaths(doc) : [];
+  if (!paths) warnings.push(`choice all: more than ${MAX_PATHS} paths; showing the first one`);
+  const svg =
+    paths && paths.length > 1
+      ? renderSvgPaths(svgParts(doc, paths, doc.kind === "sequence" ? undefined : lay), svgOpts)
+      : renderSvg(lay, tl, svgOpts);
+  return { ok: true, svg, warnings };
 }
 
 /**
@@ -139,15 +149,15 @@ export const errorHtml = (message: string) =>
 export const DEFAULT_PLAYER_URL = "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js";
 
 /**
- * Parse a fence's info-string meta: `title="Checkout" choice=1,0`.
+ * Parse a fence's info-string meta: `title="Checkout" choice=1,0` (or `choice=all`).
  * Unknown keys are ignored.
  */
 export function parseMeta(meta: string | null | undefined): {
   title?: string;
-  choice?: number[];
+  choice?: number[] | "all";
   mode?: "static" | "live";
 } {
-  const out: { title?: string; choice?: number[]; mode?: "static" | "live" } = {};
+  const out: { title?: string; choice?: number[] | "all"; mode?: "static" | "live" } = {};
   if (!meta) return out;
   const re = /([a-zA-Z]+)=(?:"([^"]*)"|'([^']*)'|(\S+))|\b(live|static)\b/g;
   for (const m of meta.matchAll(re)) {
@@ -158,6 +168,7 @@ export function parseMeta(meta: string | null | undefined): {
     const key = m[1],
       val = m[2] ?? m[3] ?? m[4] ?? "";
     if (key === "title") out.title = val;
+    else if (key === "choice" && val === "all") out.choice = "all";
     else if (key === "choice" && /^\d+(,\d+)*$/.test(val)) out.choice = val.split(",").map(Number);
   }
   return out;

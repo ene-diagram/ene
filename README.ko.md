@@ -286,6 +286,7 @@ const player = await ene.render(element, source, {
 player.setChoices([0]);   // 첫 번째 branch 의 0번 갈래 선택
 player.choices;           // [0]
 player.toSvg();           // 지금 고른 갈래로 혼자 재생되는 SVG (`ene -o x.svg` 결과와 같아요)
+player.toSvg({ paths: "all" });   // 모든 경로를 차례로 (`--choice all` 과 같아요)
 player.destroy();         // 재생을 멈추고 요소를 비워요
 ```
 
@@ -326,6 +327,12 @@ CLI 에서는 `--icons pack.json`(여러 번 가능)을 써요. `ene icons <svg-
 
 ```bash
 ene flow.ene -o miss.svg --choice 1
+```
+
+`--choice all` 은 모든 경로를 한 파일에 담아요. 경로가 차례로 재생되고, 다이어그램 아래 한 줄이 지금 어느 경로인지 알려 줘요(`2/3 · cache miss`). SVG, GIF, MP4 모두 돼요. 선택되지 않은 갈래 안의 `branch` 는 경로 수를 늘리지 않고, 경로가 16개를 넘으면 오류예요. `prefers-reduced-motion` 에서는 첫 번째 경로만 보여요.
+
+```bash
+ene flow.ene -o flow.svg --choice all
 ```
 
 내보낸 SVG 는 스크립트 없이 SMIL 애니메이션으로 움직여요. 반복 재생하고, 다크 모드를 따르고, `prefers-reduced-motion` 에서는 움직이는 점 없이 모든 단계를 한 번에 보여줘요. SVG 를 정화(sanitize)하는 일부 호스트에서는 애니메이션이 빠질 수 있어요.

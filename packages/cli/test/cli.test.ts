@@ -48,6 +48,25 @@ test.each([
   expect(r.status).toBe(2);
   expect(r.stderr).toContain("usage:");
 });
+test("--choice all plays every path in one file; too many paths is an error", () => {
+  const d = mkdtempSync(join(tmpdir(), "ene-"));
+  const f = join(d, "b.ene");
+  const two = "branch a\n x -> y\nelse b\n x -> z\nend\n";
+  writeFileSync(f, `${two}y -> z`);
+  const r = runCli([f, "--choice", "all", "-o", "-"]);
+  expect(r.status).toBe(0);
+  expect(r.stderr).toContain("2 paths");
+  expect(r.stdout).toContain("1/2 · a");
+  expect(r.stdout).toContain("2/2 · b");
+  // No branches: the same file as without the flag
+  writeFileSync(f, "x -> y");
+  expect(runCli([f, "--choice", "all", "-o", "-"]).stdout).toBe(runCli([f, "-o", "-"]).stdout);
+  writeFileSync(f, `${two.repeat(5)}y -> z`);
+  const many = runCli([f, "--choice", "all", "-o", "-"]);
+  expect(many.status).toBe(1);
+  expect(many.stderr).toContain("more than 16 paths");
+  expect(many.stdout).toBe("");
+});
 test("out-of-range choice warns", () => {
   const d = mkdtempSync(join(tmpdir(), "ene-"));
   const f = join(d, "b.ene");
