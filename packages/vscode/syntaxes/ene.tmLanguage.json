@@ -103,7 +103,7 @@
       }
     },
     "settings": {
-      "match": "^\\s*(speed|wait|diagram|theme)\\b\\s*(\\S*)",
+      "match": "^\\s*(speed|wait|diagram|theme|include)\\b\\s*(\\S*)",
       "captures": {
         "1": {
           "name": "keyword.other.setting.ene"

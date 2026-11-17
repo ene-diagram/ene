@@ -136,7 +136,12 @@ export default function remarkEne(this: unknown, options: RemarkEneOptions = {})
       found.map(async ({ node, parent, i }, k) => {
         const meta = parseMeta(node.meta);
         const src = node.value ?? "";
-        const mode = meta.mode ?? options.mode ?? "static";
+        let mode = meta.mode ?? options.mode ?? "static";
+        // The player in the page cannot read files, so a diagram that includes one is drawn at build time
+        if (mode === "live" && /^[ \t]*include[ \t]/m.test(src)) {
+          file.message("ene: a diagram with `include` cannot be live; rendered as a static SVG", node.position);
+          mode = "static";
+        }
         let html: string;
         if (mode === "live") {
           html = `<pre class="ene">${escapeHtml(liveSource(src, meta.title))}</pre>`;

@@ -125,3 +125,17 @@ describe("grammar", () => {
     expect(kw.test("loopy -> a")).toBe(false);
   });
 });
+
+describe("diagnostics from an included file", () => {
+  it("sit on the include line, name the file and line, and offer no quick fix", () => {
+    const text = "title T\ninclude ./sys.ene\na -> b";
+    const { diagnostics } = parse(text, {
+      include: () => ({ source: "a[A]\ngroup g[G] : a bb\nb[B]\nbbb[C]", file: "sys.ene" }),
+    });
+    const [d] = toEditorDiagnostics(text, diagnostics);
+    expect(d.range).toEqual({ start: { line: 1, character: 0 }, end: { line: 1, character: 17 } });
+    expect(d.message).toMatch(/^sys\.ene:2: /);
+    expect(d.code).toBe("E401");
+    expect(d.suggestion).toBeUndefined();
+  });
+});

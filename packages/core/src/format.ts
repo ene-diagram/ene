@@ -3,7 +3,9 @@ import type { Diagnostic } from "./types.js";
 
 export function formatDiagnostic(source: string, d: Diagnostic, lang: Lang = "en"): string {
   const m = MESSAGES[lang][d.code as Code];
-  const raw = source.split(/\r\n|\r|\n/)[d.span.line - 1] ?? "";
+  // A problem in an included file carries its own line: `source` is the file that has the `include`
+  const raw = d.file !== undefined ? (d.lineText ?? "") : (source.split(/\r\n|\r|\n/)[d.span.line - 1] ?? "");
+  const where = d.file !== undefined ? `${d.file}, ` : "";
   const g = String(d.span.line).length;
   const pad = " ".repeat(g);
   // Keep tabs in the source as-is so the ^ stays aligned
@@ -14,7 +16,7 @@ export function formatDiagnostic(source: string, d: Diagnostic, lang: Lang = "en
   const hint = d.args.suggestion ? fill(DID_YOU_MEAN[lang], d.args) : fill(m.hint, d.args);
   return [
     `${d.severity}[${d.code}]: ${fill(m.message, d.args)}`,
-    `${pad}--> line ${d.span.line}, col ${d.span.col}`,
+    `${pad}--> ${where}line ${d.span.line}, col ${d.span.col}`,
     `${pad} |`,
     `${d.span.line} | ${raw}`,
     `${pad} | ${lead}${"^".repeat(Math.max(1, d.span.length))}`,
@@ -35,6 +37,8 @@ export interface DiagnosticJson {
   message: string;
   hint: string;
   suggestion?: string;
+  /** Only for a problem in an included file: that file (line and col are in it) */
+  file?: string;
 }
 export function diagnosticToJson(d: Diagnostic, lang: Lang = "en"): DiagnosticJson {
   const m = MESSAGES[lang][d.code as Code];
@@ -49,5 +53,6 @@ export function diagnosticToJson(d: Diagnostic, lang: Lang = "en"): DiagnosticJs
     hint,
   };
   if (d.args.suggestion) j.suggestion = d.args.suggestion;
+  if (d.file !== undefined) j.file = d.file;
   return j;
 }

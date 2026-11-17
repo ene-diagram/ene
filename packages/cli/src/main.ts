@@ -1,11 +1,12 @@
-import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   MAX_PATHS,
   THEMES,
   VERSION,
   buildTimeline,
   checkIcons,
+  createIncluder,
   diagnosticToJson,
   enumeratePaths,
   formatAll,
@@ -19,6 +20,7 @@ import {
   validateIconPack,
   type IconPack,
   type Lang,
+  type ParseOptions,
   type ResolvedIcon,
 } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
@@ -42,6 +44,31 @@ const USAGE = `usage: ene --version
        ene fmt <input.ene ...> [--check | --write]
        ene from-mermaid <input.mmd|input.md|-> [-o out.ene|-]
        ene icons <svg-dir> --prefix <name> [-o pack.json]`;
+
+const realOr = (p: string) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+};
+/**
+ * Parse options that let a diagram `include` files next to it. Paths are relative to the including file
+ * (the working folder for stdin) and cannot leave the diagram's folder.
+ */
+const includeFrom = (file: string | undefined): ParseOptions => {
+  // Real path, so nested includes (whose names are real paths) resolve from the same place
+  const abs = file === undefined ? undefined : realOr(resolve(file));
+  return {
+    ...(abs ? { file: abs } : {}),
+    include: createIncluder({
+      rootDir: abs ? dirname(abs) : process.cwd(),
+      path: { resolve, dirname, relative, isAbsolute },
+      realPath: (p) => realpathSync(p),
+      readFile: (p) => readFileSync(p, "utf8"),
+    }),
+  };
+};
 
 /** "Arch_AWS-Lambda_48.svg" → "aws-lambda" */
 export const iconName = (file: string) =>
@@ -155,7 +182,7 @@ function checkCommand(argv: string[]): number {
     }
     packs.push(data as IconPack);
   }
-  const { doc, diagnostics } = parse(src);
+  const { doc, diagnostics } = parse(src, includeFrom(input));
   diagnostics.push(...checkIcons(doc, packs));
   diagnostics.sort((a, b) => a.span.line - b.span.line || a.span.col - b.span.col);
   if (json)
@@ -378,7 +405,7 @@ export async function main(argv: string[]): Promise<number> {
     if (converted === undefined) return 1;
     src = converted;
   }
-  const { doc, diagnostics } = parse(src);
+  const { doc, diagnostics } = parse(src, includeFrom(fromStdin ? undefined : input));
   const packs: IconPack[] = [];
   for (const f of packFiles) {
     let data: unknown;

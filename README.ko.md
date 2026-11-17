@@ -339,6 +339,27 @@ ene flow.ene -o flow.svg --choice all
 
 내보낸 SVG 는 스크립트 없이 SMIL 애니메이션으로 움직여요. 반복 재생하고, 다크 모드를 따르고, `prefers-reduced-motion` 에서는 움직이는 점 없이 모든 단계를 한 번에 보여줘요. SVG 를 정화(sanitize)하는 일부 호스트에서는 애니메이션이 빠질 수 있어요.
 
+### 다이어그램끼리 선언 나눠 쓰기
+
+시스템의 노드를 한 파일에 적어 두고, 흐름마다 `include` 로 가져와요:
+
+```
+# system.ene — 선언만
+user[User]{shape: circle}
+api[Order API]{icon: logos:nodejs}
+db[Orders DB]{shape: db}
+group vpc[VPC] : api db
+```
+
+```
+# checkout.ene
+include ./system.ene
+user -> api : POST /checkout
+api -> db : INSERT
+```
+
+다이어그램이 실제로 쓴 노드만 그려지고, 그룹도 그 노드만 남겨요. 경로는 `include` 줄이 있는 파일 기준이고 다이어그램 폴더 밖으로 나갈 수 없어요. 포함되는 파일에는 선언만 쓸 수 있어요(노드, `group`, `pin`, `rank`, `theme`, `speed`, 또 다른 `include`). CLI 와 VS Code 확장은 파일을 직접 읽고, `@ene-diagram/remark` 와 `ene.render` 는 `include` 함수를 받아요(Node 에서는 `@ene-diagram/core` 의 `createIncluder`). 브라우저의 `<pre class="ene">` 만으로는 파일을 포함할 수 없어요.
+
 ### 테마
 
 소스에서는 `theme <이름>`, CLI 에서는 `--theme <이름>`(소스보다 우선), 브라우저에서는 `ene.render(el, src, { theme })` / `eneConfig.theme` / `<pre class="ene" data-theme="mono">` 로 정해요. 테마마다 밝은 변형과 어두운 변형이 있고 `prefers-color-scheme` 을 따라가요.
@@ -398,6 +419,7 @@ ene flow.ene -o flow.svg --choice all
 | `id[라벨]{…}` 만 있는 줄 | 엣지 없이 노드 선언 |
 | `diagram sequence` | 시퀀스 다이어그램으로 그리기 |
 | `theme mono` | 색 테마: `default`, `mono`, `high-contrast` |
+| `include ./system.ene` | 다른 파일의 노드 선언·그룹·배치 힌트를 가져오기 |
 
 한 줄이 한 단계이고, 위에서 아래로 재생됩니다. 흔한 실수까지 담은 전체 문법은 [SYNTAX.md](SYNTAX.md) 에 있어요(AI 도구용 `llms.txt` 와 같은 내용이에요).
 

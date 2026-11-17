@@ -45,8 +45,41 @@ interface Ref {
 const LABEL_HASH = /(?:^|\s)(#)(?:\s|$)/;
 const LABEL_DURATION = /(?:^|\s)@(\d+(?:\.\d+)?s)(?:\s|$)/;
 
-export function parse(source: string): ParseResult {
-  return new Parser(source).run();
+/** Text of an included file, and the name it is known by (for messages, loops and its own includes) */
+export interface IncludeResult {
+  source: string;
+  file: string;
+}
+/**
+ * Reads the file named on an `include` line. `from` is the file that has the line (`ParseOptions.file` for the
+ * root source). Synchronous on purpose: parsing stays a plain function call.
+ */
+export type Includer = (path: string, from: string | undefined) => IncludeResult | { error: string };
+export interface ParseOptions {
+  /** Without it an `include` line is an error (`E501`), which is what the browser player wants */
+  include?: Includer;
+  /** Name of the source being parsed, passed to `include` as `from` */
+  file?: string;
+}
+/** Most levels of `include` inside `include` */
+export const INCLUDE_DEPTH = 8;
+/** Most `include` lines followed in one parse, over all files */
+export const INCLUDE_LINES = 200;
+
+export function parse(source: string, opts: ParseOptions = {}): ParseResult {
+  return new Parser(source, opts).run();
+}
+
+/** What an included file contributes: declarations only */
+interface Library {
+  nodes: Map<string, NodeDecl>;
+  labeled: Set<string>;
+  groups: Group[];
+  pins: Document["pins"];
+  ranks: Document["ranks"];
+  theme?: string;
+  speed?: number;
+  diagnostics: Diagnostic[];
 }
 
 type Frame =
@@ -75,8 +108,26 @@ class Parser {
   private layoutLines: { keyword: string; line: Line }[] = [];
   private diags: Diagnostic[] = [];
   private doc: Document;
+  /** A node, step or layout line has been read: `include` is no longer allowed */
+  private started = false;
+  /** Declarations from included files. A node is taken from here the first time this file uses it */
+  private catalog = {
+    nodes: new Map<string, NodeDecl>(),
+    labeled: new Set<string>(),
+    // Keyed, first one wins: a file reached through several includes contributes each line once
+    groups: new Map<string, Group>(),
+    pins: new Map<string, Document["pins"][number]>(),
+    ranks: new Map<string, Document["ranks"][number]>(),
+  };
 
-  constructor(private source: string) {
+  constructor(
+    private source: string,
+    private opts: ParseOptions = {},
+    /** Set when this source is an included file: its name and the files that led to it */
+    private lib?: { file: string; chain: string[] },
+    /** State of the whole parse, shared with the parsers of included files */
+    private shared: { lines: number; done: Map<string, Library> } = { lines: 0, done: new Map() },
+  ) {
     this.doc = { kind: "flow", speed: 1.2, nodes: this.nodes, body: [], pins: [], ranks: [], groups: [] };
   }
 
@@ -91,6 +142,7 @@ class Parser {
     }
     this.resolveHints();
     this.resolveGroups();
+    this.mergeCatalog();
     // W111: layout hints and groups are dropped by the sequence layout
     if (this.doc.kind === "sequence")
       for (const { keyword, line } of this.layoutLines) this.report("W111", line, 0, keyword.length, { keyword });
@@ -99,6 +151,128 @@ class Parser {
     if (this.doc.body.length === 0 && !this.diags.some((d) => d.severity === "error"))
       this.diags.push({ code: "E101", severity: "error", span: { line: 1, col: 1, length: 0 }, args: {} });
     return { doc: this.doc, diagnostics: this.diags };
+  }
+
+  /** Parse as an included file: only declarations are allowed, and every one of them is handed up */
+  runLibrary(): Library {
+    for (const line of scan(this.source)) this.line(line);
+    // Everything from nested includes is part of this library, used here or not
+    for (const id of this.catalog.nodes.keys()) this.adopt(id);
+    this.resolveHints();
+    this.resolveGroups();
+    this.mergeCatalog();
+    return {
+      nodes: this.nodes,
+      labeled: this.labeled,
+      groups: this.doc.groups,
+      pins: this.doc.pins,
+      ranks: this.doc.ranks,
+      ...(this.doc.theme ? { theme: this.doc.theme } : {}),
+      ...(this.speedSet ? { speed: this.doc.speed } : {}),
+      diagnostics: this.diags,
+    };
+  }
+  private speedSet = false;
+
+  /** `include <path>`: read the file as a library and keep its declarations for later use */
+  include(l: Line, t: string[], rest: string) {
+    if (!rest) return this.report("E307", l, 0, t.length, { keyword: "include", example: "include ./system.ene" });
+    const at = skip(t, 7);
+    if (this.started) return this.report("E504", l, 0, t.length);
+    if (!this.opts.include) return this.report("E501", l, 0, t.length);
+    const chain = this.lib?.chain ?? (this.opts.file !== undefined ? [this.opts.file] : []);
+    // One parse per file however often it is included, and a cap on include lines in total: without these a
+    // few files that include each other several times make the work grow exponentially. The cap comes before
+    // the reader is called, so it bounds file reads too
+    if (++this.shared.lines > INCLUDE_LINES)
+      return this.report("E505", l, at, t.length, { path: rest, limit: String(INCLUDE_DEPTH) });
+    const r = this.opts.include(rest, this.lib?.file ?? this.opts.file);
+    if ("error" in r) return this.report("E502", l, at, t.length, { path: rest, reason: r.error });
+    if (chain.includes(r.file) || chain.length >= INCLUDE_DEPTH + (this.opts.file !== undefined ? 1 : 0))
+      return this.report("E505", l, at, t.length, { path: rest, limit: String(INCLUDE_DEPTH) });
+    const here = this.span(l, 0, t.length);
+    let sub = this.shared.done.get(r.file);
+    if (!sub) {
+      sub = new Parser(r.source, this.opts, { file: r.file, chain: [...chain, r.file] }, this.shared).runLibrary();
+      this.shared.done.set(r.file, sub);
+      // Each level re-points `at`, so the root ends up with its own `include` line. A file's problems are
+      // reported once, where it is first included
+      this.diags.push(...sub.diagnostics.map((d) => ({ ...d, at: here })));
+    }
+    // The first declaration of an id wins, as inside one file
+    for (const [id, n] of sub.nodes)
+      if (!this.catalog.nodes.has(id)) {
+        // Like diagnostics: remember which `include` line of this file the node came through
+        this.catalog.nodes.set(id, n.from ? { ...n, from: { ...n.from, at: here } } : n);
+        if (sub.labeled.has(id)) this.catalog.labeled.add(id);
+      }
+    for (const g of sub.groups) if (!this.catalog.groups.has(g.id)) this.catalog.groups.set(g.id, g);
+    for (const p of sub.pins) if (!this.catalog.pins.has(p.id)) this.catalog.pins.set(p.id, p);
+    for (const k of sub.ranks) {
+      const key = k.ids.join("\u0000");
+      if (!this.catalog.ranks.has(key)) this.catalog.ranks.set(key, k);
+    }
+    // Settings from an include are defaults: a `theme` / `speed` line in this file replaces them
+    if (sub.theme && !this.doc.theme) this.doc.theme = sub.theme;
+    if (sub.speed !== undefined && !this.speedSet) {
+      this.doc.speed = sub.speed;
+      this.speedSet = true;
+    }
+  }
+
+  /** Take a node from the catalog the first time it is used here */
+  adopt(id: string): NodeDecl | undefined {
+    const have = this.nodes.get(id);
+    if (have) return have;
+    const c = this.catalog.nodes.get(id);
+    if (!c) return undefined;
+    const n = { ...c };
+    this.nodes.set(id, n);
+    if (this.catalog.labeled.has(id)) this.labeled.add(id);
+    return n;
+  }
+
+  /**
+   * Groups, pins and ranks from included files, cut down to the nodes this file uses. What this file says
+   * itself wins: its groups keep their nodes, its pins keep their cells.
+   */
+  mergeCatalog() {
+    const used = (id: string) => this.nodes.has(id);
+    const ownIds = new Set(this.doc.groups.map((g) => g.id));
+    const taken = new Set(this.doc.groups.flatMap((g) => g.members));
+    // Several files may group the same node. As inside one file, a node sits in one chain of nested groups:
+    // a top-level group takes nodes no group has yet, a nested group takes nodes of its parent. The first
+    // file to group a node wins; parents are placed before their children whatever the order in the files.
+    const byId = new Map<string, Group>();
+    for (const g of this.catalog.groups.values()) if (!ownIds.has(g.id)) byId.set(g.id, g);
+    const innermost = new Map<string, string>();
+    const alive = new Map<string, Group>();
+    const place = (g: Group, seen: Set<string>) => {
+      if (alive.has(g.id) || seen.has(g.id)) return;
+      seen.add(g.id);
+      if (g.parent !== undefined) {
+        const parent = byId.get(g.parent);
+        if (parent) place(parent, seen);
+        // Without its parent (an id clash, or the parent kept no node) a nested group is dropped
+        if (!alive.has(g.parent)) return;
+      }
+      const members = g.members.filter(
+        (m) => used(m) && !taken.has(m) && (g.parent !== undefined ? innermost.get(m) === g.parent : !innermost.has(m)),
+      );
+      if (!members.length) return;
+      for (const m of members) innermost.set(m, g.id);
+      alive.set(g.id, { ...g, members });
+    };
+    for (const g of byId.values()) place(g, new Set());
+    // Declaration order, as for the diagram's own groups
+    this.doc.groups.push(...[...byId.keys()].flatMap((id) => alive.get(id) ?? []));
+    for (const p of this.catalog.pins.values())
+      if (used(p.id) && !this.doc.pins.some((q) => q.id === p.id || (q.col === p.col && q.row === p.row)))
+        this.doc.pins.push(p);
+    for (const r of this.catalog.ranks.values()) {
+      const ids = r.ids.filter(used);
+      if (ids.length >= 2) this.doc.ranks.push({ ...r, ids });
+    }
   }
 
   // ---- diagnostics ----
@@ -111,7 +285,13 @@ class Parser {
       const sug = suggest(args.word.split(/\s/, 1)[0], KEYWORDS);
       if (sug) args = { ...args, suggestion: sug };
     }
-    this.diags.push({ code, severity: code.startsWith("W") ? "warning" : "error", span: this.span(l, from, to), args });
+    this.diags.push({
+      code,
+      severity: code.startsWith("W") ? "warning" : "error",
+      span: this.span(l, from, to),
+      args,
+      ...(this.lib ? { file: this.lib.file, lineText: l.text } : {}),
+    });
   }
 
   depthCheck(l: Line) {
@@ -183,6 +363,13 @@ class Parser {
       if (this.settings.has(word)) this.report("W107", l, 0, word.length, { keyword: word });
       this.settings.add(word);
     }
+    if (word === "include") return this.include(l, t, rest);
+    if (this.lib && !["group", "pin", "rank", "theme", "speed"].includes(word)) {
+      // An included file: besides those lines, only node declarations
+      this.started = true;
+      if (!this.nodeLine(l, t)) this.report("E503", l, 0, t.length);
+      return;
+    }
     if (word === "title") {
       this.labelHash(l, t, word.length, t.length);
       this.doc.title = rest;
@@ -228,8 +415,10 @@ class Parser {
       const n = Number(rest);
       if (!rest || !(n > 0) || !Number.isFinite(n)) return this.report("E304", l, 0, t.length, { value: rest });
       this.doc.speed = n;
+      this.speedSet = true;
       return;
     }
+    this.started = true;
     const whole = this.span(l, 0, t.length);
     if (word === "pin" || word === "rank" || word === "group") this.layoutLines.push({ keyword: word, line: l });
     if (word === "pin" || word === "rank") return this.hint(l, t, word);
@@ -547,7 +736,8 @@ class Parser {
     const ids = [...this.nodes.keys()];
     ids.forEach((id, i) => {
       const u = this.uses.get(id) ?? [];
-      if (u.length !== 1) return;
+      // An id declared in an included file is not a typo
+      if (u.length !== 1 || this.catalog.nodes.has(id)) return;
       const sug = suggest(id, ids.slice(0, i));
       if (sug) this.report("W101", u[0].line, u[0].from, u[0].to, { name: id, suggestion: sug });
     });
@@ -652,6 +842,7 @@ class Parser {
       for (const m of memberAt) {
         if (seen.has(m.id)) continue;
         seen.add(m.id);
+        this.adopt(m.id);
         if (!this.nodes.has(m.id)) {
           const sug = suggest(m.id, this.nodes.keys());
           this.report("E401", line, m.from, m.to, sug ? { name: m.id, suggestion: sug } : { name: m.id });
@@ -680,6 +871,7 @@ class Parser {
   resolveHints() {
     const cells = new Map<string, string>();
     for (const h of this.hints) {
+      for (const x of h.ids) this.adopt(x.id);
       const missing = h.ids.find((x) => !this.nodes.has(x.id));
       if (missing) {
         const sug = suggest(missing.id, this.nodes.keys());
@@ -712,11 +904,19 @@ class Parser {
 
   declare(l: Line, r: Ref) {
     const span = this.span(l, r.start, r.end);
-    const prev = this.nodes.get(r.id);
+    const prev = this.adopt(r.id);
     if (prev)
       for (const k of ["icon", "shape", "color"] as const) {
-        if (r[k] && !prev[k]) (prev as unknown as Record<string, unknown>)[k] = r[k];
-        else if (r[k] && prev[k] !== r[k])
+        if (r[k] && !prev[k]) {
+          (prev as unknown as Record<string, unknown>)[k] = r[k];
+          // The icon is written here, so a problem with it (W104) belongs to this line, not to the file
+          // the node was first declared in
+          if (k === "icon") {
+            prev.span = span;
+            if (this.lib) prev.from = { file: this.lib.file, lineText: l.text };
+            else delete prev.from;
+          }
+        } else if (r[k] && prev[k] !== r[k])
           this.report("W106", l, r.start, r.end, { name: r.id, attr: k, first: prev[k]!, second: r[k]! });
       }
     if (!prev) {
@@ -727,6 +927,7 @@ class Parser {
         ...(r.icon ? { icon: r.icon } : {}),
         ...(r.shape ? { shape: r.shape } : {}),
         ...(r.color ? { color: r.color } : {}),
+        ...(this.lib ? { from: { file: this.lib.file, lineText: l.text } } : {}),
       });
       if (r.label !== undefined) this.labeled.add(r.id);
       return;

@@ -1,12 +1,17 @@
+import { readFileSync, realpathSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import * as vscode from "vscode";
 import {
   buildTimeline,
   checkIcons,
+  createIncluder,
   formatSource,
   isIconUrl,
   parse,
   resolveIcon,
+  type IncludeResult,
   type Lang,
+  type ParseOptions,
   type ResolvedIcon,
 } from "@ene-diagram/core";
 import { layout, layoutSequence } from "@ene-diagram/layout";
@@ -28,6 +33,32 @@ const DEBOUNCE_MS = 250;
 const lang = (): Lang => (vscode.env.language.startsWith("ko") ? "ko" : "en");
 const toRange = (r: Rng) => new vscode.Range(r.start.line, r.start.character, r.end.line, r.end.character);
 
+type Included = IncludeResult | { error: string };
+/** Key of one `include` lookup, shared with the preview webview (media/preview.js) */
+const includeKey = (path: string, from: string | undefined) => `${from ?? ""}\n${path}`;
+/**
+ * Parse options that resolve `include` next to a document on disk (unsaved and virtual documents get none,
+ * so `include` reports E501 there). `seen` collects every lookup, for the preview to replay.
+ */
+function parseOptionsFor(doc: vscode.TextDocument, seen?: Map<string, Included>): ParseOptions {
+  if (doc.uri.scheme !== "file") return {};
+  const file = doc.uri.fsPath;
+  const read = createIncluder({
+    rootDir: dirname(file),
+    path: { resolve, dirname, relative, isAbsolute },
+    realPath: (p) => realpathSync(p),
+    readFile: (p) => readFileSync(p, "utf8"),
+  });
+  return {
+    file,
+    include: (path, from) => {
+      const r = read(path, from);
+      seen?.set(includeKey(path, from), r);
+      return r;
+    },
+  };
+}
+
 export function activate(ctx: vscode.ExtensionContext): void {
   const collection = vscode.languages.createDiagnosticCollection(LANG_ID);
   // Diagnostics with the document version they were computed for; quick fixes are only offered for that version
@@ -38,7 +69,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   function lint(doc: vscode.TextDocument) {
     if (doc.languageId !== LANG_ID) return;
     const text = doc.getText();
-    const { doc: ast, diagnostics } = parse(text);
+    const { doc: ast, diagnostics } = parse(text, parseOptionsFor(doc));
     diagnostics.push(...checkIcons(ast, []).filter((d) => d.severity === "error"));
     const ds = toEditorDiagnostics(text, diagnostics, lang());
     cache.set(doc.uri.toString(), { version: doc.version, diags: ds });
@@ -79,6 +110,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
   ctx.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument(lint),
     vscode.workspace.onDidChangeTextDocument((e) => schedule(e.document)),
+    // A saved file may be one that other open diagrams include: check and redraw them all again
+    vscode.workspace.onDidSaveTextDocument((saved) => {
+      if (saved.languageId !== LANG_ID) return;
+      for (const d of vscode.workspace.textDocuments) if (d !== saved) lint(d);
+      Preview.refreshAll();
+    }),
     vscode.workspace.onDidCloseTextDocument(forget),
     { dispose: () => timers.forEach(clearTimeout) },
 
@@ -185,12 +222,21 @@ class Preview {
   }
   private readonly panel: vscode.WebviewPanel;
 
+  static refreshAll() {
+    for (const p of Preview.panels.values()) p.schedule();
+  }
   private schedule() {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.post(), DEBOUNCE_MS);
   }
   private post() {
-    if (this.ready) void this.panel.webview.postMessage({ type: "update", text: this.doc.getText() });
+    if (!this.ready) return;
+    const text = this.doc.getText();
+    // The webview cannot read files: parse once here and send it what the `include` lines resolved to
+    const seen = new Map<string, Included>();
+    const opts = parseOptionsFor(this.doc, seen);
+    if (opts.include) parse(text, opts);
+    void this.panel.webview.postMessage({ type: "update", text, file: opts.file, includes: [...seen] });
   }
   private dispose() {
     clearTimeout(this.timer);
@@ -210,7 +256,7 @@ async function exportSvg() {
     return;
   }
   const text = ed.document.getText();
-  const { doc, diagnostics } = parse(text);
+  const { doc, diagnostics } = parse(text, parseOptionsFor(ed.document));
   diagnostics.push(...checkIcons(doc, []));
   if (diagnostics.some((d) => d.severity === "error")) {
     void vscode.window.showErrorMessage("ene: fix the errors before exporting (see Problems)");

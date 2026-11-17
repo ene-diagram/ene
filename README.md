@@ -396,6 +396,27 @@ ene flow.ene -o flow.svg --choice all
 
 Exported SVGs animate with SMIL (no script). They loop, follow dark mode, and under `prefers-reduced-motion` show every step at once without moving dots. Some hosts that sanitize SVGs may strip the animation.
 
+### Sharing declarations between diagrams
+
+Put the nodes of a system in one file and `include` it from every flow:
+
+```
+# system.ene — declarations only
+user[User]{shape: circle}
+api[Order API]{icon: logos:nodejs}
+db[Orders DB]{shape: db}
+group vpc[VPC] : api db
+```
+
+```
+# checkout.ene
+include ./system.ene
+user -> api : POST /checkout
+api -> db : INSERT
+```
+
+Only the nodes a diagram uses are drawn, and groups keep only those members. The path is relative to the including file and cannot leave the diagram's folder. An included file holds declarations only (nodes, `group`, `pin`, `rank`, `theme`, `speed`, more `include`s). The CLI and the VS Code extension read the files; `@ene-diagram/remark` and `ene.render` take an `include` function (for Node, `createIncluder` from `@ene-diagram/core`); a plain `<pre class="ene">` in the browser cannot include files.
+
 ### Themes
 
 `theme <name>` in the source, `--theme <name>` on the CLI (wins over the source) or `ene.render(el, src, { theme })` / `eneConfig.theme` / `<pre class="ene" data-theme="mono">` in the browser. Each theme has a light and a dark variant that follows `prefers-color-scheme`.
@@ -455,6 +476,7 @@ An icon is either a pack name (`logos:redis`, from packs you register) or an SVG
 | `id[Label]{…}` on its own line | declare a node without an edge |
 | `diagram sequence` | draw as a sequence diagram |
 | `theme mono` | colour theme: `default`, `mono`, `high-contrast` |
+| `include ./system.ene` | reuse node declarations, groups and layout hints from another file |
 
 One line is one step, played top to bottom. The complete reference, with common mistakes, is in [SYNTAX.md](SYNTAX.md) (also served as `llms.txt` for AI tools).
 

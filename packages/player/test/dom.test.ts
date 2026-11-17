@@ -10,6 +10,24 @@ const key = (el: Element, k: string) =>
   el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
 const stepText = (root: ParentNode) => root.querySelector(".ene-step")!.textContent;
 
+describe("include", () => {
+  it("is an error box without a reader, and works with the include option", async () => {
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const src = "include ./sys.ene\nu -> api : go";
+    expect(await render(el, src, { lang: "en" })).toBeUndefined();
+    expect(el.querySelector(".ene-error")!.textContent).toContain("E501");
+    const p = await render(el, src, {
+      autoplay: false,
+      include: (path) => (path === "./sys.ene" ? { source: "api[Order API]", file: "sys" } : { error: "no" }),
+    });
+    expect(p).toBeDefined();
+    expect(el.querySelector(".ene-error")).toBeNull();
+    expect(el.innerHTML).toContain("Order API");
+    p!.destroy();
+  });
+});
+
 describe("player DOM", () => {
   it("autoRun replaces pre.ene with a player that has title, svg and controls", async () => {
     addPre(STEPS);

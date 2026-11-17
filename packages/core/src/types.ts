@@ -12,6 +12,8 @@ export interface NodeDecl {
   shape?: Shape;
   color?: string;
   span: Span;
+  /** Set when the declaration is in an included file: `span` is a place in that file */
+  from?: { file: string; lineText: string; at?: Span };
 }
 export interface Group {
   id: string;
@@ -64,6 +66,11 @@ export interface Diagnostic {
   severity: Severity;
   span: Span;
   args: Record<string, string>;
+  /** Set when the problem is in an included file: its name, and the text of the line (the span is in that file) */
+  file?: string;
+  lineText?: string;
+  /** With `file`: the `include` line in the source that was parsed, which is where an editor can show it */
+  at?: Span;
 }
 export interface ParseResult {
   doc: Document;

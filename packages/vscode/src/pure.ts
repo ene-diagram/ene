@@ -48,13 +48,15 @@ export function toEditorDiagnostics(text: string, diags: Diagnostic[], lang: Lan
   const lines = splitLines(text);
   return diags.map((d) => {
     const j = diagnosticToJson(d, lang);
+    // A problem in an included file is shown on the `include` line, with the place it comes from
+    const foreign = d.file !== undefined;
     const out: EneDiag = {
-      range: spanToRange(lines, d.span),
+      range: spanToRange(lines, foreign ? (d.at ?? { line: 1, col: 1, length: 1 }) : d.span),
       severity: d.severity,
       code: d.code,
-      message: `${j.message}\n${j.hint}`,
+      message: `${foreign ? `${d.file}:${d.span.line}: ` : ""}${j.message}\n${j.hint}`,
     };
-    if (j.suggestion) {
+    if (j.suggestion && !foreign) {
       out.suggestion = j.suggestion;
       out.target = d.args.name ?? d.args.word?.split(/\s/, 1)[0];
     }
