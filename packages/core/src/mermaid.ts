@@ -230,7 +230,7 @@ export function fromMermaid(input: string): MermaidResult {
       continue;
     }
     if (word === "activate" || word === "deactivate") {
-      warn(no, "activation bars are not drawn", "activation");
+      warn(no, "explicit activation is dropped; ene draws a bar from each request to its response", "activation");
       continue;
     }
     if (word === "destroy") {
@@ -247,7 +247,8 @@ export function fromMermaid(input: string): MermaidResult {
       const [, from, sym, act, to, label] = m;
       const [, arrow, both] = ARROWS.find(([a]) => a === sym)!;
       if (both) warn(no, "two-way arrows are drawn one way, from the first participant", "twoway");
-      if (act) warn(no, "activation bars are not drawn", "activation");
+      if (act)
+        warn(no, "explicit activation is dropped; ene draws a bar from each request to its response", "activation");
       body().push({ t: "msg", from: idOf(from), to: idOf(to), arrow, label: text(label ?? ""), line: no });
       continue;
     }

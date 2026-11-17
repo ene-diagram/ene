@@ -419,6 +419,15 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       lbl: SVGTextElement[] = [],
       dots: SVGCircleElement[] = [],
       xs: SVGTextElement[] = [];
+    // Activation bars (sequence) go under the arrows; each shows once its request has arrived
+    const acts = (l.activations ?? []).flatMap((a) => {
+      const s = t.steps[a.step],
+        e = s?.edges[a.k];
+      if (!e) return [];
+      const el = svgEl("rect", { x: a.x, y: a.y1, width: a.w, height: a.y2 - a.y1, rx: 2, class: "act" });
+      dyn.appendChild(el);
+      return [{ el, at: arrivalTime(s.start, e.duration) }];
+    });
     const list = t.steps.flatMap((s) =>
       s.edges.map((e, k) => {
         const le = edgeFor(l, s.index, k, e.edgeIndex)!;
@@ -449,7 +458,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       xs.push(x);
       dyn.appendChild(x);
     }
-    return { list, hl, lbl, dots, xs };
+    return { list, hl, lbl, dots, xs, acts };
   }
 
   function draw() {
@@ -463,6 +472,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       for (const e of staticEdges) e.el.classList.toggle("ene-dim", !!live && !paths.has(e.e));
     }
     const on = (s: Timeline["steps"][number]) => (live && s !== live ? String(DIM) : "1");
+    for (const a of items.acts) a.el.style.opacity = t >= a.at - 1e-9 ? "1" : "0";
     items.list.forEach((it, i) => {
       const t0 = it.s.start,
         t1 = arrivalTime(t0, it.e.duration);

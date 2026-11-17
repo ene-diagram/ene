@@ -124,6 +124,8 @@ end
 
 ![Checkout sequence](demo/14-sequence-checkout.svg)
 
+시퀀스 다이어그램에서는 요청(`->`)을 받은 참여자가 호출한 쪽에 응답(`-->` 또는 `-x`)할 때까지 활성화 막대가 그려져요. 응답이 없는 요청에는 그려지지 않아요.
+
 더 많은 예제는 [`packages/core/examples`](packages/core/examples) 에 있습니다.
 
 ## 시작하기
@@ -243,7 +245,7 @@ ene from-mermaid README.md -o flow.ene       # 마크다운 파일에서 변환�
 ene diagram.mmd -o diagram.svg               # 변환과 렌더링을 한 번에
 ```
 
-메시지, 참여자, `alt`/`else`, `opt`(`break` 도 `opt` 로), `loop`, `par`, 비동기 화살표 `-)`(`~>` 로) 를 변환해요. `Note` 는 바로 위 메시지의 `note` 가 되고(위에 메시지가 없으면 주석), 대응하는 문법이 없는 것(활성화 막대, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요.
+메시지, 참여자, `alt`/`else`, `opt`(`break` 도 `opt` 로), `loop`, `par`, 비동기 화살표 `-)`(`~>` 로) 를 변환해요. `Note` 는 바로 위 메시지의 `note` 가 되고(위에 메시지가 없으면 주석), 대응하는 문법이 없는 것(`activate`/`deactivate` — 막대는 ene 가 요청과 응답으로 직접 그려요 —, `rect`, `box`, 링크)은 빠져요. 그때마다 줄 번호와 함께 경고를 보여줘요. Mermaid 의 `loop` 에는 횟수가 없어서, 라벨에 숫자가 없으면 `loop 2` 가 돼요.
 
 `flowchart`·`graph` 는 흐름 다이어그램이 돼요. 노드는 라벨과 ene 에 있는 모양을 그대로 써요(`(( ))` 원, `( )`·`([ ])` 둥근 상자, `[( )]` db, 나머지는 경고와 함께 상자). 연결선은 소스 순서대로 하나씩 단계가 되고(`|라벨|`·`-- 라벨 -->` 는 라벨로, 점선은 `-->` 로, `--x` 는 `-x` 로), `subgraph` 는 `group` 이 돼요(안쪽 subgraph 는 `in`). 스타일·클래스·클릭 핸들러·subgraph 로 가는 연결선은 경고와 함께 빠져요. 플로차트에는 시간 축이 없어서, 결과 맨 위에 단계 순서를 확인하라는 주석을 달아요.
 
