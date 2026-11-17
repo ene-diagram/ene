@@ -46,6 +46,19 @@ export interface Layout {
   /** Sequence only: lifelines and branch arm frames */
   lifelines?: { id: string; x: number; y1: number; y2: number }[];
   frames?: LFrame[];
+  /** Sequence only: bars on a lifeline from a request to its answer */
+  activations?: LActivation[];
+}
+/** A participant is busy: from the request edge (`step`, `k`) that reaches it until it answers the caller */
+export interface LActivation {
+  id: string;
+  x: number;
+  y1: number;
+  y2: number;
+  w: number;
+  /** Step and edge of the request; the bar appears when that edge's dot arrives */
+  step: number;
+  k: number;
 }
 
 /** Path of the k-th edge of a step. Sequence uses one per step; flow shares one per unique edge */
@@ -56,6 +69,7 @@ export function edgeFor(l: Layout, step: number, k: number, edgeIndex: number): 
   );
 }
 
+const ACT_W = 10;
 const S_ROW = 52,
   S_TOP = 24,
   S_GAP = 60;
@@ -84,6 +98,8 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
   const cx = new Map(nodes.map((n) => [n.id, n.x + n.w / 2]));
   const rowY = (i: number) => PAD + NODE_H + S_TOP + 20 + i * S_ROW;
   const edges: LEdge[] = [];
+  /** y of each arrow by "row:k" (parallel arrows between the same two participants are stacked) */
+  const edgeY = new Map<string, number>();
   tl.steps.forEach((s, i) => {
     const pairCount = new Map<string, number>();
     s.edges.forEach((e, k) => {
@@ -94,6 +110,7 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
         nth = pairCount.get(pk) ?? 0;
       pairCount.set(pk, nth + 1);
       const y = rowY(i) + nth * 14;
+      edgeY.set(`${i}:${k}`, y);
       if (e.from === e.to) {
         edges.push({
           index: e.edgeIndex,
@@ -114,6 +131,33 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
       });
     });
   });
+  // Activation bars: a request (`->`) opens one on the callee; the callee's next answer (`-->` or `-x`) to that
+  // caller closes it. Requests that are never answered get no bar. Nested calls step to the right.
+  const activations: LActivation[] = [];
+  const open: { caller: string; callee: string; y: number; step: number; k: number; depth: number }[] = [];
+  tl.steps.forEach((s, i) => {
+    s.edges.forEach((e, k) => {
+      if (e.from === e.to) return;
+      if (e.kind === "ok") {
+        const depth = open.filter((o) => o.callee === e.to).length;
+        open.push({ caller: e.from, callee: e.to, y: edgeY.get(`${i}:${k}`) ?? rowY(i), step: s.index, k, depth });
+      } else if (e.kind === "reply" || e.kind === "fail") {
+        const at = open.findLastIndex((o) => o.callee === e.from && o.caller === e.to);
+        if (at < 0) return;
+        const [o] = open.splice(at, 1);
+        activations.push({
+          id: o.callee,
+          x: cx.get(o.callee)! - ACT_W / 2 + o.depth * 4,
+          y1: o.y,
+          y2: edgeY.get(`${i}:${k}`) ?? rowY(i),
+          w: ACT_W,
+          step: o.step,
+          k: o.k,
+        });
+      }
+    });
+  });
+  activations.sort((a, b) => a.step - b.step || a.k - b.k);
   // Branch arm frames: consecutive rows sharing the same [branch, arm]
   const frames: LFrame[] = [];
   const minX = PAD - 12,
@@ -152,6 +196,7 @@ export function layoutSequence(doc: Document, tl: Timeline): Layout {
     groups: [],
     lifelines,
     frames,
+    activations,
     width: Math.max(maxX + PAD, ...edges.map((e) => e.mid.x + 60)),
     height: bottom + PAD,
   };

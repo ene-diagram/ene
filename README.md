@@ -124,6 +124,8 @@ end
 
 ![Checkout sequence](demo/14-sequence-checkout.svg)
 
+In a sequence diagram a participant gets an activation bar from each request (`->`) until it answers the caller (`-->` or `-x`). Requests that are never answered get none.
+
 More examples in [`packages/core/examples`](packages/core/examples).
 
 ## Getting started
@@ -243,7 +245,7 @@ ene from-mermaid README.md -o flow.ene       # takes the first ```mermaid block 
 ene diagram.mmd -o diagram.svg               # convert and render in one go
 ```
 
-Messages, participants, `alt`/`else`, `opt` (and `break`, as `opt`), `loop`, `par` and the async arrow `-)` (as `~>`) are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (activation bars, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number.
+Messages, participants, `alt`/`else`, `opt` (and `break`, as `opt`), `loop`, `par` and the async arrow `-)` (as `~>`) are converted. A `Note` becomes a `note` on the message above it (a comment if there is none), and constructs with no equivalent (explicit `activate`, `rect`, `box`, links) are dropped — each with a warning that names the line. A Mermaid `loop` has no count, so it becomes `loop 2` unless its label has a number.
 
 A `flowchart` / `graph` becomes a flow diagram: nodes keep their labels and the shapes ene has (`(( ))` circle, `( )` / `([ ])` round, `[( )]` db; others are drawn as boxes with a warning), each link becomes one step in source order (`|label|` and `-- label -->` become labels, dotted links become `-->`, `--x` becomes `-x`), and `subgraph` becomes `group` (nested ones use `in`). Styles, classes, click handlers and links to a subgraph are dropped with a warning. A flowchart has no time axis, so the output starts with a comment asking you to review the step order.
 

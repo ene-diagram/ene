@@ -184,10 +184,10 @@ export const STYLE = `
   .lbl{text-anchor:middle;font-size:12px;fill:var(--fg2);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
   .x{text-anchor:middle;font-size:18px;font-weight:700;fill:var(--fail)}
   .t{font-size:17px;font-weight:700;fill:var(--fg)} .gl{font-size:12px;font-weight:600}
-  .life{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5} .frame{fill:var(--ok);fill-opacity:.04;stroke:var(--line);stroke-width:1.2}
+  .life{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5} .act{fill:var(--node);stroke:var(--line);stroke-width:1.2} .frame{fill:var(--ok);fill-opacity:.04;stroke:var(--line);stroke-width:1.2}
   .fl{font-size:11px;font-weight:700;fill:var(--fg2)} .note{font-size:13px;fill:var(--fg2)}
 
-  @media (prefers-reduced-motion: reduce){.dot,.x,.note{display:none}.hl,.lbl{opacity:1 !important}}`;
+  @media (prefers-reduced-motion: reduce){.dot,.x,.note{display:none}.hl,.lbl,.act{opacity:1 !important}}`;
 
 /** Extra rules when several paths play in one file */
 const PATHS_STYLE = `
@@ -290,6 +290,14 @@ export function renderSvgPaths(parts: SvgPart[], opts: SvgOptions = {}): string 
     // When the same edge is reused, hide the previous label then
     const uses = edgeUses(tl);
 
+    // Activation bars (sequence): shown from the moment the request arrives
+    let acts = "";
+    for (const a of l.activations ?? []) {
+      const s = tl.steps[a.step],
+        e = s?.edges[a.k];
+      if (!e) continue;
+      acts += `<rect x="${a.x}" y="${a.y1}" width="${a.w}" height="${a.y2 - a.y1}" rx="2" class="act" opacity="0">${untilEnd(arrivalTime(off + s.start, e.duration))}</rect>`;
+    }
     let base = "",
       hl = "",
       labels = "",
@@ -350,14 +358,14 @@ export function renderSvgPaths(parts: SvgPart[], opts: SvgOptions = {}): string 
 
     if (!multi) {
       statics += sequenceMarkup(l) + base;
-      dynamics += hl + labels + dots + notes;
+      dynamics += acts + hl + labels + dots + notes;
     } else {
       // Paths after the first are hidden when motion is reduced (`.alt`), so one complete path is shown
       const alt = pi ? ' class="alt"' : "";
       if (shared) statics += pi ? "" : sequenceMarkup(l) + base;
       else
         statics += `<g class="part${pi ? " alt" : ""}" opacity="0">${framesMarkup(l)}${base}${between(off, off + len)}</g>`;
-      dynamics += `<g${alt}>${hl}${labels}${dots}${notes}${cap}</g>`;
+      dynamics += `<g${alt}>${acts}${hl}${labels}${dots}${notes}${cap}</g>`;
     }
 
     const steps = tl.steps
