@@ -143,7 +143,7 @@ ene flow.ene -o flow.svg
 
 ### 소스에서
 
-pnpm 10 도 필요해요(`corepack enable` 을 켜면 `package.json` 에 고정된 버전을 써요).
+pnpm 10 도 필요해요(`corepack enable` 을 켜면 `package.json` 에 고정된 버전을 써요). Angular 패키지 빌드 도구 때문에 Node.js 는 22.22.3+, 24.15+, 26+ 중 하나여야 해요.
 
 ```bash
 git clone https://github.com/ene-diagram/ene.git
@@ -173,6 +173,27 @@ api --> user : 200
 ```
 
 페이지의 모든 `<pre class="ene">` 가 플레이어로 바뀝니다. 클릭한 뒤 <kbd>Space</kbd> 로 재생·정지, <kbd>←</kbd> <kbd>→</kbd> 로 한 단계씩 움직입니다.
+
+### React, Vue, Svelte, Solid, Angular 에서
+
+프레임워크마다 패키지가 하나씩 있어요. 모두 플레이어를 감싼 얇은 컴포넌트이고, 서버 렌더링과 플레이어 준비 전에는 원본 텍스트를 보여 줘요.
+
+| 프레임워크 | 패키지 | 사용 |
+|---|---|---|
+| React 18+, Next.js | `@ene-diagram/react` | `<EneDiagram source={text} />` |
+| Vue 3, Nuxt | `@ene-diagram/vue` | `<EneDiagram :source="text" />` |
+| Svelte 5, SvelteKit | `@ene-diagram/svelte` | `<EneDiagram {source} />` |
+| SolidJS 1.8+ / 2 | `@ene-diagram/solid` | `<EneDiagram source={text()} />` |
+| Angular 17+ | `@ene-diagram/angular` | `<ene-diagram [source]="text" />` (독립 컴포넌트 `EneDiagramComponent`) |
+| 웹 컴포넌트 (HTML, Lit, 그 밖의 프레임워크) | `@ene-diagram/element` | `<ene-diagram>user -> api : GET /</ene-diagram>` |
+
+```jsx
+import { EneDiagram } from "@ene-diagram/react";
+
+<EneDiagram source={"user -> api : GET /\napi --> user : 200"} lang="ko" onChoicesChange={(c) => console.log(c)} />
+```
+
+옵션은 아래 `render()` 와 같아요: `lang`, `autoplay`, `loop`, `focus`, `theme`, `choices`, `include`, 그리고 플레이어를 넘겨 주는 준비 이벤트와 갈래 선택 이벤트. `source` 나 렌더 옵션이 바뀌면 다시 그리고, `choices` 만 바뀌면 다시 만들지 않고 갈래만 바꿔요. `choices` 를 주지 않으면 보는 사람이 고른 갈래가 소스가 바뀌어도 유지돼요. ELK 는 번들러가 `elkjs` 패키지에서 가져오므로 `ene-elk.js` 를 따로 올릴 필요가 없어요. 자세한 내용은 패키지별 README 에 있어요: [react](packages/react/README.md), [vue](packages/vue/README.md), [svelte](packages/svelte/README.md), [solid](packages/solid/README.md), [angular](packages/angular/README.md), [element](packages/element/README.md).
 
 ### 이미지로
 
@@ -270,7 +291,7 @@ pnpm skill:install path/to/project/.claude/skills   # 또는 프로젝트 하나
 | `ene.js` | 플레이어(약 50 KB) |
 | `ene-elk.js` | ELK 레이아웃 엔진. 흐름 다이어그램을 처음 그릴 때 불러와요 |
 
-`ene.js` 는 자기와 같은 폴더에서 `ene-elk.js` 를 찾아요. 다른 곳에 두려면 스크립트보다 먼저 주소를 지정하세요:
+`ene.js` 는 자기와 같은 폴더에서 `ene-elk.js` 를 찾아요. (npm 으로 `@ene-diagram/player` 나 프레임워크 패키지를 설치한 앱에는 필요 없어요. 번들러가 `elkjs` 패키지에서 ELK 를 가져와 처음 쓸 때 불러와요.) 다른 곳에 두려면 스크립트보다 먼저 주소를 지정하세요:
 
 ```html
 <script>window.eneConfig = { elkUrl: "/assets/ene-elk.js", lang: "ko" }</script>

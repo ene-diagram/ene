@@ -1,0 +1,58 @@
+{
+  "name": "@ene-diagram/element",
+  "version": "0.1.1",
+  "description": "Web Component <ene-diagram> for ene diagrams: works in plain HTML, Angular, Lit and any framework",
+  "keywords": [
+    "ene",
+    "diagram",
+    "animated-diagram",
+    "text-to-diagram",
+    "web-component",
+    "custom-element"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ene-diagram/ene.git",
+    "directory": "packages/element"
+  },
+  "homepage": "https://github.com/ene-diagram/ene/tree/main/packages/element#readme",
+  "bugs": "https://github.com/ene-diagram/ene/issues",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./dist/index.js",
+    "./dist/browser.js",
+    "./dist/ene-element.js"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@ene-diagram/player": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "bundle": "esbuild src/browser.ts --bundle --format=esm --outfile=dist/ene-element.js --minify --external:elkjs/lib/elk.bundled.js && cp \"$(node -p \"require.resolve('elkjs/lib/elk.bundled.js',{paths:['../layout']})\")\" dist/ene-elk.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "jsdelivr": "./dist/ene-element.js",
+  "unpkg": "./dist/ene-element.js"
+}

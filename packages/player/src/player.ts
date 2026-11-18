@@ -58,6 +58,8 @@ export interface PlayerOptions {
    * line is an error (`E501`)
    */
   include?: Includer;
+  /** Aborting it cancels a render that has not finished yet: it resolves to undefined without touching the element */
+  signal?: AbortSignal;
 }
 
 /** Node count from which `focus: "auto"` dims inactive parts */
@@ -68,16 +70,21 @@ const DIM = 0.2;
 // ---- ELK lazy loading: load ene-elk.js next to ene.js once, on first need ----
 let elkUrl: string | undefined;
 let elkPromise: Promise<ElkApi> | undefined;
-/** Set the location of ene-elk.js (default: same folder as ene.js) */
+/**
+ * Load ELK from this script URL instead of importing the `elkjs` package. The `<script>` bundle (ene.js) sets it to
+ * the ene-elk.js next to itself; an app that installs the package from npm needs nothing, its bundler resolves elkjs
+ */
 export function setElkUrl(url: string): void {
   elkUrl = url;
 }
-function loadElk(): Promise<ElkApi> {
+/** A global `ELK`, else the script from `setElkUrl`, else undefined: the layout package imports elkjs itself */
+function loadElk(): Promise<ElkApi | undefined> {
   const w = window as unknown as { ELK?: new () => ElkApi };
   if (w.ELK) return Promise.resolve(new w.ELK());
+  if (!elkUrl) return Promise.resolve(undefined);
   elkPromise ??= new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = elkUrl ?? "ene-elk.js";
+    s.src = elkUrl!;
     s.onload = () => (w.ELK ? resolve(new w.ELK()) : reject(new Error("ene-elk.js did not define ELK")));
     s.onerror = () => {
       elkPromise = undefined;
@@ -213,20 +220,32 @@ const hosts = new WeakMap<HTMLElement, { token: symbol; player?: Player }>();
 
 /**
  * Create a player inside the target element. Shows error messages if there are diagnostic errors.
- * Rendering again into the same element destroys the previous player; if renders overlap,
- * only the latest one wins and superseded calls resolve to undefined without touching the element.
+ * Rendering again into the same element replaces the previous player once the new one is ready (it keeps playing
+ * meanwhile); if renders overlap, only the latest one wins and superseded or cancelled calls resolve to undefined
+ * without touching the element.
  */
 export async function render(el: HTMLElement, source: string, opts: PlayerOptions = {}): Promise<Player | undefined> {
+  // Already cancelled: leave the element and its current player alone
+  if (opts.signal?.aborted) return undefined;
   injectCss();
-  const prev = hosts.get(el);
-  prev?.player?.destroy();
+  // The current player stays (and keeps playing) until this render has something to show
   const token = Symbol();
-  hosts.set(el, { token });
-  const stale = () => hosts.get(el)?.token !== token;
+  hosts.set(el, { token, player: hosts.get(el)?.player });
+  const stale = () => hosts.get(el)?.token !== token || !!opts.signal?.aborted;
+  /** Replace what the element shows: destroy the current player and clear the element */
+  const commit = () => {
+    const h = hosts.get(el)!;
+    const old = h.player;
+    h.player = undefined;
+    old?.destroy();
+    el.replaceChildren();
+  };
   const lang = opts.lang ?? (navigator.language.startsWith("ko") ? "ko" : "en");
   const { doc, diagnostics } = parse(source, opts.include ? { include: opts.include } : {});
-  el.replaceChildren();
+  // The include callback may have cancelled this render or started a newer one
+  if (stale()) return undefined;
   if (diagnostics.some((d) => d.severity === "error")) {
+    commit();
     const pre = document.createElement("pre");
     pre.className = "ene-error";
     pre.textContent = formatAll(source, diagnostics, lang);
@@ -259,7 +278,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     lay = doc.kind === "sequence" ? layoutSequence(doc, tl) : await computeLayout(doc, tl, { elk: await loadElk() });
   } catch (e) {
     if (stale()) return undefined;
-    el.replaceChildren();
+    commit();
     const pre = document.createElement("pre");
     pre.className = "ene-error";
     pre.textContent = `ene: ${(e as Error).message}`;
@@ -267,7 +286,7 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
     return undefined;
   }
   if (stale()) return undefined;
-  el.replaceChildren();
+  commit();
   const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const root = document.createElement("div");
@@ -577,7 +596,9 @@ export async function render(el: HTMLElement, source: string, opts: PlayerOption
       alive = false;
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
-      if (hosts.get(el)?.player === player) hosts.delete(el);
+      // Forget it, but keep the entry: a render in progress for this element is identified by the entry's token
+      const h = hosts.get(el);
+      if (h?.player === player) h.player = undefined;
       if (root.parentNode === el) el.replaceChildren();
     },
   };

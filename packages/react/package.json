@@ -1,0 +1,55 @@
+{
+  "name": "@ene-diagram/react",
+  "version": "0.1.1",
+  "description": "React component for ene animated diagrams",
+  "keywords": [
+    "ene",
+    "diagram",
+    "animated-diagram",
+    "text-to-diagram",
+    "react",
+    "nextjs",
+    "component"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ene-diagram/ene.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/ene-diagram/ene/tree/main/packages/react#readme",
+  "bugs": "https://github.com/ene-diagram/ene/issues",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@ene-diagram/player": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0"
+  }
+}
