@@ -35,7 +35,7 @@ remarkEne({
   network: false,      // fetch https:// icons at build time (off by default)
   allowHosts: [],      // with network: only these hosts
   failOnError: false,  // true: fail the build on diagram errors
-  script: "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js", // live mode; false to load it yourself
+  script: "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.2/dist/ene.js", // live mode; false to load it yourself
   mdx: undefined,      // auto-detected; force true/false if needed
   className: "ene-diagram",
   lang: "en",          // diagnostic language: "en" | "ko"
@@ -98,7 +98,7 @@ export default withMDX({ pageExtensions: ["ts", "tsx", "md", "mdx"] });
 
 With Turbopack, plugins must be passed by name: `remarkPlugins: [["@ene-diagram/remark", {}]]`.
 For live mode, add the player with `next/script` in your layout:
-`<Script src="https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js" strategy="afterInteractive" />`.
+`<Script src="https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.2/dist/ene.js" strategy="afterInteractive" />`.
 After client-side navigation, call `window.ene.autoRun()` to pick up new blocks.
 
 ## Docusaurus
@@ -109,7 +109,7 @@ import remarkEne from "@ene-diagram/remark";
 
 export default {
   presets: [["classic", { docs: { remarkPlugins: [[remarkEne, { mdx: true }]] } }]],
-  // live mode: scripts: [{ src: "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js", defer: true }],
+  // live mode: scripts: [{ src: "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.2/dist/ene.js", defer: true }],
 };
 ```
 
@@ -126,7 +126,7 @@ import markdownItEne from "@ene-diagram/remark/markdown-it";
 
 export default defineConfig({
   markdown: { config: (md) => md.use(markdownItEne, { script: false }) },
-  head: [["script", { src: "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js", defer: "" }]],
+  head: [["script", { src: "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.2/dist/ene.js", defer: "" }]],
 });
 ```
 

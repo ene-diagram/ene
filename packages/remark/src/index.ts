@@ -29,7 +29,7 @@ export interface RemarkEneOptions extends RenderOptions {
    */
   mode?: "static" | "live";
   /**
-   * Live mode: player script URL added once per document (default: jsDelivr, @ene-diagram/player@0.1).
+   * Live mode: player script URL added once per document (default: jsDelivr, @ene-diagram/player@0.2).
    * `false` to load the player yourself. Never added in MDX output, where you load it from the layout.
    */
   script?: string | false;

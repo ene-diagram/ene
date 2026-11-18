@@ -146,7 +146,7 @@ export const errorHtml = (message: string) =>
   `<div class="ene-error" role="alert" style="border:1px solid #e5484d;border-radius:6px;padding:8px 12px;color:#e5484d;overflow:auto">` +
   `<strong>ene diagram error</strong><pre style="margin:6px 0 0;white-space:pre-wrap">${esc(message)}</pre></div>`;
 
-export const DEFAULT_PLAYER_URL = "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js";
+export const DEFAULT_PLAYER_URL = "https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.2/dist/ene.js";
 
 /**
  * Parse a fence's info-string meta: `title="Checkout" choice=1,0` (or `choice=all`).
