@@ -1,4 +1,4 @@
-export const VERSION = "0.1.1";
+export const VERSION = "0.2.0";
 export * from "./types.js";
 export { parse, LIMITS, INCLUDE_DEPTH, type Includer, type IncludeResult, type ParseOptions } from "./parse.js";
 export { createIncluder, INCLUDE_MAX_BYTES, type IncluderIo } from "./include.js";

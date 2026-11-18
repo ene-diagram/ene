@@ -1,6 +1,6 @@
 {
   "name": "@ene-diagram/element",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Web Component <ene-diagram> for ene diagrams: works in plain HTML, Angular, Lit and any framework",
   "keywords": [
     "ene",
