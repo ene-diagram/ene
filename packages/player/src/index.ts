@@ -1,4 +1,5 @@
 export { createController, type Controller, type ControllerOptions } from "./controller.js";
+export { mount, type MountOptions, type Mounted } from "./mount.js";
 export {
   render,
   autoRun,

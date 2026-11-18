@@ -97,4 +97,5 @@ real flow before rendering. Other Mermaid diagram kinds cannot be converted.
 - The user wants to paste it into Slack, Notion or slides, which do not play animated SVG: render a GIF or MP4
   instead (`-o flow.gif`, `-o flow.mp4`; needs Chrome and ffmpeg — if the command reports one missing, tell the user).
 - The user wants a live page: the browser player turns `<pre class="ene">` blocks into players (see the project README).
+- The user's app uses React, Vue, Svelte, Solid or Angular: use the matching `@ene-diagram/<framework>` package (`<EneDiagram source={...} />`; Angular `<ene-diagram [source]>`), or `@ene-diagram/element` for any other framework.
 - A check error you cannot resolve after two attempts: show the user the diagnostic and the line, and ask.

@@ -143,7 +143,7 @@ Or run it once without installing: `npx @ene-diagram/cli flow.ene -o flow.svg`.
 
 ### From source
 
-Needs pnpm 10 as well (`corepack enable` picks the pinned version from `package.json`).
+Needs pnpm 10 as well (`corepack enable` picks the pinned version from `package.json`), and Node.js 22.22.3+, 24.15+ or 26+ for the Angular packaging tool.
 
 ```bash
 git clone https://github.com/ene-diagram/ene.git
@@ -173,6 +173,27 @@ api --> user : 200
 ```
 
 Every `<pre class="ene">` on the page becomes a player. Click it and use <kbd>Space</kbd> to play or pause, <kbd>←</kbd> <kbd>→</kbd> to step.
+
+### In React, Vue, Svelte, Solid and Angular
+
+One package per framework, each a thin component over the player (the source is shown as text on the server and until the player is ready):
+
+| Framework | Package | Use |
+|---|---|---|
+| React 18+, Next.js | `@ene-diagram/react` | `<EneDiagram source={text} />` |
+| Vue 3, Nuxt | `@ene-diagram/vue` | `<EneDiagram :source="text" />` |
+| Svelte 5, SvelteKit | `@ene-diagram/svelte` | `<EneDiagram {source} />` |
+| SolidJS 1.8+ / 2 | `@ene-diagram/solid` | `<EneDiagram source={text()} />` |
+| Angular 17+ | `@ene-diagram/angular` | `<ene-diagram [source]="text" />` (standalone `EneDiagramComponent`) |
+| Web Component (plain HTML, Lit, any framework) | `@ene-diagram/element` | `<ene-diagram>user -> api : GET /</ene-diagram>` |
+
+```jsx
+import { EneDiagram } from "@ene-diagram/react";
+
+<EneDiagram source={"user -> api : GET /\napi --> user : 200"} lang="en" onChoicesChange={(c) => console.log(c)} />
+```
+
+All take the same options as `render()` below: `lang`, `autoplay`, `loop`, `focus`, `theme`, `choices`, `include`, plus a ready event with the player and a choices-change event. Changing `source` or a render option renders again; changing `choices` picks other arms without rebuilding, and without `choices` the viewer's picks are kept when the source changes. ELK comes from the `elkjs` package through your bundler, so there is no `ene-elk.js` to host. Each package's README has the details: [react](packages/react/README.md), [vue](packages/vue/README.md), [svelte](packages/svelte/README.md), [solid](packages/solid/README.md), [angular](packages/angular/README.md), [element](packages/element/README.md).
 
 ### As an image
 
@@ -327,7 +348,7 @@ Then ask Claude Code for a diagram, e.g. "draw the checkout flow as an ene diagr
 | `ene.js` | the player (~50 KB) |
 | `ene-elk.js` | the ELK layout engine, loaded on first use for flow diagrams |
 
-`ene.js` looks for `ene-elk.js` next to itself. To host it elsewhere, set the URL before the script loads:
+`ene.js` looks for `ene-elk.js` next to itself. (An app that installs `@ene-diagram/player` or a framework package from npm does not need it: the bundler takes ELK from the `elkjs` package and loads it on first use.) To host it elsewhere, set the URL before the script loads:
 
 ```html
 <script>window.eneConfig = { elkUrl: "/assets/ene-elk.js", lang: "en" }</script>

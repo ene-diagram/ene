@@ -1,9 +1,6 @@
 import { autoRun, render, registerIconPacks, setElkUrl, setIconLoading } from "./player.js";
 import { createController } from "./controller.js";
 export { render, autoRun, registerIconPacks, setElkUrl, setIconLoading, createController };
-// ene-elk.js is looked up in the same folder as ene.js by default
-const me = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null)?.src : undefined;
-if (me) setElkUrl(new URL("ene-elk.js", me).href);
 declare global {
   interface Window {
     eneConfig?: {
@@ -15,7 +12,12 @@ declare global {
     };
   }
 }
-if (typeof window !== "undefined" && window.eneConfig?.elkUrl) setElkUrl(window.eneConfig.elkUrl);
+// This bundle does not contain elkjs, so it always loads ene-elk.js: the configured URL, else the file next to
+// ene.js, else a relative "ene-elk.js"
+const me = typeof document !== "undefined" ? (document.currentScript as HTMLScriptElement | null)?.src : undefined;
+setElkUrl(
+  (typeof window !== "undefined" && window.eneConfig?.elkUrl) || (me ? new URL("ene-elk.js", me).href : "ene-elk.js"),
+);
 if (typeof window !== "undefined" && window.eneConfig?.startOnLoad !== false) {
   if (document.readyState === "loading")
     document.addEventListener(

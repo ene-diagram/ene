@@ -1,0 +1,52 @@
+{
+  "name": "@ene-diagram/vue",
+  "version": "0.1.1",
+  "description": "Vue 3 component for ene animated diagrams",
+  "keywords": [
+    "ene",
+    "diagram",
+    "animated-diagram",
+    "text-to-diagram",
+    "vue",
+    "nuxt",
+    "component"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ene-diagram/ene.git",
+    "directory": "packages/vue"
+  },
+  "homepage": "https://github.com/ene-diagram/ene/tree/main/packages/vue#readme",
+  "bugs": "https://github.com/ene-diagram/ene/issues",
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@ene-diagram/player": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "vue": "^3.3.0"
+  },
+  "devDependencies": {
+    "vue": "^3.5.45"
+  }
+}
