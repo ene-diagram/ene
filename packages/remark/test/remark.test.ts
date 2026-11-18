@@ -120,7 +120,7 @@ describe("remark-ene live", () => {
     const { html } = await toHtml(md(`${fence("a -> b : <x>")}\n\n${fence(FLOW)}`), { mode: "live" });
     expect(html).toContain('<pre class="ene">a -> b : &lt;x&gt;</pre>'.replace("->", "-&gt;"));
     expect(html.match(/<script /g)?.length).toBe(1);
-    expect(html).toContain("@ene-diagram/player@0.1/dist/ene.js");
+    expect(html).toContain("@ene-diagram/player@0.2/dist/ene.js");
   });
   it("supports a per-fence override and script: false", async () => {
     const { html } = await toHtml(md(fence(FLOW, "live title=Hello")), { script: false });

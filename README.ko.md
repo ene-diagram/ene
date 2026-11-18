@@ -236,14 +236,14 @@ ene fmt --check *.ene       # 정리 안 된 파일이 있으면 종료 코드 1
 **스크립트를 넣을 수 있는 곳** (직접 만든 사이트, 티스토리 스킨, 설치형 워드프레스): CDN 에서 플레이어를 불러옵니다. 메이저 버전을 고정해 두었으니 호환이 깨지지 않는 수정만 받습니다.
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.1/dist/ene.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ene-diagram/player@0.2/dist/ene.js"></script>
 <pre class="ene">
 user -> api : POST /order
 api --> user : 201
 </pre>
 ```
 
-`https://unpkg.com/@ene-diagram/player@0.1/dist/ene.js` 도 똑같이 씁니다. `ene.js`(약 64 KB)는 흐름 다이어그램을 처음 그릴 때 같은 폴더의 `ene-elk.js`(약 1.6 MB)를 불러옵니다. `diagram sequence` 다이어그램만 있는 페이지는 이 파일을 받지 않습니다.
+`https://unpkg.com/@ene-diagram/player@0.2/dist/ene.js` 도 똑같이 씁니다. `ene.js`(약 64 KB)는 흐름 다이어그램을 처음 그릴 때 같은 폴더의 `ene-elk.js`(약 1.6 MB)를 불러옵니다. `diagram sequence` 다이어그램만 있는 페이지는 이 파일을 받지 않습니다.
 
 **마크다운만 되는 곳** (스크립트 불가): 이미지를 올립니다. SVG 애니메이션이 살아 있는 곳이면 SVG(`ene flow.ene -o flow.svg`), 아니면 GIF(`-o flow.gif`)를 씁니다.
 
