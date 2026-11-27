@@ -85,7 +85,7 @@
     "@ene-diagram/layout": "workspace:*",
     "@ene-diagram/player": "workspace:*",
     "@ene-diagram/svg": "workspace:*",
-    "@types/vscode": "~1.85.0",
+    "@types/vscode": "~1.146.0",
     "@vscode/vsce": "^4.1.1",
     "esbuild": "^0.28.2"
   }
